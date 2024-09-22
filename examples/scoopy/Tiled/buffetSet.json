@@ -1,0 +1,20 @@
+{ "columns":11,
+ "image":"..\/images\/BuffetSpriteSheet.png",
+ "imageheight":128,
+ "imagewidth":176,
+ "margin":0,
+ "name":"BuffetSpriteSheet",
+ "properties":[
+        {
+         "name":"cgimage",
+         "type":"string",
+         "value":"buffetSheet"
+        }],
+ "spacing":0,
+ "tilecount":88,
+ "tiledversion":"1.10.2",
+ "tileheight":16,
+ "tilewidth":16,
+ "type":"tileset",
+ "version":"1.10"
+}

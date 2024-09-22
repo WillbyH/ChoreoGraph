@@ -1,0 +1,8 @@
+Play the original game: https://willby.itch.io/scoopy-the-spoon-thief
+Created by Ava, Luna and Willby
+
+Scoopy (player) and Camera sprites by Luna
+Music and Sound Design by Luna
+Oven and Fridge sprites by Ava as well as various sprite recolours
+
+Public Pixel (font) by https://www.ggbot.net/fonts
