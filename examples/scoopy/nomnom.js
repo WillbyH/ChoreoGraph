@@ -9,7 +9,7 @@ const cg = ChoreoGraph.instantiate(document.getElementsByTagName("canvas")[0],{
     autoFacingDefault : true,
     persistentValuesDefault : true
   },
-  preventDefault : ["space"]
+  preventDefault : ["space","up","down","left","right"],
 });
 
 // Levels
@@ -73,6 +73,8 @@ const scoopyRunRightAnim = cg.createGraphicAnimation({
   frameRate : 10
 });
 
+let allowTouchMovement = true;
+
 function ScoopyMovement() {
   let rb = Scoopy.RigidBody;
   let movementVector = [0,0];
@@ -85,7 +87,7 @@ function ScoopyMovement() {
   if (ChoreoGraph.Input.lastInteraction.cursor-startTime<500) {
     wasMenuCloseTouch = true;
   }
-  if (ChoreoGraph.Input.cursor.hold.any&&wasMenuCloseTouch==false) {
+  if (ChoreoGraph.Input.cursor.hold.any&&wasMenuCloseTouch==false&&allowTouchMovement) {
     movementVector[0] = ChoreoGraph.Input.cursor.x - cg.cw/2;
     movementVector[1] = ChoreoGraph.Input.cursor.y - cg.ch/2;
     touchMode = true;
@@ -232,6 +234,16 @@ cg.settings.callbacks.keyDown = function(key) {
     }
   } else if (key=="m") {
     ChoreoGraph.AudioController.masterVolume = !ChoreoGraph.AudioController.masterVolume;
+  } else if (key=="escape") {
+    interface.mainMenu = true;
+    interface.tryAgain = false;
+    if (audioInformation.instances.running!==null) { audioInformation.instances.running.stop(); }
+    if (audioInformation.instances.alarm!==null) { audioInformation.instances.alarm.stop(); }
+    if (audioInformation.instances.ambience!==null) { audioInformation.instances.ambience.stop(); }
+    audioInformation.instances.ambience = null;
+    audioInformation.instances.alarm = null;
+    audioInformation.instances.running = null;
+    cg.pause();
   }
 }
 cg.settings.callbacks.loopBefore = function(cg) {
@@ -528,7 +540,13 @@ ChoreoGraph.graphicTypes.mainMenu = new class MainMenu {
     }
     cg.c.font = "30px PublicPixel";
     cg.c.textBaseline = "middle";
-    cg.c.fillText(mutedText,ax+cg.cw/scale/2-147,ay+cg.ch/scale/2-102);
+    cg.c.fillText(mutedText,ax+cg.cw/scale/2-177,ay+cg.ch/scale/2-102);
+
+    let touchText = "Touch Off";
+    if (allowTouchMovement) {
+      touchText = "Touch On";
+    }
+    cg.c.fillText(touchText,ax+cg.cw/scale/2-177,ay+cg.ch/scale/2-192);
   }
 }
 let mainMenu = cg.createGraphic({type:"mainMenu",CGSpace:false,canvasSpaceXAnchor:0.5,canvasSpaceYAnchor:0.5});
@@ -700,8 +718,12 @@ cg.createButton({x:400,y:80,width:800,height:160,id:"openRestartMenu",check:"pre
   cg.pause();
 }});
 
-cg.createButton({x:-150,y:-100,width:200,height:100,id:"toggleAudio",check:"mainMenu",CGSpace:false,canvasSpaceXAnchor:1,canvasSpaceYAnchor:1,down:function(){
+cg.createButton({x:-175,y:-100,width:250,height:80,id:"toggleAudio",check:"mainMenu",CGSpace:false,canvasSpaceXAnchor:1,canvasSpaceYAnchor:1,down:function(){
   ChoreoGraph.AudioController.masterVolume = !ChoreoGraph.AudioController.masterVolume;
+}});
+
+cg.createButton({x:-175,y:-190,width:250,height:80,id:"toggleTouch",check:"mainMenu",CGSpace:false,canvasSpaceXAnchor:1,canvasSpaceYAnchor:1,down:function(){
+  allowTouchMovement = !allowTouchMovement;
 }});
 
 cg.settings.callbacks.updateButtonChecks = function(cg) {
@@ -716,7 +738,7 @@ cg.settings.callbacks.updateButtonChecks = function(cg) {
 let startTime = 0;
 
 cg.settings.callbacks.cursorDown = function() {
-  if (interface.mainMenu&&cg.buttons.toggleAudio.hovered==false) {
+  if (interface.mainMenu&&cg.buttons.toggleAudio.hovered==false&&cg.buttons.toggleTouch.hovered==false) {
     startTime = ChoreoGraph.nowint;
     interface.mainMenu = false;
     restart();
