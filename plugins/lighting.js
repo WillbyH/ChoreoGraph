@@ -26,7 +26,16 @@ ChoreoGraph.graphicTypes.lighting = new class LightingGraphic {
     graphic.lastWidth = cg.cw;
     graphic.lastHeight = cg.ch;
 
-    // document.body.appendChild(graphic.cnvs);
+    graphic.rayCastMode = "necessary"; // necessary, splatter
+    graphic.splatterRays = 100;
+
+    graphic.addToDocument = false;
+    if (graphicInit.addToDocument) {
+      graphicInit.addToDocument = true;
+      document.body.appendChild(graphic.cnvs);
+    } else {
+      graphic.addToDocument = false;
+    }
   }
 
   draw(graphic,cg) {
@@ -79,12 +88,27 @@ ChoreoGraph.graphicTypes.lighting = new class LightingGraphic {
     raySideOffset = 0.0001;
     raySideOffset = Math.PI/180*3;
     
+    let cameraWidth = cg.cw;
+    let cameraHeight = cg.ch;
+    let scaler = 1;
+    if (cg.camera.scaleMode=="pixels") {
+      scaler = cg.camera.z*cg.camera.scale;
+    } else if (cg.camera.scaleMode=="maximum") {
+      if (cg.cw*(cg.camera.WHRatio)>cg.ch*(1-cg.camera.WHRatio)) {
+        scaler = cg.camera.z*(cg.cw/cg.camera.maximumSize);
+      } else {
+        scaler = cg.camera.z*(cg.ch/cg.camera.maximumSize);
+      }
+    }
+    cameraWidth = cameraWidth/scaler;
+    cameraHeight = cameraHeight/scaler;
+    let cameraTopLeftX = cg.camera.x-cameraWidth/2;
+    let cameraTopLeftY = cg.camera.y-cameraHeight/2;
+
     for (let light of graphic.lights) {
-      if (light.type=="spot"&&(cg.settings.useCamera||(debug.on&&debug.culling))) { // Check if the light is even in view
-        let radius = light.outerRadius;
-        let dx = light.x - Math.max(cg.camera.x - cg.cw/2, Math.min(light.x, cg.camera.x + cg.cw/2));
-        let dy = light.y - Math.max(cg.camera.y - cg.ch/2, Math.min(light.y, cg.camera.y + cg.ch/2));
-        if (dx**2 + dy**2 > radius**2) {
+      if (light.type=="spot"&&(cg.settings.useCamera||(debug.on&&debug.culling))) {
+        let lightVisible = (light.x+light.outerRadius>cameraTopLeftX&&light.x-light.outerRadius<cameraTopLeftX+cameraWidth&&light.y+light.outerRadius>cameraTopLeftY&&light.y-light.outerRadius<cameraTopLeftY+cameraHeight);
+        if (!lightVisible) {
           continue;
         }
       }
@@ -123,14 +147,6 @@ ChoreoGraph.graphicTypes.lighting = new class LightingGraphic {
         vectors.push(bl);
         vectors.push(br);
 
-        // FULL RADIAL CONSISTENT RAYS
-        // let num = 1000;
-        // for (let i=0;i<num;i++) {
-        //   let angle = i*Math.PI/(num/2);
-        //   let radius = cg.cw*10;
-        //   vectors.push([light.x+Math.cos(angle)*radius,light.y+Math.sin(angle)*radius]);
-        // }
-
         let sidesToCheck = [];
         for (let occluder of graphic.occluders) {
           let raycastedIndexes = [];
@@ -153,9 +169,24 @@ ChoreoGraph.graphicTypes.lighting = new class LightingGraphic {
             let pointB = side[1];
             let pointAIndex = side[2];
             let pointBIndex = side[3];
-            if (!raycastedIndexes.includes(pointAIndex)) { addPoint(pointA); raycastedIndexes.push(pointAIndex); }
-            if (!raycastedIndexes.includes(pointBIndex)) { addPoint(pointB); raycastedIndexes.push(pointBIndex); }
+            if (!raycastedIndexes.includes(pointAIndex)) {
+              if (graphic.rayCastMode=="necessary") { addPoint(pointA); }
+              raycastedIndexes.push(pointAIndex);
+            }
+            if (!raycastedIndexes.includes(pointBIndex)) {
+              if (graphic.rayCastMode=="necessary") { addPoint(pointB); }
+              raycastedIndexes.push(pointBIndex);
+            }
             sidesToCheck.push(side);
+          }
+        }
+        if (graphic.rayCastMode=="splatter") {
+          // FULL RADIAL CONSISTENT RAYS
+          let num = graphic.splatterRays;
+          for (let i=0;i<num;i++) {
+            let angle = i*Math.PI/(num/2);
+            let radius = cg.cw*10;
+            vectors.push([light.x+Math.cos(angle)*radius,light.y+Math.sin(angle)*radius]);
           }
         }
         let detects = [];
@@ -327,14 +358,7 @@ ChoreoGraph.plugin({
       let topB = (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1);
       let t1 = topA/bottomA;
       let t2 = topB/bottomB;
-      // let f1x = x1 + (x2-x1) * t1;
-      // let f1y = y1 + (y2-y1) * t1;
-      // let f2x = x3 + (x4-x3) * t2;
-      // let f2y = y3 + (y4-y3) * t2;
       return [(t1>=0&&t1<=1&&t2>=0),t1,t2]
-      // return [(t1>=0&&t1<=1&&t2>=0&&t2<=1),t1,t2] // This is for two line segments, the above is for one endless ray and a segment
-      // return [t1,t2,f1x,f1y,f2x,f2y,(t1>=0&&t1<=1&&t2>=0&&t2<=1)];
-      // return (t>=0&&t<=1);
     }
   },
   SpotLight: class SpotLight {
