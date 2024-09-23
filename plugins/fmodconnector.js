@@ -60,7 +60,6 @@ ChoreoGraph.plugin({
           if (this.loaded) { return false; }
           if (this.FMODp.logging) { console.info("Loading bank: " + this.key); }
           let bankHandle = {};
-          console.log(this.filename, this.FMODp.FMOD.STUDIO_LOAD_BANK_NORMAL, bankHandle)
           this.FMODp.errorCheck(this.FMODp.System.loadBankFile(this.filename, this.FMODp.FMOD.STUDIO_LOAD_BANK_NORMAL, bankHandle));
           this.bank = bankHandle.val;
           this.loaded = true;
@@ -216,7 +215,7 @@ ChoreoGraph.plugin({
       FMODp.errorCheck(FMODp.SystemCore.set3DSettings(dopplerscale, distancefactor, rolloffscale));
 
       FMODp.errorCheck(FMODp.System.setListenerAttributes(0, FMODp.originAttributes(), null));
-      if (FMODp.logging) { console.log("3D audio enabled",dopplerscale, distancefactor, rolloffscale); }
+      if (FMODp.logging) { console.info("3D audio enabled",dopplerscale, distancefactor, rolloffscale); }
     }
     originAttributes() {
       let attributes = this.FMOD._3D_ATTRIBUTES();

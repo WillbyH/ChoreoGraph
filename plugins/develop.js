@@ -762,7 +762,6 @@ ChoreoGraph.Develop = new class Develop {
         let angle = Math.atan2(curY-y,curX-x);
         let startAngle = Math.atan2(dev.objectGizmo.downPos[1]-y,dev.objectGizmo.downPos[0]-x);
         let offset = (angle-startAngle)*180/Math.PI;
-        // console.log(startAngle,angle,dev.objectGizmo.downPos,[curX,curY])
         dev.objectGizmo.lastObjectRotation = offset;
         let rotation = dev.objectGizmo.originalObjectRotation+offset
         if (ChoreoGraph.Input.keyStates[dev.objectGizmo.snapHotkey]) {
@@ -1414,7 +1413,7 @@ ChoreoGraph.Develop = new class Develop {
     });
     this.interface.interactives.evalButton = this.createButton("Evaluate","btn_action",
     function(){
-      console.info(ChoreoGraph.Develop.interface.interactives.evalInput.value); console.log(eval(ChoreoGraph.Develop.interface.interactives.evalInput.value));
+      console.info(ChoreoGraph.Develop.interface.interactives.evalInput.value); console.info(eval(ChoreoGraph.Develop.interface.interactives.evalInput.value));
     });
     this.interface.interactives.evalInput = document.createElement("input");
     this.interface.interactives.evalInput.type = "input";
