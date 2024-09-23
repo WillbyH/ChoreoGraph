@@ -31,12 +31,12 @@ ChoreoGraph.graphicTypes.lighting = new class LightingGraphic {
 
   draw(graphic,cg) {
     let debug = { // defaults
-      on : true, // false
-      culling : false, // true
+      on : false, // false
+      culling : true, // true
       raycasts : false, // false
       raycastInterceptions : false, // false
       raycastOrder : false, // false
-      raycastCountDisplay : true // false
+      raycastCountDisplay : false // false
     };
 
     // The lighting buffer should be the same size as the instance canvas
