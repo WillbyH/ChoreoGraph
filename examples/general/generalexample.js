@@ -458,6 +458,7 @@ ChoreoGraph.FMODConnector.registerBank("MasterStrings","","Master.strings.bank",
 ChoreoGraph.FMODConnector.registerBank("Master","","Master.bank",true);
 ChoreoGraph.FMODConnector.registerBank("Vehicles","","Vehicles.bank",true);
 ChoreoGraph.FMODConnector.setup3D();
+ChoreoGraph.FMODConnector.setUp();
 
 let mower;
 let mowerSetup = false;
