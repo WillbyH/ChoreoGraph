@@ -22,8 +22,6 @@ ChoreoGraph.plugin({
       this.FMOD = {}; // The main FMOD object
       this.System;
       this.SystemCore;
-
-      this.setUp();
     }
     documentPressed() {
       let FMODp = ChoreoGraph.FMODConnector;
@@ -40,7 +38,7 @@ ChoreoGraph.plugin({
         console.error(this.FMOD.ErrorString(result), meta);
       }
     }
-    registerBank(key, folderPath, filename, autoload = false) {
+    registerBank(key, folderPath, filename, autoload = true) {
       this.banks[key] = new class FMODBank {
         loaded = false;
 
@@ -60,7 +58,7 @@ ChoreoGraph.plugin({
           if (this.loaded) { return false; }
           if (this.FMODp.logging) { console.info("Loading bank: " + this.key); }
           let bankHandle = {};
-          this.FMODp.errorCheck(this.FMODp.System.loadBankFile(this.filename, this.FMODp.FMOD.STUDIO_LOAD_BANK_NORMAL, bankHandle));
+          this.FMODp.errorCheck(this.FMODp.System.loadBankFile(this.filename, this.FMODp.FMOD.STUDIO_LOAD_BANK_NORMAL, bankHandle),"Loading bank: " + this.filename);
           this.bank = bankHandle.val;
           this.loaded = true;
 
@@ -197,6 +195,12 @@ ChoreoGraph.plugin({
         parameters.push(parameter);
       }
       return parameters
+    }
+    getBus(busPath) {
+      let FMODp = ChoreoGraph.FMODConnector;
+      let bus = {};
+      FMODp.System.getBus(busPath,bus);
+      return bus.val;
     }
     FMOD3DAttributes(attributes, object, lastPosition) {
       attributes.forward.x = 0; attributes.forward.y = -1; attributes.forward.z = 0;

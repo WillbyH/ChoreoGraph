@@ -300,11 +300,6 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     }
     sequenceController(cg) { // Process each sequence tracker each frame, process callbacks and culling
       if (cg.paused) { return; }
-      if (cg.timeSinceLastFrame>cg.settings.inactiveTime) {
-        for (let evnum = 0; evnum < cg.sequenceTrackers.length; evnum++) {
-          cg.sequenceTrackers[evnum].ent += cg.timeSinceLastFrame;
-        }
-      }
       for (let efnum = 0; efnum < cg.sequenceTrackers.length; efnum++) {
         let sequenceTracker = cg.sequenceTrackers[efnum];
         if (cg.clock>sequenceTracker.ent&&sequenceTracker.part<=sequenceTracker.sequence.data.length-1) {
@@ -321,13 +316,6 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     }
     eventController(cg) { // Process each event each frame, process callbacks, culling and looping
       if (cg.paused) { return; }
-      if (cg.timeSinceLastFrame>cg.settings.inactiveTime) {
-        for (let id in cg.events) {
-          let event = cg.events[id];
-          event.stt += cg.timeSinceLastFrame;
-          event.ent += cg.timeSinceLastFrame;
-        }
-      }
       for (let id in cg.events) {
         let event = cg.events[id];
         if (event.ent<cg.clock) {
