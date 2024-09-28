@@ -452,7 +452,8 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     }
     drawGraphic(graphic) {
       if (graphic.o+graphic.oo==0) { return; }
-      let start = performance.now();
+      let start;
+      if (graphic.averageDrawDuration==undefined) { start = performance.now(); }
       this.c.save();
       this.c.imageSmoothingEnabled = graphic.imageSmoothingEnabled;
       this.c.globalAlpha = graphic.o+graphic.oo;
@@ -471,14 +472,15 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         ChoreoGraph.graphicTypes[graphic.type].draw(graphic,this,graphic.ax+graphic.oax,graphic.ay+graphic.oay);
       } else { console.warn("Unknown graphic type " + graphic.type) }
       this.c.restore();
-      let timeTaken = performance.now()-start;
-      if (graphic.totalTimeTaken==undefined) { graphic.totalTimeTaken = 0; graphic.totalDraws = 0; }
-      graphic.totalTimeTaken += timeTaken;
-      graphic.totalDraws++;
-      if (graphic.timeTaken==undefined&&ChoreoGraph.run>400) {
-        let averageTime = graphic.totalTimeTaken/graphic.totalDraws;
-        // console.info(averageTime+"ms",graphic.id,graphic.type,graphic.totalDraws);
-        graphic.timeTaken = averageTime;
+      if (graphic.averageDrawDuration==undefined) {
+        let timeTaken = performance.now()-start;
+        if (graphic.totalDrawDuration==undefined) { graphic.totalDrawDuration = 0; graphic.totalDrawCount = 0; }
+        graphic.totalDrawDuration += timeTaken;
+        graphic.totalDrawCount++;
+        if (graphic.averageDrawDuration==undefined&&ChoreoGraph.run>400) {
+          let averageTime = graphic.totalDrawDuration/graphic.totalDrawCount;
+          graphic.averageDrawDuration = averageTime;
+        }
       }
     }
     drawImage(image, xloc, yloc, width=image.width, height=image.height, rotation=0, CGSpace=true, context) {
