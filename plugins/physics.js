@@ -76,6 +76,8 @@ ChoreoGraph.plugin({
       comparison.collidedOn = ChoreoGraph.run;
       if (!comparison.collisions.includes(collider)) { comparison.collisions.push(collider); }
       if (resolve) { // Physics
+        if (collider.collide!=null) { collider.collide(comparison); }
+        if (comparison.collide!=null) { comparison.collide(collider); }
         if (forwardVector[0]!=0) { collider.resolutionVector[0] = forwardVector[0]; }
         if (forwardVector[1]!=0) { collider.resolutionVector[1] = forwardVector[1]; }
         if (backwardVector[0]!=0) { comparison.resolutionVector[0] = backwardVector[0]; }
@@ -423,6 +425,7 @@ ChoreoGraph.plugin({
 
         newCollider.enter = null;
         newCollider.exit = null;
+        newCollider.collide = null;
 
         newCollider.ChoreoGraph = this;
         for (let key in colliderInit) {
