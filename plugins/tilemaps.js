@@ -3,6 +3,12 @@ ChoreoGraph.graphicTypes.tileMap = new class TileMapGraphic {
     graphic.tileMap = null;
     graphic.addCacheToDocument = false;
     graphic.dontCull = false;
+
+    graphic.debug = {
+      outlineChunks: false,
+      labelChunks: false,
+      colour: "#ff0000"
+    };
   }
 
   draw(graphic,cg,ax,ay) {
@@ -27,7 +33,7 @@ ChoreoGraph.graphicTypes.tileMap = new class TileMapGraphic {
       layersToDraw = [...Array(TileMap.layers.length).keys()]
     }
     let chunksToDraw = [];
-    // let cameraAnnotated = false;
+    let debugChunks = [];
     for (let chunk of TileMap.chunks) {
       if (graphic.dontCull) {
         chunksToDraw.push(chunk);
@@ -54,37 +60,13 @@ ChoreoGraph.graphicTypes.tileMap = new class TileMapGraphic {
       cameraHeight = cameraHeight/scaler*cg.z;
       let cameraTopLeftX = cg.camera.x-cameraWidth/2/cg.z;
       let cameraTopLeftY = cg.camera.y-cameraHeight/2/cg.z;
-      // cg.c.globalAlpha = 1;
-      // if (cameraAnnotated==false) {
-      //   cg.c.textAlign = "center";
-      //   cg.c.fillStyle = "#ff0000";
-      //   cg.c.fillRect(cg.getTransX(cameraTopLeftX),cg.getTransY(cameraTopLeftY),10,10);
-      //   cg.c.fillStyle = "#000000";
-      //   cg.c.fillText(cameraTopLeftX.toFixed(2) + "," + cameraTopLeftY.toFixed(2),cg.getTransX(cameraTopLeftX),cg.getTransY(cameraTopLeftY)-20);
-      //   cg.c.fillStyle = "#00ff00";
-      //   cg.c.fillRect(cg.getTransX(cameraBottomRightX)-10,cg.getTransY(cameraBottomRightY)-10,10,10);
-      //   cg.c.fillStyle = "#000000";
-      //   cg.c.fillText(cameraBottomRightX.toFixed(2) + "," + cameraBottomRightY.toFixed(2),cg.getTransX(cameraBottomRightX),cg.getTransY(cameraBottomRightY)+20);
-      //   cameraAnnotated = true;
-      // }
-      // cg.c.fillStyle = "#0000ff";
-      // cg.c.beginPath();
-      // cg.c.arc(cg.getTransX(chunkX),cg.getTransY(chunkY),5,0,Math.PI*2);
-      // cg.c.fill();
-      // cg.c.fillStyle = "#000000";
-      // cg.c.textAlign = "center";
-      // cg.c.fillText(chunkX + "," + chunkY,cg.getTransX(chunkX),cg.getTransY(chunkY)+15);
-      // cg.c.fillStyle = "#ff00ff";
-      // cg.c.globalAlpha = 0.5;
-      // cg.c.lineWidth = 2;
-      // console.log(chunkWidth)
-      // cg.c.strokeRect(cg.getTransX(chunkX),cg.getTransY(chunkY),chunkWidth,chunkHeight);
-      // console.log(cameraTopLeftX,cameraBottomRightX)
       if (chunkX < cameraTopLeftX + cameraWidth/cg.z && chunkX + chunkWidth/cg.z > cameraTopLeftX && chunkY < cameraTopLeftY + cameraHeight/cg.z && chunkY + chunkHeight/cg.z > cameraTopLeftY) {
         chunksToDraw.push(chunk);
       }
+      if (graphic.debug.outlineChunks||graphic.debug.labelChunks) {
+        debugChunks.push([cg.getTransX(chunkX),cg.getTransY(chunkY),chunkWidth,chunkHeight,chunk]);
+      }
     }
-    // console.log(chunksToDraw.length);
 
     cg.c.save();
     cg.c.imageSmoothingEnabled = false;
@@ -158,13 +140,6 @@ ChoreoGraph.graphicTypes.tileMap = new class TileMapGraphic {
           let chunkX = ax + (chunk.x * TileMap.tileWidth)*cg.z;
           let chunkY = ay + (chunk.y * TileMap.tileHeight)*cg.z;
           cg.c.drawImage(chunk.cachedData[l],chunkX,chunkY,chunk.width*width+TileMap.cachedChunkFudge,chunk.height*height+TileMap.cachedChunkFudge);
-          // cg.c.fillStyle = ["#ff0000","#00ff00","#0000ff","#ff00ff","#ffff00"][chunkNum%5];
-          // cg.c.globalAlpha = 0.1;
-          // cg.c.fillRect(chunkX,chunkY,chunk.width*TileMap.tileWidth*cg.z,chunk.height*TileMap.tileHeight*cg.z);
-          // cg.c.globalAlpha = 1;
-          // cg.c.fillStyle = "#000000";
-          // cg.c.textAlign = "left";
-          // cg.c.fillText("Chunk: " + chunkNum + " " + chunk.x.toFixed(2) + "," + chunk.y.toFixed(2) + "        " + chunkX.toFixed(2) + "," + chunkY.toFixed(2),chunkX,chunkY+10);
           continue;
         }
         for (let t=0; t<chunk.layers[l].length; t++) {
@@ -192,23 +167,23 @@ ChoreoGraph.graphicTypes.tileMap = new class TileMapGraphic {
         }
       }
     }
-    // cg.c.globalAlpha = 0.2;
-    // width = TileMap.tileWidth * cg.z;
-    // height = TileMap.tileHeight * cg.z;
-    // for (let t=0; t<TileMap.layers[0].length; t++) {
-    //   let tileNum = TileMap.layers[0][t];
-    //   if (tileNum==0) { continue; }
-    //   let col = t % TileMap.width;
-    //   let row = Math.floor(t / TileMap.width);
-    //   let x = ax + col * width;
-    //   let y = ay + row * height;
-    //   if ((col+row)%2==0) {
-    //     cg.c.fillStyle = "#ff0000";
-    //   } else {
-    //     cg.c.fillStyle = "#00ff00";
-    //   }
-    //   cg.c.fillRect(x,y,width,height);
-    // }
+    cg.c.resetTransform();
+    for (let chunk of debugChunks) {
+      cg.c.strokeStyle = graphic.debug.colour;
+      cg.c.fillStyle = graphic.debug.colour;
+      if (graphic.debug.outlineChunks) {
+        cg.c.globalAlpha = 0.5;
+        cg.c.lineWidth = 2;
+        cg.c.strokeRect(chunk[0],chunk[1],chunk[2],chunk[3]);
+        cg.c.globalAlpha = 1;
+      }
+      if (graphic.debug.labelChunks) {
+        cg.c.textAlign = "center";
+        cg.c.textBaseline = "middle";
+        cg.c.font = "12px Arial";
+        cg.c.fillText(chunk[4].x + "," + chunk[4].y,chunk[0]+chunk[2]/2,chunk[1]+chunk[3]/2);
+      }
+    }
     if (missingTiles.length>0&&!TileMap.hasWarnedAboutMissingTiles) {
       console.warn("Tiles: " + missingTiles.join(" ") + " do not exist on TileMap: " + TileMap.id);
     }
