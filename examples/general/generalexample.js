@@ -519,7 +519,14 @@ IconObjectAA.attach("Button",{button:circleButton});
 // ChoreoGraph.plugins.Visualisation.v.objectAnnotation.key = ["id"]
 
 // let col6 = cg0.createCollider({type:"rectangle",x:400,y:400,width:50,height:100});
-let col3 = cg0.createCollider({type:"rectangle",id:"chad",x:400,y:400,width:70,height:80});
+let col3 = cg0.createCollider({type:"rectangle",id:"chad",x:400,y:400,width:70,height:80,groups:[0,1]});
+let col4 = cg0.createCollider({type:"rectangle",id:"malo",x:58,y:725,width:200,height:80,trigger:true,groups:[1],
+enter:function(collider){
+  if (collider.id=="chad") { RedMushroom.RigidBody.bounce = true; }
+},
+exit:function(collider){
+  if (collider.id=="chad") { RedMushroom.RigidBody.bounce = false; }
+}});
 // let col0 = cg0.createCollider({type:"circle",x:400,y:400,radius:50,moveable:false});
 // let col1 = cg0.createCollider({type:"circle",x:542,y:285,radius:50});
 // let col2 = cg0.createCollider({type:"circle",x:476,y:268,radius:60,trigger:true});

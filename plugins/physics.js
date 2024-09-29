@@ -699,6 +699,7 @@ ChoreoGraph.ObjectComponents.RigidBody = class RigidBody {
   gravity = 9.8;
   xv = 0; // X Velocity
   yv = 0; // Y Velocity
+  bounce = false;
   collider = null;
   colliderComponent = null;
   useColliderForPhysics = false;
@@ -740,14 +741,24 @@ ChoreoGraph.ObjectComponents.RigidBody = class RigidBody {
       if (this.useColliderForPhysics&&this.collider.collided) {
         if (this.collider.resolutionVector[0]!=0) {
           dx = this.collider.resolutionVector[0];
-          if (dx>0&&this.xv<0) { this.xv = 0; }
-          else if (dx<0&&this.xv>0) { this.xv = 0; }
+          if (this.bounce) {
+            if (dx>0&&this.xv<0) { this.xv *= -1; }
+            else if (dx<0&&this.xv>0) { this.xv *= -1; }
+          } else {
+            if (dx>0&&this.xv<0) { this.xv = 0; }
+            else if (dx<0&&this.xv>0) { this.xv = 0; }
+          }
           object.Transform.x += dx;
         }
         if (this.collider.resolutionVector[1]!=0) {
           dy = this.collider.resolutionVector[1];
-          if (dy>0&&this.yv<0) { this.yv = 0; }
-          else if (dy<0&&this.yv>0) { this.yv = 0; }
+          if (this.bounce) {
+            if (dy>0&&this.yv<0) { this.yv *= -1; }
+            else if (dy<0&&this.yv>0) { this.yv *= -1; }
+          } else {
+            if (dy>0&&this.yv<0) { this.yv = 0; }
+            else if (dy<0&&this.yv>0) { this.yv = 0; }
+          }
           object.Transform.y += dy;
         }
       }
