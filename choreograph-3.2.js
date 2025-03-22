@@ -9,6 +9,8 @@ const ChoreoGraph = new class ChoreoGraphEngine {
   lastPerformanceTime = performance.now();
   nowint = new Date().getTime();
 
+  plugins = {};
+
   ChoreoGraphInstance = class ChoreoGraphInstance {
     settings = {};
     canvases = {};
@@ -36,6 +38,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     ready = false;
 
     graphicTypes = {};
+    overlayLoops = [];
 
     get cw() {
       if (this.settings.core.defaultCanvas !== null) {
@@ -112,6 +115,10 @@ const ChoreoGraph = new class ChoreoGraphEngine {
 
       if (this.settings.core.callbacks.loopAfter!=null) { this.settings.core.callbacks.loopAfter(this); }
 
+      for (let loop of this.overlayLoops) {
+        loop(this);
+      }
+
       // // OBJECTS
       // for (let id in this.objects) {
       //   let object = this.objects[id];
@@ -143,9 +150,9 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       // }
     };
     handleLoading() {
-      if (this.settings.core.loadChecks.length==0) {
+      if (this.settings.core.loadChecks.length==0&&ChoreoGraph.frame>0) {
         this.ready = true;
-        if (this.settings.core.callbacks.start!=null) { this.settings.core.callbacks.start(this); }
+        this.onReady();
         return;
       }
       let output = [];
@@ -153,12 +160,21 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         let result = check();
         if (result.pass) {
           this.ready = true;
-          if (this.settings.core.callbacks.start!=null) { this.settings.core.callbacks.start(this); }
+          this.onReady();
         }
         output.push(result);
       }
       if (this.settings.core.callbacks.loadingLoop!=null) { this.settings.core.callbacks.loadingLoop(output,this); }
     };
+    onReady() {
+      if (this.settings.core.callbacks.start!=null) { this.settings.core.callbacks.start(this); }
+      for (let pluginKey in ChoreoGraph.plugins) {
+        let plugin = ChoreoGraph.plugins[pluginKey];
+        if (plugin.instanceStart!=null) {
+          plugin.instanceStart(this);
+        }
+      }
+    }
 
     createCanvas(canvasInit,id=ChoreoGraph.id.get()) {
       let newCanvas = new ChoreoGraph.Canvas(canvasInit,this);
@@ -237,7 +253,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       }
       this.c = this.element.getContext("2d",{alpha:this.background==null});
       this.element.style.imageRendering = "pixelated"; // Remove anti-ailiasing
-      this.element.cg = cg;
+      this.element.cgCanvas = this;
     }
 
     setupParentElement(parentElement) {
@@ -675,25 +691,35 @@ const ChoreoGraph = new class ChoreoGraphEngine {
   };
 
   Plugin = class cgPlugin {
-    name = "Unnamed Plugin";
-    key = "";
-    version = "unknown";
-
-    instanceExternalLoops = []; // (cg) Runs for each instance after draw call
-    externalContentLoops = []; // () Runs once per ChoreoGraph loop before the draw call
-    externalMainLoops = []; // () Runs once per ChoreoGraph loop before anything
-    instanceConnect = null; // (cg) Run every time a new instance is created
-    
     constructor(pluginInit) {
       if (pluginInit.key==undefined) { console.error("Plugin key not defined",pluginInit); return; }
+      
+      for (let pluginKey in ChoreoGraph.plugins) {
+        let plugin = ChoreoGraph.plugins[pluginKey];
+        if (plugin.key==pluginInit.key) { console.error("Plugin key already exists",pluginInit.key); return; }
+      }
+      
+      this.name = pluginInit.name;
+      this.key = pluginInit.key;
+      this.version = pluginInit.version;
 
-      if (pluginInit!=undefined) {
-        for (let key in pluginInit) {
-          this[key] = pluginInit[key];
+      this.instanceConnect = null;
+      this.instanceStart = null;
+
+      if (pluginInit.globalPackage!=undefined) {
+        ChoreoGraph[this.key] = pluginInit.globalPackage;
+      }
+      if (pluginInit.instanceConnect!=undefined) {
+        this.instanceConnect = pluginInit.instanceConnect;
+        for (let cg of ChoreoGraph.instances) {
+          this.instanceConnect(cg);
         }
       }
+      if (pluginInit.instanceStart!=undefined) {
+        this.instanceStart = pluginInit.instanceStart;
+      }
     }
-  }
+  };
 
   attachCoreGraphicTypes(cg) {
     cg.graphicTypes.rectangle = new class RectangleGraphic {
@@ -722,7 +748,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     for (let key in attributes) {
       obj[key] = attributes[key];
     }
-  }
+  };
   
   transformContext(camera,x=0,y=0,r=0,sx=1,sy=1,CGSpace=true,flipX=false,flipY=false,canvasSpaceXAnchor,canvasSpaceYAnchor,ctx=camera.canvas.c,cx=camera.cx,cy=camera.cy,cz=camera.cz,canvasSpaceScale=cg.settings.canvasSpaceScale,w=camera.canvas.width,h=camera.canvas.height,manualScaling=false) {
     let z = 1;
@@ -747,28 +773,34 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     }
     r = (r*(Math.PI/180)); // Convert to radian
     ctx.setTransform(sx*Math.cos(r),sx*Math.sin(r),-sy*Math.sin(r),sy*Math.cos(r),x,y);
-  }
+  };
 
   plugin(pluginInit) {
     let plugin = new this.Plugin(pluginInit);
-    this.plugins[plugin.key] = plugin;
-    for (let i=0; i<ChoreoGraph.instances.length; i++) {
-      let instance = ChoreoGraph.instances[i];
-      for (let j=0;j<plugin.instanceExternalLoops.length;j++) {
-        instance.externalLoops.push(plugin.instanceExternalLoops[j]);
-      }
-      if (plugin.instanceConnect!=null) { plugin.instanceConnect(instance); }
-    }
-    for (let j=0;j<plugin.externalContentLoops.length;j++) {
-      this.externalContentLoops.push(plugin.externalContentLoops[j]);
-    }
-    for (let j=0;j<plugin.externalMainLoops.length;j++) {
-      this.externalMainLoops.push(plugin.externalMainLoops[j]);
-    }
-  }
+    ChoreoGraph.plugins[plugin.key] = plugin;
+    // for (let i=0; i<ChoreoGraph.instances.length; i++) {
+    //   let instance = ChoreoGraph.instances[i];
+    //   for (let j=0;j<plugin.instanceExternalLoops.length;j++) {
+    //     instance.externalLoops.push(plugin.instanceExternalLoops[j]);
+    //   }
+    //   if (plugin.instanceConnect!=null) { plugin.instanceConnect(instance); }
+    // }
+    // for (let j=0;j<plugin.externalContentLoops.length;j++) {
+    //   this.externalContentLoops.push(plugin.externalContentLoops[j]);
+    // }
+    // for (let j=0;j<plugin.externalMainLoops.length;j++) {
+    //   this.externalMainLoops.push(plugin.externalMainLoops[j]);
+    // }
+  };
 
   instantiate(init={}) {
     let cg = new ChoreoGraph.ChoreoGraphInstance(ChoreoGraph.instances.length);
+
+    for (let pluginKey in ChoreoGraph.plugins) {
+      let plugin = ChoreoGraph.plugins[pluginKey];
+      if (plugin.instanceConnect!=null) { plugin.instanceConnect(cg); }
+    }
+
     let stack = [[init,[]]];
     while (stack?.length > 0) {
       let currentObj = stack.pop();
@@ -823,28 +855,5 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       }
       ChoreoGraph.frame = requestAnimationFrame(ChoreoGraph.loop);
     }
-  }
+  };
 };
-
-const cg = ChoreoGraph.instantiate({
-  core : {
-    generateBasicEnvironment : true
-  }
-});
-cg.createCanvas({element:document.getElementsByTagName("canvas")[0],
-  height : 450,
-  width : 600
-});
-
-cg.createGraphic({type:"rectangle"},"aRectangle")
-cg.createTransform({x:100,y:100},"aRectangle");
-cg.scenes.main.createItem("graphic",{graphic:cg.graphics.aRectangle,transform:cg.transforms.aRectangle},"aRectangle");
-
-cg.createGraphic({type:"rectangle"},"anotherOne")
-cg.scenes.main.createItem("collection",{},"stuff")
-cg.scenes.main.createItem("graphic",{graphic:cg.graphics.anotherOne},"another","stuff")
-
-cg.scenes.main.createItem("collection",{},"more","stuff")
-cg.scenes.main.createItem("collection",{},"yetMore","more")
-
-ChoreoGraph.start();
