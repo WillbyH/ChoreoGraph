@@ -38,6 +38,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     ready = false;
 
     graphicTypes = {};
+    processLoops = [];
     overlayLoops = [];
 
     get cw() {
@@ -99,6 +100,10 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         this.clock += this.timeSinceLastFrame*this.settings.core.timeScale;
       } else if (this.settings.core.callbacks.resume!=null) {
         this.settings.core.callbacks.resume(this.timeSinceLastFrame*this.settings.core.timeScale,this);
+      }
+
+      for (let loop of this.processLoops) {
+        loop(this);
       }
 
       for (let sceneId of this.keys.scenes) {

@@ -9,6 +9,7 @@ ChoreoGraph.plugin({
     instanceObject = class Develop {
       constructor(cg) {
         this.cg = cg;
+        document.addEventListener("wheel", this.wheel, {passive: false});
       };
 
       _selectedCanvas = null;
@@ -51,6 +52,9 @@ ChoreoGraph.plugin({
         freeCam : {
           active : false,
           canvasData : {},
+          downCursorPosition : {x:0,y:0},
+          downCameraPosition : {x:0,y:0},
+          dragging : false
         }
       };
 
@@ -86,15 +90,60 @@ ChoreoGraph.plugin({
         canvas.setCamera(canvasData.savedCamera);
       };
 
+      resetFreeCam() {
+        let canvas = this.cg.Develop.selectedCanvas;
+        let canvasData = this.featureData.freeCam.canvasData[canvas.id];
+        canvasData.freeCamera.x = canvasData.savedCamera.x;
+        canvasData.freeCamera.y = canvasData.savedCamera.y;
+        canvasData.freeCamera.z = canvasData.savedCamera.z;
+      }
+
+      wheel(event) {
+        let cg = ChoreoGraph.Develop.cg;
+        if (cg.Develop.featureData.freeCam.active&&ChoreoGraph.Input.keyStates.shift) {
+          let canvas = cg.Develop.selectedCanvas;
+          let camera = cg.Develop.featureData.freeCam.canvasData[canvas.id].freeCamera;
+          let scrollSpeed = cg.settings.develop.freeCam.zoomSpeed;
+          let magnitude = 0.1;
+          if (event.deltaY<0) { magnitude = -0.1; }
+          let change = Math.abs(magnitude)/scrollSpeed
+          if (event.deltaY<0) { camera.z*=1+change; } else { camera.z*=1-change; }
+        }
+      }
+
       loop(cg) {
         if (cg.Develop.featureData.freeCam.active) {
+          let data = cg.Develop.featureData.freeCam;
           if (cg.Input===undefined) {
-            cg.Develop.featureData.freeCam.active = false;
+            data.active = false;
             console.warn("FreeCam requires the Input plugin");
             return;
           }
-          if (true||cg.Input.keyStates.shift) {
-            
+          if (ChoreoGraph.Input.keyStates.shift) {
+            let canvas = cg.Develop.selectedCanvas;
+            let camera = cg.Develop.featureData.freeCam.canvasData[canvas.id].freeCamera;
+            if (data.dragging) {
+              if (!cg.Input.cursor.hold.any) {
+                data.dragging = false;
+                return;
+              }
+              let xo = (data.downCursorPosition.x - cg.Input.cursor.clientX)/camera.z;
+              let yo = (data.downCursorPosition.y - cg.Input.cursor.clientY)/camera.z;
+              camera.x = data.downCameraPosition.x + xo;
+              camera.y = data.downCameraPosition.y + yo;
+            } else {
+              if (cg.Input.cursor.hold.any) {
+                data.dragging = true;
+                data.downCameraPosition = {
+                  x : camera.x,
+                  y : camera.y
+                };
+                data.downCursorPosition = {
+                  x : cg.Input.cursor.clientX,
+                  y : cg.Input.cursor.clientY
+                };
+              }
+            }
           }
         }
       };
@@ -146,6 +195,25 @@ ChoreoGraph.plugin({
       };
     };
 
+    UIActionButton = class UIActionButton {
+      constructor(init) {
+        this.text = "Action";
+        this.action = null;
+        this.element = document.createElement("button");
+        this.element.developUIData = this;
+        this.element.type = "button";
+        this.element.classList.add("develop_button");
+        this.element.classList.add("btn_action");
+        this.element.onclick = () => {
+          if (this.action!=null) { this.action(); }
+        };
+        for (let key in init) {
+          this[key] = init[key];
+        }
+        this.element.innerText = this.text;
+      };
+    }
+
     init() {
       this.interfaceItems.push({
         type : "UIToggleButton",
@@ -153,7 +221,12 @@ ChoreoGraph.plugin({
         inactiveText : "Enable FreeCam",
         onActive : () => { this.cg.Develop.enableFreeCam(); },
         onInactive : () => { this.cg.Develop.disableFreeCam(); }
-      })
+      });
+      this.interfaceItems.push({
+        type : "UIActionButton",
+        text : "Reset FreeCam",
+        action : () => { this.cg.Develop.resetFreeCam(); }
+      });
       document.body.appendChild(this.section);
       this.section.classList.add("develop_section");
 
@@ -260,6 +333,7 @@ ChoreoGraph.plugin({
       // },
       freeCam : {
         hotkey : "shift",
+        zoomSpeed : 0.5
       },
       // objectGizmo : {
       //   active : false,

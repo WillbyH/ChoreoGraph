@@ -18,11 +18,13 @@ cg.createGraphic({type:"rectangle"},"anotherOne")
 
 cg.scenes.main.createItem("graphic",{graphic:cg.graphics.anotherOne},"another");
 
-cg.createGraphic({type:"rectangle",colour:"blue"},"downRectangle")
-cg.createGraphic({type:"rectangle",colour:"green"},"upRectangle")
-cg.scenes.main.createItem("graphic",{graphic:cg.graphics.downRectangle},"downRectangle","stuff")
-cg.scenes.main.createItem("graphic",{graphic:cg.graphics.upRectangle},"upRectangle","stuff")
+cg.createGraphic({type:"rectangle",colour:"blue"},"downRectangle");
+cg.createGraphic({type:"rectangle",colour:"green"},"upRectangle");
+cg.createGraphic({type:"rectangle",width:25,height:25,colour:"magenta"},"canvasCursorRectangle");
+cg.scenes.main.createItem("graphic",{graphic:cg.graphics.downRectangle},"downRectangle","stuff");
+cg.scenes.main.createItem("graphic",{graphic:cg.graphics.upRectangle},"upRectangle","stuff");
 cg.scenes.main.createItem("graphic",{graphic:cg.graphics.cursorRectangle},"cursorRectangle");
+cg.scenes.main.createItem("graphic",{graphic:cg.graphics.canvasCursorRectangle},"canvasCursorRectangle");
 
 cg.settings.core.callbacks.loopBefore = () => {
   cg.sceneItems.cursorRectangle.transform.x = cg.Input.cursor.x;
@@ -33,6 +35,9 @@ cg.settings.core.callbacks.loopBefore = () => {
 
   cg.sceneItems.upRectangle.transform.x = cg.Input.cursor.up.any.x;
   cg.sceneItems.upRectangle.transform.y = cg.Input.cursor.up.any.y;
+
+  cg.sceneItems.canvasCursorRectangle.transform.x = cg.Input.cursor.canvasX;
+  cg.sceneItems.canvasCursorRectangle.transform.y = cg.Input.cursor.canvasY;
 }
 cg.settings.core.callbacks.loopAfter = () => {
   cg.c.strokeStyle = "white";
@@ -52,6 +57,16 @@ cg.settings.core.callbacks.loopAfter = () => {
       cg.c.fillRect(cg.Input.cursor.touches[id].x-50,cg.Input.cursor.touches[id].y-50,100,100);
     }
   }
+
+  // if (ChoreoGraph.frame%10==0) {
+  //   let keys = "";
+  //   for (let key of Object.keys(ChoreoGraph.Input.keyStates)) {
+  //     if (ChoreoGraph.Input.keyStates[key]) {
+  //       keys += key + " ";
+  //     }
+  //   }
+  //   console.log(keys)
+  // }
 }
 
 ChoreoGraph.start();
