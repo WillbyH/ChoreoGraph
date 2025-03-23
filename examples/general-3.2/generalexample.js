@@ -26,6 +26,8 @@ cg.scenes.main.createItem("graphic",{graphic:cg.graphics.upRectangle},"upRectang
 cg.scenes.main.createItem("graphic",{graphic:cg.graphics.cursorRectangle},"cursorRectangle");
 cg.scenes.main.createItem("graphic",{graphic:cg.graphics.canvasCursorRectangle},"canvasCursorRectangle");
 
+cg.Input.createButton({type:"rectangle",x:500,y:30,width:120},"egg");
+
 cg.settings.core.callbacks.loopBefore = () => {
   cg.sceneItems.cursorRectangle.transform.x = cg.Input.cursor.x;
   cg.sceneItems.cursorRectangle.transform.y = cg.Input.cursor.y;

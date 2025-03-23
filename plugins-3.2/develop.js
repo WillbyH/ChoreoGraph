@@ -111,7 +111,7 @@ ChoreoGraph.plugin({
         }
       }
 
-      loop(cg) {
+      processLoop(cg) {
         if (cg.Develop.featureData.freeCam.active) {
           let data = cg.Develop.featureData.freeCam;
           if (cg.Input===undefined) {
@@ -351,7 +351,7 @@ ChoreoGraph.plugin({
       }
     });
     cg.Develop = new ChoreoGraph.Develop.instanceObject(cg);
-    cg.overlayLoops.push(cg.Develop.loop);
+    cg.processLoops.push(cg.Develop.processLoop);
   },
 
   instanceStart(cg) {

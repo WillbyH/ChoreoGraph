@@ -73,6 +73,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         inactiveTime : 200,
         loadChecks : [],
         waitUntilReady : true,
+        canvasSpaceScale : 1,
         callbacks : {
           loopBefore : null, // loopBefore(cg) runs before canvases are drawn
           loopAfter : null, // loopAfter(cg) runs after canvases are drawn
@@ -754,8 +755,20 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       obj[key] = attributes[key];
     }
   };
+
+  colourLerp(colourFrom, colourTo, amount) {
+    let splitcolourTo = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(colourTo);
+    if (splitcolourTo!=null) { colourTo = splitcolourTo ? splitcolourTo.map(i => parseInt(i, 16)).slice(1) : null; } else { return colourFrom; }
+    let splitcolourFrom = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(colourFrom);
+    if (splitcolourFrom!=null) { colourFrom = splitcolourFrom ? splitcolourFrom.map(i => parseInt(i, 16)).slice(1) : null; } else { return colourFrom; }  
+    let r = colourTo[0] * amount + colourFrom[0] * (1 - amount);
+    let g = colourTo[1] * amount + colourFrom[1] * (1 - amount);
+    let b = colourTo[2] * amount + colourFrom[2] * (1 - amount);
+
+    return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).split(".")[0];
+  }
   
-  transformContext(camera,x=0,y=0,r=0,sx=1,sy=1,CGSpace=true,flipX=false,flipY=false,canvasSpaceXAnchor,canvasSpaceYAnchor,ctx=camera.canvas.c,cx=camera.cx,cy=camera.cy,cz=camera.cz,canvasSpaceScale=cg.settings.canvasSpaceScale,w=camera.canvas.width,h=camera.canvas.height,manualScaling=false) {
+  transformContext(camera,x=0,y=0,r=0,sx=1,sy=1,CGSpace=true,flipX=false,flipY=false,canvasSpaceXAnchor,canvasSpaceYAnchor,ctx=camera.canvas.c,cx=camera.cx,cy=camera.cy,cz=camera.cz,canvasSpaceScale=cg.settings.core.canvasSpaceScale,w=camera.canvas.width,h=camera.canvas.height,manualScaling=false) {
     let z = 1;
     if (CGSpace) {
       z = cz;
