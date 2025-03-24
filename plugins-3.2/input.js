@@ -86,6 +86,8 @@ ChoreoGraph.plugin({
       }
     };
 
+    // CURSORS
+
     hasMultipleCursors = false;
     downCanvases = {};
 
@@ -296,6 +298,8 @@ ChoreoGraph.plugin({
 
     lastClickedCanvas = null;
 
+    // KEYBOARD
+
     lastKeyDown = null;
     activeKeys = 0;
     capsLock = false;
@@ -359,6 +363,8 @@ ChoreoGraph.plugin({
       return output;
     };
 
+    // CONTROLLERS
+
     controllers = {};
     selectedController = null;
     get controller() {
@@ -373,6 +379,7 @@ ChoreoGraph.plugin({
       lastButtons = [false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false];
 
       get gamepad() {
+        if (this.connected==false) { return this.lastGamepad; }
         this.lastGamepad = navigator.getGamepads()[this.lastGamepad.index]
         return this.lastGamepad;
       }
@@ -382,6 +389,11 @@ ChoreoGraph.plugin({
 
         if (ChoreoGraph.Input.selectedController===null) {
           ChoreoGraph.Input.selectedController = this.lastGamepad.index;
+        }
+
+        if (this.lastGamepad.mapping!=="standard") {
+          this.connected = false;
+          console.warn("Controller not supported",this.lastGamepad.id);
         }
       }
     };
@@ -554,6 +566,8 @@ ChoreoGraph.plugin({
       }
     };
 
+    // BUTTONS
+
     Button = class cgButton {
       downTime = -Infinity;
       upTime = -Infinity;
@@ -575,6 +589,8 @@ ChoreoGraph.plugin({
       CGSpace = true;
       canvasSpaceXAnchor = 0;
       canvasSpaceYAnchor = 0;
+
+      allowUpWithNoPress = false;
 
       x = 0;
       y = 0;
@@ -682,18 +698,20 @@ ChoreoGraph.plugin({
             }
           }
           if (special=="down") {
-            button.downTime = ChoreoGraph.nowint;
-            button.pressed = true;
-            if (button.down!==null) {
-              button.down(event,canvas);
+            if (button.allowedButtons[event.button]) {
+              button.downTime = ChoreoGraph.nowint;
+              button.pressed = true;
+              if (button.down!==null) {
+                button.down(event,canvas);
+              }
             }
           } else if (special=="up") {
-            button.upTime = ChoreoGraph.nowint;
-            if (cg.Input.lastInputType=="mouse") { // In theory this is always true
+            if (button.pressed||button.allowUpWithNoPress) {
+              button.upTime = ChoreoGraph.nowint;
               button.pressed = false;
-            }
-            if (button.up!==null) {
-              button.up(event,canvas);
+              if (button.up!==null) {
+                button.up(event,canvas);
+              }
             }
           }
         } else {
@@ -701,7 +719,7 @@ ChoreoGraph.plugin({
             button.hovered = false;
             button.exitTime = ChoreoGraph.nowint;
             button.hoverCount--;
-            if (button.hoverCount==0&&cg.Input.lastInputType=="touch"&&button.pressed) {
+            if (button.hoverCount==0&&(button.pressed||button.allowUpWithNoPress)) {
               button.upTime = ChoreoGraph.nowint;
               if (button.up!==null) {
                 button.up(event,canvas);
@@ -721,8 +739,8 @@ ChoreoGraph.plugin({
     debugLoop(cg) {
       if (!cg.settings.input.debug.active) { return; }
       if (cg.settings.input.debug.buttons.active) {
-        let canvas = ChoreoGraph.Input.lastClickedCanvas;
-        if (canvas!==null) {
+        for (let canvasId of cg.keys.canvases) {
+          let canvas = cg.canvases[canvasId];
           canvas.c.save();
           for (let buttonId of cg.keys.buttons) {
             let button = cg.Input.buttons[buttonId];

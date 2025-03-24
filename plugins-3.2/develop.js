@@ -69,7 +69,8 @@ ChoreoGraph.plugin({
             scaleMode : canvas.camera.scaleMode,
             WHRatio : canvas.camera.WHRatio,
             maximumSize : canvas.camera.maximumSize,
-            pixelScale : canvas.camera.pixelScale
+            pixelScale : canvas.camera.pixelScale,
+            cullOverride : canvas.camera
           },"develop_freeCam-"+canvas.id);
           for (let scene of canvas.camera.scenes) {
             freeCamera.addScene(scene);
@@ -93,6 +94,7 @@ ChoreoGraph.plugin({
       resetFreeCam() {
         let canvas = this.cg.Develop.selectedCanvas;
         let canvasData = this.featureData.freeCam.canvasData[canvas.id];
+        if (canvasData===undefined) { return; }
         canvasData.freeCamera.x = canvasData.savedCamera.x;
         canvasData.freeCamera.y = canvasData.savedCamera.y;
         canvasData.freeCamera.z = canvasData.savedCamera.z;
@@ -144,6 +146,54 @@ ChoreoGraph.plugin({
                 };
               }
             }
+          }
+        }
+      };
+
+      overlayLoop(cg) {
+        if (cg.settings.develop.cameras.active) {
+          let byScene = {};
+          for (let cameraId of cg.keys.cameras) {
+            let camera = cg.cameras[cameraId];
+            for (let scene of camera.scenes) {
+              if (byScene[scene.id]===undefined) {
+                byScene[scene.id] = [];
+              }
+              byScene[scene.id].push(camera);
+            }
+          }
+          for (let canvasId of cg.keys.canvases) {
+            let canvas = cg.canvases[canvasId];
+            let c = canvas.c;
+            c.globalAlpha = 1;
+            if (canvas.camera===null) { continue; }
+            for (let scene of canvas.camera.scenes) {
+              let cameras = byScene[scene.id];
+
+              for (let camera of cameras) {
+                if (camera.id==canvas.camera.id) { continue; }
+                ChoreoGraph.transformContext(canvas.camera,camera.x,camera.y);
+                c.strokeStyle = cg.settings.develop.cameras.colour;
+                let cw = canvas.width/camera.cz;
+                let ch = canvas.height/camera.cz;
+                c.lineWidth = 3*camera.cz;
+                c.beginPath();
+                c.rect(-cw*0.5,-ch*0.5,cw,ch)
+                c.moveTo(-cw*0.5,-ch*0.5);
+                c.lineTo(cw*0.5,ch*0.5);
+                c.moveTo(cw*0.5,-ch*0.5);
+                c.lineTo(-cw*0.5,ch*0.5);
+                c.stroke();
+              }
+            }
+            // c.strokeStyle = "white";
+            // c.lineWidth = 2;
+            // c.beginPath();
+            // c.moveTo(0,camera.y);
+            // c.lineTo(camera.width,camera.y);
+            // c.moveTo(camera.x,0);
+            // c.lineTo(camera.x,camera.height);
+            // c.stroke();
           }
         }
       };
@@ -227,6 +277,16 @@ ChoreoGraph.plugin({
         text : "Reset FreeCam",
         action : () => { this.cg.Develop.resetFreeCam(); }
       });
+      if (ChoreoGraph.Input!==undefined) {
+        this.interfaceItems.push({
+          type : "UIToggleButton",
+          activated : this.cg.settings.input.debug.active,
+          activeText : "Hide Buttons",
+          inactiveText : "Show Buttons",
+          onActive : () => { this.cg.settings.input.debug.active = true; },
+          onInactive : () => { this.cg.settings.input.debug.active = false; }
+        });
+      }
       document.body.appendChild(this.section);
       this.section.classList.add("develop_section");
 
@@ -335,6 +395,10 @@ ChoreoGraph.plugin({
         hotkey : "shift",
         zoomSpeed : 0.5
       },
+      cameras : {
+        active : true,
+        colour : "#76f562"
+      },
       // objectGizmo : {
       //   active : false,
       // },
@@ -352,6 +416,7 @@ ChoreoGraph.plugin({
     });
     cg.Develop = new ChoreoGraph.Develop.instanceObject(cg);
     cg.processLoops.push(cg.Develop.processLoop);
+    cg.overlayLoops.push(cg.Develop.overlayLoop);
   },
 
   instanceStart(cg) {

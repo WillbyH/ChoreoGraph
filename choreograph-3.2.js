@@ -74,6 +74,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         loadChecks : [],
         waitUntilReady : true,
         canvasSpaceScale : 1,
+        frustumCulling : true,
         callbacks : {
           loopBefore : null, // loopBefore(cg) runs before canvases are drawn
           loopAfter : null, // loopAfter(cg) runs after canvases are drawn
@@ -124,36 +125,6 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       for (let loop of this.overlayLoops) {
         loop(this);
       }
-
-      // // OBJECTS
-      // for (let id in this.objects) {
-      //   let object = this.objects[id];
-      //   object.update();
-      //   if (object.delete) {
-      //     ChoreoGraph.releaseId(object.id.replace("obj_",""));
-      //     for (let key in object.components) {
-      //       ChoreoGraph.releaseId(object.components[key].id.replace("comp_",""));
-      //       if (object.components[key].manifest.collapse) {
-      //         object.components[key].collapse();
-      //       }
-      //     }
-      //   }
-      // }
-      // this.objects = Object.fromEntries(Object.entries(this.objects).filter(([key, value]) => !value.delete));
-    
-      // if (this.settings.useCamera) {
-      //   this.x = -this.camera.x+this.cw/2;
-      //   this.y = -this.camera.y+this.ch/2;
-      //   if (this.camera.scaleMode=="pixels") {
-      //     this.z = this.camera.z*this.camera.scale;
-      //   } else if (this.camera.scaleMode=="maximum") {
-      //     if (this.cw*(this.camera.WHRatio)>this.ch*(1-this.camera.WHRatio)) {
-      //       this.z = this.camera.z*(this.cw/this.camera.maximumSize);
-      //     } else {
-      //       this.z = this.camera.z*(this.ch/this.camera.maximumSize);
-      //     }
-      //   }
-      // }
     };
     handleLoading() {
       if (this.settings.core.loadChecks.length==0&&ChoreoGraph.frame>0) {
@@ -309,6 +280,24 @@ const ChoreoGraph = new class ChoreoGraphEngine {
           let flipY = item.transform.flipY;
           let canvasSpaceXAnchor = item.transform.canvasSpaceXAnchor;
           let canvasSpaceYAnchor = item.transform.canvasSpaceYAnchor;
+          
+          if (this.cg.settings.core.frustumCulling&&item.graphic.getBounds!==undefined) {
+            let [bw, bh] = item.graphic.getBounds();
+            bw *= item.transform.sx;
+            bh *= item.transform.sy;
+            let bx = gx+gax;
+            let by = gy+gay;
+            let camera = this.camera;
+            if (camera.cullOverride!==null) { camera = camera.cullOverride; }
+            let cx = camera.x;
+            let cy = camera.y;
+            let cw = this.width/camera.z;
+            let ch = this.height/camera.z;
+            // if (item.graphic.id=="canvasCursorRectangle") {
+            //   console.log(bx,bw,cx-cw/2)
+            // }
+            if (bx+bw<cx-cw/2||bx-bw>cx+cw/2||by+bh<cy-ch/2||by-bh>cy+ch/2) { continue; }
+          }
 
           ChoreoGraph.transformContext(this.camera,gx,gy,gr,gsx,gsy,CGSpace,flipX,flipY,canvasSpaceXAnchor,canvasSpaceYAnchor);
 
@@ -323,6 +312,8 @@ const ChoreoGraph = new class ChoreoGraphEngine {
   Camera = class cgCamera {
     scenes = [];
     canvas = null;
+
+    cullOverride = null; // A camera that will be used instead of the current for culling
 
     x = 0;
     y = 0;
@@ -508,6 +499,9 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       }
       ChoreoGraph.applyAttributes(this,graphicInit);
       this.draw = graphicType.draw;
+      if (graphicType.getBounds!==undefined) {
+        this.getBounds = graphicType.getBounds;
+      }
     }
   };
 
