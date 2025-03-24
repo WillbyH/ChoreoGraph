@@ -186,14 +186,55 @@ ChoreoGraph.plugin({
                 c.stroke();
               }
             }
-            // c.strokeStyle = "white";
-            // c.lineWidth = 2;
-            // c.beginPath();
-            // c.moveTo(0,camera.y);
-            // c.lineTo(camera.width,camera.y);
-            // c.moveTo(camera.x,0);
-            // c.lineTo(camera.x,camera.height);
-            // c.stroke();
+          }
+        };
+        if (cg.settings.develop.frustumCulling.active) {
+          for (let canvasId of cg.keys.canvases) {
+            let canvas = cg.canvases[canvasId];
+            let c = canvas.c;
+            let cullCamera = canvas.camera;
+            if (cullCamera.cullOverride!==null) { cullCamera = cullCamera.cullOverride; }
+            ChoreoGraph.transformContext(canvas.camera,cullCamera.x,cullCamera.y);
+            c.strokeStyle = cg.settings.develop.frustumCulling.frustumColour;
+            c.lineWidth = 3*canvas.camera.cz;
+            c.strokeRect(-canvas.width*0.5,-canvas.height*0.5,canvas.width,canvas.height);
+            function drawCollectionCullBoxes(collection) {
+              for (let item of collection) {
+                if (item.type=="graphic"&&item.graphic.getBounds!==undefined) {
+                  let gx = item.transform.x;
+                  let gy = item.transform.y;
+                  let gax = item.transform.ax;
+                  let gay = item.transform.ay;
+                  let [bw, bh] = item.graphic.getBounds();
+                  bw *= item.transform.sx;
+                  bh *= item.transform.sy;
+                  let bx = gx+gax;
+                  let by = gy+gay;
+                  let cx = cullCamera.x;
+                  let cy = cullCamera.y;
+                  let cw = canvas.width/cullCamera.z;
+                  let ch = canvas.height/cullCamera.z;
+                  
+                  c.strokeStyle = cg.settings.develop.frustumCulling.unculledBoxColour;
+                  if (item.graphic.id=="cursorRectangle") {
+                    // console.log(cx,canvas.camera,bx+bw,cx-cw/2,bx-bw,cx+cw/2,by+bh,cy-ch/2,by-bh,cy+ch/2)
+                  }
+                  if (bx+bw<cx-cw/2||bx-bw>cx+cw/2||by+bh<cy-ch/2||by-bh>cy+ch/2) {
+                    c.strokeStyle = cg.settings.develop.frustumCulling.culledBoxColour;
+                  }
+
+                  ChoreoGraph.transformContext(canvas.camera,bx,by);
+
+                  c.strokeRect(-bw/2,-bh/2,bw,bh);
+
+                } else if (item.type=="collection") {
+                  drawCollectionCullBoxes(item.children);
+                }
+              }
+            }
+            for (let scene of cullCamera.scenes) {
+              drawCollectionCullBoxes(scene.drawBuffer);
+            }
           }
         }
       };
@@ -286,7 +327,23 @@ ChoreoGraph.plugin({
           onActive : () => { this.cg.settings.input.debug.active = true; },
           onInactive : () => { this.cg.settings.input.debug.active = false; }
         });
-      }
+      };
+      this.interfaceItems.push({
+        type : "UIToggleButton",
+        activeText : "Hide Cameras",
+        inactiveText : "Show Cameras",
+        activated : this.cg.settings.develop.cameras.active,
+        onActive : () => { this.cg.settings.develop.cameras.active = true; },
+        onInactive : () => { this.cg.settings.develop.cameras.active = false; }
+      });
+      this.interfaceItems.push({
+        type : "UIToggleButton",
+        activeText : "Hide Culling Boxes",
+        inactiveText : "Show Culling Boxes",
+        activated : this.cg.settings.develop.frustumCulling.active,
+        onActive : () => { this.cg.settings.develop.frustumCulling.active = true; },
+        onInactive : () => { this.cg.settings.develop.frustumCulling.active = false; }
+      });
       document.body.appendChild(this.section);
       this.section.classList.add("develop_section");
 
@@ -398,6 +455,12 @@ ChoreoGraph.plugin({
       cameras : {
         active : true,
         colour : "#76f562"
+      },
+      frustumCulling : {
+        active : true,
+        unculledBoxColour : "#59eb38",
+        culledBoxColour : "#eb3838",
+        frustumColour : "#5c38eb"
       },
       // objectGizmo : {
       //   active : false,

@@ -760,10 +760,10 @@ ChoreoGraph.plugin({
     cg.Input = new ChoreoGraph.Input.instanceObject(cg);
     cg.keys.buttons = [];
     cg.attachSettings("input",{
-      preventSingleTouch : true,
-      preventContextMenu : false,
-      preventMiddleClick : false,
-      preventCanvasSelection : true,
+      preventSingleTouch : true, // Prevents touches starting on the canvas from scrolling the page, unless you would get trapped
+      preventContextMenu : false, // Prevents the context menu from appearing on right click
+      preventMiddleClick : false, // Prevents the middle mouse button from scrolling the page
+      preventCanvasSelection : true, // Prevents the canvas from being selected, mainly for ios safari
 
       focusKeys : false, // If true, keys will only be sent to the last clicked canvases instance
 

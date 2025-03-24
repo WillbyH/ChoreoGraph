@@ -293,9 +293,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
             let cy = camera.y;
             let cw = this.width/camera.z;
             let ch = this.height/camera.z;
-            // if (item.graphic.id=="canvasCursorRectangle") {
-            //   console.log(bx,bw,cx-cw/2)
-            // }
+            
             if (bx+bw<cx-cw/2||bx-bw>cx+cw/2||by+bh<cy-ch/2||by-bh>cy+ch/2) { continue; }
           }
 
