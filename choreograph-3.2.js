@@ -10,6 +10,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
   nowint = new Date().getTime();
 
   plugins = {};
+  globalLoops = [];
 
   ChoreoGraphInstance = class ChoreoGraphInstance {
     settings = {};
@@ -854,6 +855,9 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     ChoreoGraph.now = new Date();
     ChoreoGraph.nowint = ChoreoGraph.now.getTime();
     ChoreoGraph.timeDelta = performance.now() - ChoreoGraph.lastPerformanceTime;
+    for (let loop of this.globalLoops) {
+      loop(this);
+    }
     let skipFrame = ((1000/ChoreoGraph.timeDelta>ChoreoGraph.settings.maxFPS||(!document.hasFocus()&&ChoreoGraph.settings.pauseWhenUnfocused)));
     if (skipFrame) {
       ChoreoGraph.frame = requestAnimationFrame(ChoreoGraph.loop);
