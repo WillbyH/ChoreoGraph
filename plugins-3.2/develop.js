@@ -197,6 +197,7 @@ ChoreoGraph.plugin({
             ChoreoGraph.transformContext(canvas.camera,cullCamera.x,cullCamera.y);
             c.strokeStyle = cg.settings.develop.frustumCulling.frustumColour;
             c.lineWidth = 3*canvas.camera.cz;
+            c.lineWidth = 3;
             c.strokeRect(-canvas.width*0.5,-canvas.height*0.5,canvas.width,canvas.height);
             function drawCollectionCullBoxes(collection) {
               for (let item of collection) {
@@ -208,6 +209,12 @@ ChoreoGraph.plugin({
                   let [bw, bh] = item.graphic.getBounds();
                   bw *= item.transform.sx;
                   bh *= item.transform.sy;
+                  if (item.transform.r!==0) {
+                    let rad = item.transform.r*Math.PI/180;
+                    let savedbw = bw;
+                    bw = Math.abs(bw*Math.cos(rad))+Math.abs(bh*Math.sin(rad));
+                    bh = Math.abs(savedbw*Math.sin(rad))+Math.abs(bh*Math.cos(rad));
+                  }
                   let bx = gx+gax;
                   let by = gy+gay;
                   let cx = cullCamera.x;
@@ -216,10 +223,7 @@ ChoreoGraph.plugin({
                   let ch = canvas.height/cullCamera.z;
                   
                   c.strokeStyle = cg.settings.develop.frustumCulling.unculledBoxColour;
-                  if (item.graphic.id=="cursorRectangle") {
-                    // console.log(cx,canvas.camera,bx+bw,cx-cw/2,bx-bw,cx+cw/2,by+bh,cy-ch/2,by-bh,cy+ch/2)
-                  }
-                  if (bx+bw<cx-cw/2||bx-bw>cx+cw/2||by+bh<cy-ch/2||by-bh>cy+ch/2) {
+                  if (bx+bw*0.5<cx-cw*0.5||bx-bw*0.5>cx+cw*0.5||by+bh*0.5<cy-ch*0.5||by-bh*0.5>cy+ch*0.5) {
                     c.strokeStyle = cg.settings.develop.frustumCulling.culledBoxColour;
                   }
 

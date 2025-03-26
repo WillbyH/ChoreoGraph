@@ -3,19 +3,17 @@ ChoreoGraph.plugin({
   key : "Audio",
   version : "2.2",
 
-  globalPackage : new class cgAudio {
+  globalPackage : new class ChoreoGraphAudio {
     constructor() {
       document.addEventListener("pointerdown", this.documentClicked, false);
     }
     ready = false;
     interacted = false;
     nextId = 0;
-    masterVolume = 1;
-    lastSeenMasterVolume = this.masterVolume;
 
-    sounds = {};
-    playing = {};
-    loadBuffer = [];
+    soundLoadBuffer = [];
+    instanceLoadBuffer = [];
+    playBuffer = [];
     
     mode = null; // AudioContext or HTMLAudio
     ctx = null;
@@ -25,105 +23,150 @@ ChoreoGraph.plugin({
 
     cache = {};
 
-    instanceObject = class cgAudio {
-      sounds = {};
+    AUDIOCONTEXT = "AudioContext";
+    HTMLAUDIO = "HTMLAudio";
 
-      createSound(name, source, options={}) {
-        let newPlayableSound = new this.PlayableSound(name,source,options);
-        this.sounds[name] = newPlayableSound;
-        this.loadBuffer.push(newPlayableSound);
-        return newPlayableSound;
+    instanceObject = class cgAudio {
+      ready = false;
+      sounds = {};
+      playing = {};
+      buses = {};
+      masterGain = null;
+
+      _masterVolume = 1;
+      get masterVolume() { return this._masterVolume; }
+      set masterVolume(value) {
+        this._masterVolume = value;
+        if (this.mode==this.AUDIOCONTEXT) {
+          if (this.cg.settings.masterChangeTime==0) {
+            this.masterGain.gain.value = this._masterVolume;
+          } else {
+            this.masterGain.gain.linearRampToValueAtTime(this._masterVolume, ChoreoGraph.Audio.ctx.currentTime + this.cg.settings.audio.masterChangeTime);
+          }
+        } else if (this.mode==this.HTMLAUDIO) {
+          for (let id in this.playing) {
+            if (this._masterVolume==0) {
+              this.playing[id].savedVolume = this.playing[id].source.volume;
+              this.playing[id].source.volume = 0;
+            } else {
+              this.playing[id].source.volume = this.playing[id].savedVolume;
+              delete this.playing[id].savedVolume;
+            }
+          }
+        }
       };
 
-      play(name, loop=0, fadeinSeconds=0, volume=1, speed=1, nodes=[], forceid=false) {
-        if (!this.ready) { return; }
-        if (this.sounds[name]==undefined) { console.warn("Sound not found"); return; }
-        let id = forceid;
-        if (forceid===false) { id = this.nextId; this.nextId++; }
+      createSound(soundInit,id=ChoreoGraph.id.get()) {
+        if (this.sounds[id]!=undefined) { console.warn("Sound ID already exists:",id); return; }
+        let newSound = new ChoreoGraph.Audio.Sound(soundInit,id,this.cg);
+        this.sounds[id] = newSound;
+        this.cg.keys.sounds.push(id);
+        ChoreoGraph.Audio.soundLoadBuffer.push(newSound);
+        return newSound;
+      };
+
+      play(playOptionsInit) {
+        let options = new ChoreoGraph.Audio.PlayOptions(playOptionsInit,this);
+        this.playWithOptions(options);
+      }
+
+      playWithOptions(options) {
+        let sound = this.sounds[options.id];
+        if (sound==undefined) { console.warn("Sound not found:",options.id); return; }
+
+        if ((!ChoreoGraph.Audio.ready||this.ready||!sound.loaded)&&options.allowBuffer) {
+          options.allowBuffer = false;
+          ChoreoGraph.Audio.playBuffer.push(options);
+          return;
+        }
+        if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.AUDIOCONTEXT) {
+          // SOURCE -> GAIN -> EFFECT NODES -> BUS GAIN -> MASTER GAIN -> DESTINATION
     
-        if (this.mode=="AudioContext") {
-          // SOURCE -> GAIN -> EFFECT NODES -> MASTER GAIN -> DESTINATION
-    
-          let source = this.ctx.createBufferSource();
-          source.buffer = this.sounds[name].audio; // Audio Asset
-          source.gainNode = this.ctx.createGain();
-          source.gainNode.gain.value = volume; // Volume
-          source.loop = loop; // Looping
-          source.playbackRate.value = speed; // Speed
-    
+          let source = ChoreoGraph.Audio.ctx.createBufferSource();
+          source.buffer = sound.audio;
+          source.gainNode = ChoreoGraph.Audio.ctx.createGain();
+          source.gainNode.gain.value = options.volume; // Volume
+          source.loop = options.loop; // Looping
+          source.playbackRate.value = options.speed; // Speed
+
           source.connect(source.gainNode);
     
           let lastNode = source.gainNode;
-          for (let i=0;i<nodes.length;i++) {
-            lastNode = lastNode.connect(nodes[i]);
+          for (let i=0;i<options.nodes.length;i++) {
+            lastNode = lastNode.connect(options.nodes[i]);
           }
+
+          if (options.bus!=null) {
+            let bus = this.buses[options.bus.id];
+            if (bus==undefined) {
+              bus = new ChoreoGraph.Audio.Bus();
+              this.buses[options.bus.id] = bus;
+            }
+            lastNode.connect(options.bus.gainNode);
+            lastNode = options.bus.gainNode;
+          };
+
           lastNode.connect(this.masterGain);
     
           source.start();
     
-          let newSound = new this.SoundInstance(forceid,source,name,nodes);
-          if (fadeinSeconds!=0) {
-            source.gainNode.gain.setValueAtTime(-1, this.ctx.currentTime);
-            source.gainNode.gain.linearRampToValueAtTime(volume, this.ctx.currentTime + fadeinSeconds)
+          let newSoundInstance = new ChoreoGraph.Audio.SoundInstance({id:options.soundInstanceId,source:source,nodes:options.nodes,sound:sound});
+          newSoundInstance.cgAudio = this;
+          if (options.fadeIn!=0) {
+            source.gainNode.gain.setValueAtTime(-1, ChoreoGraph.Audio.ctx.currentTime);
+            source.gainNode.gain.linearRampToValueAtTime(options.volume, ChoreoGraph.Audio.ctx.currentTime + options.fadeIn)
           }
-          source.id = newSound.id;
-          this.playing[newSound.id] = newSound;
-          this.sounds[name].instances[newSound.id] = newSound;
-          source.addEventListener('ended', e => {
-            if(!e.target.loop&&e.target.stopped!=true){
-              e.target.stop();
-              delete ChoreoGraph.AudioController.sounds[ChoreoGraph.AudioController.playing[e.target.id].name].instances[e.target.id];
-              delete ChoreoGraph.AudioController.playing[e.target.id];
-            }
-          },{passive: true});
+          source.id = newSoundInstance.id;
+          source.cgAudio = this;
+          this.playing[newSoundInstance.id] = newSoundInstance;
+          sound.instances[newSoundInstance.id] = newSoundInstance;
+
+          newSoundInstance.applyEndListener();
           
-          return newSound;
-        } else if (this.mode=="HTMLAudio") {
-          let source = this.sounds[name].audio.cloneNode();
-          let savedVolume = volume;
+          return newSoundInstance;
+        } else if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.HTMLAUDIO) {
+          let source = sound.audio.cloneNode();
+          let savedVolume = options.volume;
           source.play();
-          source.loop = loop; // Looping
-          source.volume = volume; // Volume
-          let newSound = new this.SoundInstance(forceid,source,name,nodes);
-          if (fadeinSeconds!=0) {
+          source.loop = options.loop; // Looping
+          source.volume = options.volume; // Volume
+          let newSoundInstance = new ChoreoGraph.Audio.SoundInstance({id:options.soundInstanceId,source:source,nodes:options.nodes,sound:sound});
+          newSoundInstance.cgAudio = this;
+          if (options.fadeIn!=0) {
             source.volume = 0;
           }
-          newSound.fadeFrom = 0;
-          newSound.fadeTo = volume;
-          newSound.fadeStart = ChoreoGraph.nowint;
-          newSound.fadeEnd = ChoreoGraph.nowint+fadeinSeconds*1000;
-          if (this.masterVolume==0) { newSound.savedVolume = savedVolume; }
-          source.id = id;
-          source.addEventListener('ended', e => {
-            if(!e.target.loop&&e.target.stopped!=true){
-              e.target.pause();
-              delete ChoreoGraph.AudioController.sounds[ChoreoGraph.AudioController.playing[e.target.id].name].instances[e.target.id];
-              delete ChoreoGraph.AudioController.playing[e.target.id];
-            }
-          },{passive: true});
-          this.playing[id] = newSound;
-          this.sounds[name].instances[id] = newSound;
+          newSoundInstance.fadeFrom = 0;
+          newSoundInstance.fadeTo = options.volume;
+          newSoundInstance.fadeStart = ChoreoGraph.nowint;
+          newSoundInstance.fadeEnd = ChoreoGraph.nowint+options.fadeIn*1000;
+          if (this.masterVolume==0) { newSoundInstance.savedVolume = savedVolume; }
+          source.id = newSoundInstance.id;
+          source.cgAudio = this;
+
+          newSoundInstance.applyEndListener();
+
+          this.playing[newSoundInstance.id] = newSoundInstance;
+          sound.instances[newSoundInstance.id] = newSoundInstance;
     
-          return newSound;
+          return newSoundInstance;
         }
       };
 
       stop(id, fadeoutSeconds=0) {
-        if (!ChoreoGraph.Audio.ready) { return; }
         if (this.playing[id]==undefined) { console.warn("Sound not found"); return; }
         let sound = this.playing[id];
         
-        if (this.mode=="AudioContext") {
+        if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.AUDIOCONTEXT) {
           if (fadeoutSeconds==0) {
             sound.source.stopped = true;
             sound.source.stop();
             delete this.playing[id];
           } else {
-            sound.source.gainNode.gain.setValueAtTime(sound.source.gainNode.gain.value, ChoreoGraph.AudioController.ctx.currentTime);
-            sound.source.gainNode.gain.linearRampToValueAtTime(-1, ChoreoGraph.AudioController.ctx.currentTime + fadeoutSeconds);
-            setTimeout(function(){ sound.source.stop(); delete ChoreoGraph.AudioController.playing[id]; }, fadeoutSeconds*1000);
+            sound.source.gainNode.gain.setValueAtTime(sound.source.gainNode.gain.value, ChoreoGraph.Audio.ctx.currentTime);
+            sound.source.gainNode.gain.linearRampToValueAtTime(-1, ChoreoGraph.Audio.ctx.currentTime + fadeoutSeconds);
+            setTimeout(function(){ sound.source.stop(); delete ChoreoGraph.Audio.playing[id]; }, fadeoutSeconds*1000);
           }
-        } else if (this.mode=="HTMLAudio") {
+        } else if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.HTMLAUDIO) {
           if (fadeoutSeconds==0) {
             sound.source.stopped = true;
             sound.source.pause();
@@ -133,7 +176,7 @@ ChoreoGraph.plugin({
             sound.fadeTo = 0;
             sound.fadeStart = ChoreoGraph.nowint;
             sound.fadeEnd = ChoreoGraph.nowint+fadeoutSeconds*1000;
-            setTimeout(function(){ sound.source.pause(); delete ChoreoGraph.AudioController.playing[id]; }, fadeoutSeconds*1000);
+            setTimeout(function(){ sound.source.pause(); delete ChoreoGraph.Audio.playing[id]; }, fadeoutSeconds*1000);
           }
         }
       };
@@ -142,7 +185,7 @@ ChoreoGraph.plugin({
         if (!this.ready) { return; }
         if (this.playing[id]==undefined) { console.warn("Sound not found"); return; }
         let sound = this.playing[id];
-        if (this.mode=="AudioContext") {
+        if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.AUDIOCONTEXT) {
           if (sound.nodes.length>0) {
             for (let i=sound.nodes.length-1;i>=0;i--) {
               sound.nodes[i].disconnect();
@@ -165,13 +208,13 @@ ChoreoGraph.plugin({
         if (!this.ready) { return; }
         if (this.playing[id]==undefined) { console.warn("Sound not found"); return; }
         let sound = this.playing[id];
-        if (this.mode=="AudioContext") {
+        if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.AUDIOCONTEXT) {
           if (seconds==0) { sound.source.gainNode.gain.value = volume; }
           else {
-            sound.source.gainNode.gain.setValueAtTime(sound.source.gainNode.gain.value, ChoreoGraph.AudioController.ctx.currentTime);
-            sound.source.gainNode.gain.linearRampToValueAtTime(volume, ChoreoGraph.AudioController.ctx.currentTime + seconds);
+            sound.source.gainNode.gain.setValueAtTime(sound.source.gainNode.gain.value, ChoreoGraph.Audio.ctx.currentTime);
+            sound.source.gainNode.gain.linearRampToValueAtTime(volume, ChoreoGraph.Audio.ctx.currentTime + seconds);
           }
-        } else if (this.mode=="HTMLAudio") {
+        } else if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.HTMLAUDIO) {
           if (this.masterVolume==0) { sound.savedVolume = volume; } // Save Volume When Muted
           if (volume<0) { volume = 0; } else if (volume>1) { volume = 1; }
           if (seconds==0) { sound.source.volume = volume; }
@@ -188,58 +231,127 @@ ChoreoGraph.plugin({
         if (!this.ready) { return; }
         if (this.playing[id]==undefined) { console.warn("Sound not found"); return; }
         let sound = this.playing[id];
-        if (this.mode=="AudioContext") {
+        if (this.mode==ChoreoGraph.Audio.AUDIOCONTEXT) {
           sound.source.playbackRate.value = speed;
-        } else if (this.mode=="HTMLAudio") {
+        } else if (this.mode==ChoreoGraph.Audio.HTMLAUDIO) {
           sound.source.playbackRate = speed;
         }
       };
-    };
-    
-    PlayableSound = class PlayableSound {
-      constructor(name,file,options) {
-        this.name = name;
-        this.file = file;
-        this.audio = null;
-        this.options = options;
-        this.loaded = false;
 
-        this.instances = {};
+      init() {
+        if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.AUDIOCONTEXT) {
+          this.masterGain = ChoreoGraph.Audio.ctx.createGain();
+          this.masterGain.gain.value = 1;
+          this.masterGain.connect(ChoreoGraph.Audio.ctx.destination);
+        }
+        this.ready = true;
+      };
+    };
+
+    PlayOptions = class PlayOptions {
+      id = null;
+      loop = false;
+      allowBuffer = false;
+      fadeIn = 0; // Seconds
+      volume = 1; // 0 - silent  1 - normal  2 - double
+      speed = 1; // Multiplier
+      nodes = [];
+      soundInstanceId = null;
+      bus = null;
+      constructor(playOptionsInit={},cgAudio) {
+        this.cgAudio = cgAudio;
+        ChoreoGraph.applyAttributes(this,playOptionsInit);
       }
+    }
+    
+    Sound = class cgSound {
+      source = "";
+      blobAudio = null;
+      audio = null;
+      loaded = false;
+      instances = {};
+      cg = null;
+
+      constructor(soundInit,id,cg) {
+        ChoreoGraph.applyAttributes(this,soundInit);
+        this.id = id;
+        this.cg = cg;
+        this.download();
+      }
+
+      async download() {
+        let split = this.source.split("/");
+        let source = [];
+        for (let part of split) { source.push(encodeURIComponent(part)); }
+        source = source.join("/");
+        if (this.cg.settings.audio.skipURIEncoding) { source = this.source; }
+
+        let response = await fetch(this.cg.settings.audio.basePath+source);
+        this.blobAudio = await response.blob();
+      };
+
       audioContextInit = async () => {
-        let current = this;
-        this.audio = await fetch(this.file)
-        .then(res => res.arrayBuffer())
-        .then(ArrayBuffer => ChoreoGraph.AudioController.ctx.decodeAudioData(ArrayBuffer));
-        current.loaded = true;
-      }
-      HTMLAudioInit = () => {
-        this.audio = new Audio(this.file);
-      }
-      start(loop=0, fadeinSeconds=0, volume=1, speed=1, forceid=false) {
-        return ChoreoGraph.AudioController.start(this.name, loop, fadeinSeconds, volume, speed, forceid);
-      }
+        this.audio = await (this.blobAudio.arrayBuffer())
+        .then(ArrayBuffer => ChoreoGraph.Audio.ctx.decodeAudioData(ArrayBuffer));
+        this.loaded = true;
+      };
+
+      HTMLAudioInit = async () => {
+        let url = URL.createObjectURL(this.blobAudio);
+        let sound = this;
+        this.audio = await new Promise((resolve, reject) => {
+          let audio = new Audio(url);
+  
+          audio.addEventListener("canplaythrough", () => resolve(audio), { once: true });
+          audio.addEventListener("error", () => reject(new Error(`Failed to load audio: ${url}`)), { once: true });
+  
+          audio.load();
+        });
+        this.loaded = true;
+      };
+
+      play(playOptionsInit={}) {
+        playOptionsInit.id = this.id;
+        let options = new ChoreoGraph.Audio.PlayOptions(playOptionsInit,this.cg.Audio);
+        return this.cg.Audio.play(options);
+      };
     };
 
     SoundInstance = class SoundInstance {
-      constructor(forceId=false,source,name,nodes=[]) {
-        this.id = forceId;
-        if (forceId===false) {
-          this.id = ChoreoGraph.AudioController.nextId;
-          ChoreoGraph.AudioController.nextId++;
-        }
-        this.source = source;
-        this.nodes = nodes;
-        this.name = name;
+      id = null;
+      source = null;
+      nodes = [];
+      sound = null;
+      paused = false;
+      lastPausedState = false;
 
-        this.paused = false;
-        this.lastPausedState = false;
-      }
-      start(loop=0, fadeinSeconds=0, volume=1, speed=1, forceid=false) {
-        return ChoreoGraph.AudioController.start(this.name, loop, fadeinSeconds, volume, speed, forceid);
+      constructor(init={}) {
+        ChoreoGraph.applyAttributes(this,init);
+        if (this.id==null) { this.id = ChoreoGraph.Audio.nextId; ChoreoGraph.Audio.nextId++; }
       }
       stop(fadeoutSeconds=0) {
-        ChoreoGraph.AudioController.stop(this.id, fadeoutSeconds);
+        this.cgAudio.stop(this.id, fadeoutSeconds);
+      }
+      applyEndListener() {
+        this.source.addEventListener('ended', e => {
+          if(!e.target.loop&&e.target.stopped!=true){
+            if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.AUDIOCONTEXT) {
+              e.target.stop();
+            } else if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.HTMLAUDIO) {
+              e.target.pause();
+            }
+            delete e.target.cgAudio.playing[e.target.id].sound.instances[e.target.id];
+            delete e.target.cgAudio.playing[e.target.id];
+          }
+        },{passive: true});
+      }
+    };
+
+    Bus = class Bus {
+      id = null;
+      gainNode = null;
+      constructor() {
+        this.gainNode = ChoreoGraph.Audio.ctx.createGain();
       }
     };
 
@@ -251,7 +363,8 @@ ChoreoGraph.plugin({
       document.removeEventListener("pointerdown", ChoreoGraph.Audio.documentClicked, false);
     };
 
-    generateImpulseResponse(duration, decay, doNotCache=false) {
+    generateImpulseResponse(duration, decay, cache=true) {
+      if (this.mode!=this.AUDIOCONTEXT) { console.warn("Impulse Response only available in AudioContext mode"); return; }
       if (this.cache["impulse_"+duration+"_"+decay]!=undefined) { return this.cache["impulse_"+duration+"_"+decay]; }
       let length = this.ctx.sampleRate * duration;
       let impulse = this.ctx.createBuffer(2,length,this.ctx.sampleRate)
@@ -261,12 +374,13 @@ ChoreoGraph.plugin({
         IR[i] = (2*Math.random()-1)*Math.pow(1-i/length,decay);
         IL[i] = IR[i];
       }
-      if (doNotCache==false) { this.cache["impulse_"+duration+"_"+decay] = impulse; }
+      if (cache) { this.cache["impulse_"+duration+"_"+decay] = impulse; }
       return impulse;
     };
 
     createEffectNode(type, options) {
       if (this.ctx==null) { console.warn("AudioContext not ready"); return; }
+      if (this.mode!=this.AUDIOCONTEXT) { console.warn("Nodes are only supported in AudioContext mode"); return; }
       if (type=="reverb") { // duration, decay
         let convolver = this.ctx.createConvolver();
         convolver.buffer = this.generateImpulseResponse(options.duration, options.decay);
@@ -300,77 +414,62 @@ ChoreoGraph.plugin({
     };
 
     checkSetup() {
-      if (this.mode==null&&this.interacted) { this.init(); }
-      if (this.mode==null) { return; }
-      if (this.loadBuffer.length>0) {
-        Audio.loadBuffer.forEach(sound => {
-          if (sound.options.autoplay) {
-            sound.options.loop = sound.options.loop || 0;
-            sound.options.volume = sound.options.volume === undefined ? 1 : sound.options.volume;
-            sound.options.speed = sound.options.speed === undefined ? 1 : sound.options.speed;
-            sound.options.fadeIn = sound.options.fadeIn || 0;
-            sound.options.forceId = sound.options.forceId || false;
-            sound.options.nodes = sound.options.nodes === undefined ? [] : sound.options.nodes;
+      if (this.mode==null&&this.interacted) { this.initContext(); }
+      if (this.mode==null) { return false; }
+      if (this.soundLoadBuffer.length+this.instanceLoadBuffer.length+this.playBuffer.length==0) { return true; }
+      else if (this.soundLoadBuffer.length>0) {
+        for (let i=0;i<this.soundLoadBuffer.length;i++) {
+          let sound = this.soundLoadBuffer[i];
+          if (sound.blobAudio!=null) {
+            if (this.mode==this.AUDIOCONTEXT) {
+              sound.audioContextInit();
+            } else if (this.mode==this.HTMLAUDIO) {
+              sound.HTMLAudioInit();
+            }
+            this.soundLoadBuffer.splice(i,1);
+            i--;
           }
-          if (Audio.mode=="AudioContext") {
-            sound.audioContextInit();
-          } else if (Audio.mode=="HTMLAudio") {
-            sound.HTMLAudioInit();
-          }
-          if (sound.options.autoplay&&ChoreoGraph.AudioController.mode=="HTMLAudio") {
-            ChoreoGraph.AudioController.start(sound.name, sound.options.loop, sound.options.fadeIn, sound.options.volume, sound.options.nodes, sound.options.forceId);
-          }
+        }
+      } else if (this.instanceLoadBuffer.length>0) {
+        this.instanceLoadBuffer.forEach(cgAudio => {
+          cgAudio.init();
         });
-        Audio.loadBuffer = [];
+        this.instanceLoadBuffer = [];
+      } else if (this.playBuffer.length>0) {
+        for (let i=0;i<this.playBuffer.length;i++) {
+          let options = this.playBuffer[i];
+          if (options.cgAudio.ready&&options.cgAudio.ready&&options.cgAudio.sounds[options.id].loaded) {
+            options.cgAudio.playWithOptions(options);
+            this.playBuffer.splice(i,1);
+            i--;
+          }
+        }
       }
+      return true;
     };
 
     initContext() {
+      let force = false;
+      for (let cg of ChoreoGraph.instances) {
+        if (cg.settings.audio.forceMode!==false) {
+          force = cg.settings.audio.forceMode;
+          break;
+        }
+      }
       let AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (AudioContext!=undefined&&["http:","https:"].includes(location.protocol)) {
+      if ((AudioContext!=undefined&&["http:","https:"].includes(location.protocol)&&force!=this.HTMLAUDIO)||force==this.AUDIOCONTEXT) {
         this.ctx = new AudioContext();
-        this.masterGain = this.ctx.createGain();
-        this.masterGain.gain.value = 1;
-        this.masterGain.connect(this.ctx.destination);
-        this.mode = "AudioContext";
+        this.mode = this.AUDIOCONTEXT;
       } else {
         console.warn("Using HTMLAudio")
-        this.mode = "HTMLAudio";
+        this.mode = this.HTMLAUDIO;
       }
     };
 
     update() {
-      this.checkSetup();      
-      if (Audio.ready==false) {
-        for (let name in Audio.sounds) {
-          if (Audio.sounds[name].loaded==false) { return; }
-        }
-        Audio.ready = true;
-        for (let name in Audio.sounds) {
-          let current = Audio.sounds[name];
-          if (current.options.autoplay) {
-            ChoreoGraph.AudioController.start(current.name, current.options.loop, current.options.fadeIn, current.options.volume, current.options.speed, current.options.forceId);
-          }
-        }
-      }
+      if (!ChoreoGraph.Audio.checkSetup()) { return; };
       if (Audio.calledOnReady==false&&Audio.ready&&Audio.onReady!==null) { Audio.calledOnReady = true; Audio.onReady(); }
-      if (Audio.masterVolume!=Audio.lastSeenMasterVolume) {
-        if (Audio.mode=="AudioContext") {
-          Audio.masterGain.gain.value = Audio.masterVolume;
-        } else if (Audio.mode=="HTMLAudio") {
-          for (let id in Audio.playing) {
-            if (Audio.masterVolume==0) {
-              Audio.playing[id].savedVolume = Audio.playing[id].source.volume;
-              Audio.playing[id].source.volume = 0;
-            } else {
-              Audio.playing[id].source.volume = Audio.playing[id].savedVolume;
-              delete Audio.playing[id].savedVolume;
-            }
-          }
-        }
-        Audio.lastSeenMasterVolume = Audio.masterVolume;
-      }
-      if (Audio.mode=="HTMLAudio") {
+      if (Audio.mode==ChoreoGraph.Audio.HTMLAUDIO) {
         for (let id in Audio.playing) {
           let sound = Audio.playing[id];
           if (sound.fadeEnd!=0) {
@@ -382,36 +481,40 @@ ChoreoGraph.plugin({
             }
           }
         }
-      }
+      };
       for (let id in Audio.playing) {
         let soundInstance = Audio.playing[id];
         if (soundInstance.paused!=soundInstance.lastPausedState) {
           if (soundInstance.paused) {
-            if (Audio.mode=="AudioContext") {
+            if (Audio.mode==ChoreoGraph.Audio.AUDIOCONTEXT) {
               soundInstance.source.playbackRate.value = 0;
-            } else if (Audio.mode=="HTMLAudio") {
+            } else if (Audio.mode==ChoreoGraph.Audio.HTMLAUDIO) {
               soundInstance.source.pause();
             }
           } else {
-            if (Audio.mode=="AudioContext") {
+            if (Audio.mode==ChoreoGraph.Audio.AUDIOCONTEXT) {
               soundInstance.source.playbackRate.value = 1;
-            } else if (Audio.mode=="HTMLAudio") {
+            } else if (Audio.mode==ChoreoGraph.Audio.HTMLAUDIO) {
               soundInstance.source.play();
             }
           }
         }
         soundInstance.lastPausedState = soundInstance.paused;
-      }
+      };
     };
   },
 
   instanceConnect(cg) {
+    cg.attachSettings("audio",{
+      basePath : "audio/",
+      forceMode : false, // false, "AudioContext", "HTMLAudio"
+      skipURIEncoding : false,
+      masterChangeTime : 0.3
+    });
     cg.keys.sounds = [];
     cg.Audio = new ChoreoGraph.Audio.instanceObject(cg);
+    cg.Audio.cg = cg;
     ChoreoGraph.globalLoops.push(ChoreoGraph.Audio.update);
-  },
-
-  instanceStart(cg) {
-
+    ChoreoGraph.Audio.instanceLoadBuffer.push(cg.Audio);
   }
 });

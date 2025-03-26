@@ -284,6 +284,12 @@ const ChoreoGraph = new class ChoreoGraphEngine {
           
           if (this.cg.settings.core.frustumCulling&&item.graphic.getBounds!==undefined) {
             let [bw, bh] = item.graphic.getBounds();
+
+            if (item.transform.r!==0) {
+              bw = Math.abs(bw*Math.cos(item.transform.r))+Math.abs(bh*Math.sin(item.transform.r));
+              bh = Math.abs(bw*Math.sin(item.transform.r))+Math.abs(bh*Math.cos(item.transform.r));
+            }
+
             bw *= item.transform.sx;
             bh *= item.transform.sy;
             let bx = gx+gax;
@@ -295,7 +301,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
             let cw = this.width/camera.z;
             let ch = this.height/camera.z;
             
-            if (bx+bw<cx-cw/2||bx-bw>cx+cw/2||by+bh<cy-ch/2||by-bh>cy+ch/2) { continue; }
+            if (bx+bw*0.5<cx-cw*0.5||bx-bw*0.5>cx+cw*0.5||by+bh*0.5<cy-ch*0.5||by-bh*0.5>cy+ch*0.5) { continue; }
           }
 
           ChoreoGraph.transformContext(this.camera,gx,gy,gr,gsx,gsy,CGSpace,flipX,flipY,canvasSpaceXAnchor,canvasSpaceYAnchor);
@@ -855,19 +861,17 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     ChoreoGraph.now = new Date();
     ChoreoGraph.nowint = ChoreoGraph.now.getTime();
     ChoreoGraph.timeDelta = performance.now() - ChoreoGraph.lastPerformanceTime;
-    for (let loop of this.globalLoops) {
+    for (let loop of ChoreoGraph.globalLoops) {
       loop(this);
     }
-    let skipFrame = ((1000/ChoreoGraph.timeDelta>ChoreoGraph.settings.maxFPS||(!document.hasFocus()&&ChoreoGraph.settings.pauseWhenUnfocused)));
-    if (skipFrame) {
-      ChoreoGraph.frame = requestAnimationFrame(ChoreoGraph.loop);
-    } else {
+    const skipFrame = ((1000/ChoreoGraph.timeDelta>ChoreoGraph.settings.maxFPS||(!document.hasFocus()&&ChoreoGraph.settings.pauseWhenUnfocused)));
+    if (!skipFrame) {
       ChoreoGraph.lastPerformanceTime = performance.now();
       for (let cg of ChoreoGraph.instances) {
         cg.timeDelta = ChoreoGraph.timeDelta*cg.settings.core.timeScale;
         cg.loop();
       }
-      ChoreoGraph.frame = requestAnimationFrame(ChoreoGraph.loop);
     }
+    ChoreoGraph.frame = requestAnimationFrame(ChoreoGraph.loop);
   };
 };

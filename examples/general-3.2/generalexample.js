@@ -4,6 +4,9 @@ const cg = ChoreoGraph.instantiate({
   },
   input : {
     preventSingleTouch : true
+  },
+  audio : {
+    // forceMode : "HTMLAudio"
   }
 });
 cg.createCanvas({element:document.getElementsByTagName("canvas")[0],
@@ -27,6 +30,9 @@ cg.scenes.main.createItem("graphic",{graphic:cg.graphics.cursorRectangle},"curso
 cg.scenes.main.createItem("graphic",{graphic:cg.graphics.canvasCursorRectangle},"canvasCursorRectangle");
 
 cg.Input.createButton({type:"rectangle",x:500,y:30,width:120},"egg");
+
+cg.Audio.createSound({source:"magneticPlane.mp3"},"magneticPlane");
+cg.Audio.sounds.magneticPlane.play({allowBuffer:true,loop:true});
 
 cg.settings.core.callbacks.loopBefore = () => {
   cg.sceneItems.cursorRectangle.transform.x = cg.Input.cursor.x;
