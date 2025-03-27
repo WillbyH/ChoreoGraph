@@ -21,6 +21,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     sceneItems = {};
     objects = {};
     transforms = {};
+    images = {};
 
     keys = {
       canvases : [],
@@ -29,7 +30,8 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       graphics : [],
       sceneItems : [],
       objects : [],
-      transforms : []
+      transforms : [],
+      images : []
     };
 
     disabled = false;
@@ -76,6 +78,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         waitUntilReady : true,
         canvasSpaceScale : 1,
         frustumCulling : true,
+        baseImagePath : "images/",
         callbacks : {
           loopBefore : null, // loopBefore(cg) runs before canvases are drawn
           loopAfter : null, // loopAfter(cg) runs after canvases are drawn
@@ -207,7 +210,16 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       this.transforms[id] = newTransform;
       this.keys.transforms.push(id);
       return newTransform;
-    }
+    };
+    createImage(imageInit,id=ChoreoGraph.id.get()) {
+      let newImage = new ChoreoGraph.Image(imageInit,this);
+      newImage.id = id;
+      newImage.cg = this;
+      ChoreoGraph.applyAttributes(newImage,imageInit);
+      this.images[id] = newImage;
+      this.keys.images.push(id);
+      return newImage;
+    };
   }
   Canvas = class cgCanvas {
     width = 600;
@@ -273,6 +285,8 @@ const ChoreoGraph = new class ChoreoGraphEngine {
           let gy = item.transform.y;
           let gax = item.transform.ax;
           let gay = item.transform.ay;
+          let gox = item.transform.ox;
+          let goy = item.transform.oy;
           let gr = item.transform.r;
           let gsx = item.transform.sx;
           let gsy = item.transform.sy;
@@ -282,29 +296,45 @@ const ChoreoGraph = new class ChoreoGraphEngine {
           let canvasSpaceXAnchor = item.transform.canvasSpaceXAnchor;
           let canvasSpaceYAnchor = item.transform.canvasSpaceYAnchor;
           
+          let box = 0;
+          let boy = 0;
+
           if (this.cg.settings.core.frustumCulling&&item.graphic.getBounds!==undefined) {
             let [bw, bh] = item.graphic.getBounds();
 
             if (item.transform.r!==0) {
-              bw = Math.abs(bw*Math.cos(item.transform.r))+Math.abs(bh*Math.sin(item.transform.r));
-              bh = Math.abs(bw*Math.sin(item.transform.r))+Math.abs(bh*Math.cos(item.transform.r));
+              let r = -item.transform.r+90;
+              let rad = r*Math.PI/180;
+              let savedbw = bw;
+              bw = Math.abs(bw*Math.cos(rad))+Math.abs(bh*Math.sin(rad));
+              bh = Math.abs(savedbw*Math.sin(rad))+Math.abs(bh*Math.cos(rad));
+
+              let rox = Math.sin(rad)*gax-Math.cos(rad)*gay;
+              let roy = Math.cos(rad)*gax+Math.sin(rad)*gay;
+              box += rox;
+              boy += roy;
+            } else {
+              box += gax;
+              boy += gay;
             }
 
             bw *= item.transform.sx;
             bh *= item.transform.sy;
-            let bx = gx+gax;
-            let by = gy+gay;
+            let bx = gx+gox+box;
+            let by = gy+goy+boy;
             let camera = this.camera;
             if (camera.cullOverride!==null) { camera = camera.cullOverride; }
             let cx = camera.x;
             let cy = camera.y;
             let cw = this.width/camera.z;
             let ch = this.height/camera.z;
+
+            ChoreoGraph.transformContext(this.camera,bx,by);
             
             if (bx+bw*0.5<cx-cw*0.5||bx-bw*0.5>cx+cw*0.5||by+bh*0.5<cy-ch*0.5||by-bh*0.5>cy+ch*0.5) { continue; }
           }
 
-          ChoreoGraph.transformContext(this.camera,gx,gy,gr,gsx,gsy,CGSpace,flipX,flipY,canvasSpaceXAnchor,canvasSpaceYAnchor);
+          ChoreoGraph.transformContext(this.camera,gx+gox,gy+goy,gr,gsx,gsy,CGSpace,flipX,flipY,canvasSpaceXAnchor,canvasSpaceYAnchor);
 
           item.graphic.draw(this.c,gax,gay);
         } else if (item.type=="collection") {
@@ -497,7 +527,8 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     constructor(graphicInit,cg) {
       let graphicType = cg.graphicTypes[graphicInit.type];
       if (graphicType!==undefined) {
-        if (graphicType.setup!==undefined) { graphicType.setup(this,graphicInit,cg); }
+        this.setup = graphicType.setup;
+        if (this.setup!==undefined) { this.setup(graphicInit,cg); }
       } else {
         console.error("Graphic type not found:",graphicInit.type);
         return;
@@ -535,7 +566,92 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     CGSpace = true; // CG Space or Canvas Space
     canvasSpaceXAnchor = 0; // 0-1
     canvasSpaceYAnchor = 0; // 0-1
-  }
+  };
+
+  Image = class cgImage {
+    file = null;
+    image = null;
+    id = null;
+
+    crop = [0,0,100,100];
+    unsetCrop = true;
+
+    rawWidth = 0;
+    rawHeight = 0;
+
+    width = 100;
+    height = 100;
+
+    scale = [1,1];
+    ready = false;
+    loadAttempts = 0;
+
+    onLoad = null;
+
+    constructor(imageInit,cg) {
+      if (imageInit.crop!=undefined) { this.unsetCrop = false; }
+
+      ChoreoGraph.applyAttributes(this,imageInit);
+  
+      if (this.file==null) { console.error("Image file not defined for " + this.id); return; };
+      if (this.file.includes(".svg")&&this.disableCropping==undefined) { this.disableCropping = true; }
+  
+      if (this.image==null&&this.canvasOnCanvas) { // Creates a canvas and makes the image get drawn without cropping
+        this.image = document.createElement("canvas");
+        this.image.width = this.crop[2];
+        this.image.height = this.crop[3];
+        this.image.style.imageRendering = "pixelated";
+  
+        this.rawImage = document.createElement("IMG");
+        this.rawImage.ctx = this.image.getContext("2d");
+        this.rawImage.src = cg.settings.core.baseImagePath + this.file;
+        this.rawImage.DrawableImage = this;
+  
+        this.rawImage.onload = function() {
+          let image = this.DrawableImage;
+          this.ctx.drawImage(this, image.crop[0], image.crop[1], image.crop[2], image.crop[3], 0, 0, image.crop[2], image.crop[3]);
+  
+          if (image.width==undefined) { image.width = image.crop[2]*image.scale[0]; }
+          if (image.height==undefined) { image.height = image.crop[3]*image.scale[1]; }
+  
+          image.ready = true;
+          if (image.onLoad!=null) { image.onLoad(image); }
+        }
+        document.body.appendChild(this.image);
+      } else if (this.image==null) {
+        this.image = document.createElement("IMG");
+        this.image.engId = this.id;
+  
+        this.image.onload = () => {
+          this.rawWidth = this.image.width;
+          this.rawHeight = this.image.height;
+  
+          if (this.unsetCrop) {
+            if (this.width==undefined) { this.width = this.rawWidth*this.scale[0]; }
+            if (this.height==undefined) { this.height = this.rawHeight*this.scale[1]; }
+            this.crop = [0,0,this.rawWidth,this.rawHeight]; delete this.unsetCrop;
+          } else {
+            if (this.width==undefined) { this.width = this.crop[2]*this.scale[0]; }
+            if (this.height==undefined) { this.height = this.crop[3]*this.scale[1]; }
+          }
+  
+          this.ready = true;
+          if (this.onLoad!=null) { this.onLoad(this); }
+        }
+  
+        this.image.onerror = () => { // Reload the image if it fails
+          if (this.loadAttempts<3) {
+            console.warn("Load failed for " + this.id);
+            this.loadAttempts++;
+            console.log(cg.settings.core.baseImagePath + this.file)
+            this.image.src = cg.settings.core.baseImagePath + this.file;
+          } else { console.error("Image failed to load for " + this.id + " at " + this.image.src); return; }
+        };
+  
+        this.image.src = cg.settings.core.baseImagePath + this.file;
+      }
+    }
+  };
 
   Object = class cgObject {
     components = {};
@@ -728,25 +844,56 @@ const ChoreoGraph = new class ChoreoGraphEngine {
 
   attachCoreGraphicTypes(cg) {
     cg.graphicTypes.rectangle = new class RectangleGraphic {
-      setup(g,init,cg) {
-        g.fill = true;
-        g.lineWidth = 1;
-        g.lineJoin = "round";
-        g.miterLimit = 10;
+      setup(init,cg) {
+        this.fill = true;
+        this.lineWidth = 1;
+        this.lineJoin = "round";
+        this.miterLimit = 10;
   
-        g.width = 50;
-        g.height = 50;
-        g.colour = "#ff0000";
-      }
+        this.width = 50;
+        this.height = 50;
+        this.colour = "#ff0000";
+      };
       draw(c,ax,ay) {
         c.beginPath();
         c.rect(-this.width/2+ax, -this.height/2+ay, this.width, this.height);
         if (this.fill) { c.fillStyle = this.colour; c.fill(); } else { c.lineWidth = this.lineWidth; c.strokeStyle = this.colour; c.stroke(); }
-      }
+      };
       getBounds() {
         return [this.width,this.height];
-      }
-    }
+      };
+    };
+    cg.graphicTypes.image = new class ImageGraphic {
+      setup(init,cg) {
+        if (init.image==undefined) { console.error("Image not defined in image graphic"); return; }
+        this.image = init.image;
+        if (this.image.width==undefined||this.image.height==undefined) {
+          if (this.image.graphicsAwaitingImageLoad==undefined) { this.image.graphicsAwaitingImageLoad = []; }
+          this.image.graphicsAwaitingImageLoad.push(g);
+          this.image.onLoad = function(image) {
+            for (let g=0; g<image.graphicsAwaitingImageLoad.length; g++) {
+              let g = image.graphicsAwaitingImageLoad[g];
+              if (this.width==undefined) { this.width = image.width; }
+              if (this.height==undefined) { this.height = image.height; }
+            }
+            delete image.graphicsAwaitingImageLoad;
+          }
+        }
+        this.width = this.image.width;
+        this.height = this.image.height;
+      };
+      draw(c,ax,ay) {
+        if (this.image.canvasOnCanvas||this.image.disableCropping) {
+          c.drawImage(this.image.image, -(this.width/2)+ax, -(this.height/2)+ay, this.width, this.height);
+        } else {
+          let crop = this.image.crop;
+          c.drawImage(this.image.image, crop[0], crop[1], crop[2], crop[3], -(this.width/2)+ax, -(this.height/2)+ay, this.width, this.height);
+        }
+      };
+      getBounds() {
+        return [this.width,this.height];
+      };
+    };
   };
 
   applyAttributes(obj,attributes) {

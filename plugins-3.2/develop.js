@@ -206,17 +206,28 @@ ChoreoGraph.plugin({
                   let gy = item.transform.y;
                   let gax = item.transform.ax;
                   let gay = item.transform.ay;
+                  let gox = item.transform.ox;
+                  let goy = item.transform.oy;
                   let [bw, bh] = item.graphic.getBounds();
                   bw *= item.transform.sx;
                   bh *= item.transform.sy;
                   if (item.transform.r!==0) {
-                    let rad = item.transform.r*Math.PI/180;
+                    let r = -item.transform.r+90;
+                    let rad = r*Math.PI/180;
                     let savedbw = bw;
                     bw = Math.abs(bw*Math.cos(rad))+Math.abs(bh*Math.sin(rad));
                     bh = Math.abs(savedbw*Math.sin(rad))+Math.abs(bh*Math.cos(rad));
+
+                    let rox = Math.sin(rad)*gax-Math.cos(rad)*gay;
+                    let roy = Math.cos(rad)*gax+Math.sin(rad)*gay;
+                    gox += rox;
+                    goy += roy;
+                  } else {
+                    gox += gax;
+                    goy += gay;
                   }
-                  let bx = gx+gax;
-                  let by = gy+gay;
+                  let bx = gx+gox;
+                  let by = gy+goy;
                   let cx = cullCamera.x;
                   let cy = cullCamera.y;
                   let cw = canvas.width/cullCamera.z;

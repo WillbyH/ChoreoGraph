@@ -27,7 +27,7 @@ cg.createGraphic({type:"rectangle",width:25,height:25,colour:"magenta"},"canvasC
 cg.scenes.main.createItem("graphic",{graphic:cg.graphics.downRectangle},"downRectangle","stuff");
 cg.scenes.main.createItem("graphic",{graphic:cg.graphics.upRectangle},"upRectangle","stuff");
 cg.scenes.main.createItem("graphic",{graphic:cg.graphics.cursorRectangle},"cursorRectangle");
-cg.scenes.main.createItem("graphic",{graphic:cg.graphics.canvasCursorRectangle},"canvasCursorRectangle");
+// cg.scenes.main.createItem("graphic",{graphic:cg.graphics.canvasCursorRectangle},"canvasCursorRectangle");
 
 cg.Input.createButton({type:"rectangle",x:500,y:30,width:120},"egg");
 
@@ -44,8 +44,8 @@ cg.settings.core.callbacks.loopBefore = () => {
   cg.sceneItems.upRectangle.transform.x = cg.Input.cursor.up.any.x;
   cg.sceneItems.upRectangle.transform.y = cg.Input.cursor.up.any.y;
 
-  cg.sceneItems.canvasCursorRectangle.transform.x = cg.Input.cursor.canvasX;
-  cg.sceneItems.canvasCursorRectangle.transform.y = cg.Input.cursor.canvasY;
+  // cg.sceneItems.canvasCursorRectangle.transform.x = cg.Input.cursor.canvasX;
+  // cg.sceneItems.canvasCursorRectangle.transform.y = cg.Input.cursor.canvasY;
 }
 cg.settings.core.callbacks.loopAfter = () => {
   cg.c.strokeStyle = "white";

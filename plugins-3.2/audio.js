@@ -286,7 +286,7 @@ ChoreoGraph.plugin({
         source = source.join("/");
         if (this.cg.settings.audio.skipURIEncoding) { source = this.source; }
 
-        let response = await fetch(this.cg.settings.audio.basePath+source);
+        let response = await fetch(this.cg.settings.audio.baseAudioPath+source);
         this.blobAudio = await response.blob();
       };
 
@@ -506,7 +506,7 @@ ChoreoGraph.plugin({
 
   instanceConnect(cg) {
     cg.attachSettings("audio",{
-      basePath : "audio/",
+      baseAudioPath : "audio/",
       forceMode : false, // false, "AudioContext", "HTMLAudio"
       skipURIEncoding : false,
       masterChangeTime : 0.3
