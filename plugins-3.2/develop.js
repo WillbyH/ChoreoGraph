@@ -62,9 +62,9 @@ ChoreoGraph.plugin({
         this.featureData.freeCam.active = true;
         let canvas = this.cg.Develop.selectedCanvas;
         if (this.featureData.freeCam.canvasData[canvas.id]===undefined) {
+          let transform = this.cg.createTransform({x:canvas.camera.transform.x,y:canvas.camera.transform.y},"develop_freeCam-"+canvas.id);
           let freeCamera = this.cg.createCamera({
-            x : canvas.camera.x,
-            y : canvas.camera.y,
+            transform : transform,
             z : canvas.camera.z,
             scaleMode : canvas.camera.scaleMode,
             WHRatio : canvas.camera.WHRatio,
@@ -131,14 +131,14 @@ ChoreoGraph.plugin({
               }
               let xo = (data.downCursorPosition.x - cg.Input.cursor.clientX)/camera.z;
               let yo = (data.downCursorPosition.y - cg.Input.cursor.clientY)/camera.z;
-              camera.x = data.downCameraPosition.x + xo;
-              camera.y = data.downCameraPosition.y + yo;
+              camera.transform.x = data.downCameraPosition.x + xo;
+              camera.transform.y = data.downCameraPosition.y + yo;
             } else {
               if (cg.Input.cursor.hold.any) {
                 data.dragging = true;
                 data.downCameraPosition = {
-                  x : camera.x,
-                  y : camera.y
+                  x : camera.transform.x,
+                  y : camera.transform.y
                 };
                 data.downCursorPosition = {
                   x : cg.Input.cursor.clientX,

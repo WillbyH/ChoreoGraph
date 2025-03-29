@@ -592,10 +592,25 @@ ChoreoGraph.plugin({
 
       allowUpWithNoPress = false;
 
-      x = 0;
-      y = 0;
+      get x() { return this.transform.x; }
+      get y() { return this.transform.y; }
+
+      transform = null;
 
       scene = null;
+
+      constructor(buttonInit) {
+        if (buttonInit.transform===undefined) {
+          if (buttonInit.transformId!=undefined) {
+            this.transform = cg.createTransform();
+          } else {
+            this.transform = cg.createTransform({},buttonInit.transformId);
+            delete buttonInit.transformId;
+          }
+        }
+        if (buttonInit.x!=undefined) { this.transform.x = buttonInit.x; delete buttonInit.x; }
+        if (buttonInit.y!=undefined) { this.transform.y = buttonInit.y; delete buttonInit.y; }
+      }
 
       cursorNear(cursor) {
         if (cursor.canvas.camera==null) { return false; }

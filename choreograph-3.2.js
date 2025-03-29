@@ -168,18 +168,17 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         ChoreoGraph.id.release(id);
         newCanvas.id = "main";
         newCanvas.setCamera(this.cameras.main);
-        this.cameras.main.x = newCanvas.width/2;
-        this.cameras.main.y = newCanvas.height/2;
+        this.cameras.main.transform.x = newCanvas.width/2;
+        this.cameras.main.transform.y = newCanvas.height/2;
       }
       this.canvases[newCanvas.id] = newCanvas;
       this.keys.canvases.push(newCanvas.id);
       return newCanvas;
     };
     createCamera(cameraInit={},id=ChoreoGraph.id.get()) {
-      let newCamera = new ChoreoGraph.Camera();
+      let newCamera = new ChoreoGraph.Camera(cameraInit,this);
       newCamera.id = id;
       newCamera.cg = this;
-      ChoreoGraph.applyAttributes(newCamera,cameraInit);
       this.cameras[id] = newCamera;
       this.keys.cameras.push(id);
       return newCamera;
@@ -197,7 +196,6 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       let newGraphic = new ChoreoGraph.Graphic(graphicInit,this);
       newGraphic.id = id;
       newGraphic.cg = this;
-      ChoreoGraph.applyAttributes(newGraphic,graphicInit);
       this.graphics[id] = newGraphic;
       this.keys.graphics.push(id);
       return newGraphic;
@@ -358,9 +356,11 @@ const ChoreoGraph = new class ChoreoGraphEngine {
 
     cullOverride = null; // A camera that will be used instead of the current for culling
 
-    x = 0;
-    y = 0;
+    get x() { return this.transform.x+this.transform.ox; };
+    get y() { return this.transform.y+this.transform.oy; };
     z = 1; // Zoom
+
+    transform = null;
 
     scaleMode = "pixels";
 
@@ -390,6 +390,20 @@ const ChoreoGraph = new class ChoreoGraphEngine {
           return this.z*(this.canvas.height/this.maximumSize);
         }
       }
+    };
+
+    constructor(cameraInit,cg) {
+      if (cameraInit.transform===undefined) {
+        if (cameraInit.transformId!=undefined) {
+          this.transform = cg.createTransform();
+        } else {
+          this.transform = cg.createTransform({},cameraInit.transformId);
+          delete cameraInit.transformId;
+        }
+      }
+      if (cameraInit.x!=undefined) { this.transform.x = cameraInit.x; delete cameraInit.x; }
+      if (cameraInit.y!=undefined) { this.transform.y = cameraInit.y; delete cameraInit.y; }
+      ChoreoGraph.applyAttributes(this,cameraInit);
     };
 
     addScene(scene) {
