@@ -151,6 +151,7 @@ ChoreoGraph.plugin({
       };
 
       overlayLoop(cg) {
+        // CAMERAS
         if (cg.settings.develop.cameras.active) {
           let byScene = {};
           for (let cameraId of cg.keys.cameras) {
@@ -188,6 +189,7 @@ ChoreoGraph.plugin({
             }
           }
         };
+        // FRUSTUM CULLING
         if (cg.settings.develop.frustumCulling.active) {
           for (let canvasId of cg.keys.canvases) {
             let canvas = cg.canvases[canvasId];
@@ -206,8 +208,6 @@ ChoreoGraph.plugin({
                   let gy = item.transform.y;
                   let gax = item.transform.ax;
                   let gay = item.transform.ay;
-                  let gox = item.transform.ox;
-                  let goy = item.transform.oy;
                   let [bw, bh] = item.graphic.getBounds();
                   bw *= item.transform.sx;
                   bh *= item.transform.sy;
@@ -220,25 +220,23 @@ ChoreoGraph.plugin({
 
                     let rox = Math.sin(rad)*gax-Math.cos(rad)*gay;
                     let roy = Math.cos(rad)*gax+Math.sin(rad)*gay;
-                    gox += rox;
-                    goy += roy;
+                    gx += rox;
+                    gy += roy;
                   } else {
-                    gox += gax;
-                    goy += gay;
+                    gx += gax;
+                    gy += gay;
                   }
-                  let bx = gx+gox;
-                  let by = gy+goy;
                   let cx = cullCamera.x;
                   let cy = cullCamera.y;
                   let cw = canvas.width/cullCamera.z;
                   let ch = canvas.height/cullCamera.z;
                   
                   c.strokeStyle = cg.settings.develop.frustumCulling.unculledBoxColour;
-                  if (bx+bw*0.5<cx-cw*0.5||bx-bw*0.5>cx+cw*0.5||by+bh*0.5<cy-ch*0.5||by-bh*0.5>cy+ch*0.5) {
+                  if (gx+bw*0.5<cx-cw*0.5||gx-bw*0.5>cx+cw*0.5||gy+bh*0.5<cy-ch*0.5||gy-bh*0.5>cy+ch*0.5) {
                     c.strokeStyle = cg.settings.develop.frustumCulling.culledBoxColour;
                   }
 
-                  ChoreoGraph.transformContext(canvas.camera,bx,by);
+                  ChoreoGraph.transformContext(canvas.camera,gx,gy);
 
                   c.strokeRect(-bw/2,-bh/2,bw,bh);
 

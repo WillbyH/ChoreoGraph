@@ -19,9 +19,9 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     scenes = {};
     graphics = {};
     sceneItems = {};
-    objects = {};
     transforms = {};
     images = {};
+    objects = {};
 
     keys = {
       canvases : [],
@@ -29,9 +29,9 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       scenes : [],
       graphics : [],
       sceneItems : [],
-      objects : [],
       transforms : [],
-      images : []
+      images : [],
+      objects : []
     };
 
     disabled = false;
@@ -157,7 +157,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       }
     }
 
-    createCanvas(canvasInit,id=ChoreoGraph.id.get()) {
+    createCanvas(canvasInit={},id=ChoreoGraph.id.get()) {
       let newCanvas = new ChoreoGraph.Canvas(canvasInit,this);
       newCanvas.id = id;
       newCanvas.cg = this;
@@ -175,8 +175,8 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       this.keys.canvases.push(newCanvas.id);
       return newCanvas;
     };
-    createCamera(cameraInit,id=ChoreoGraph.id.get()) {
-      let newCamera = new ChoreoGraph.Camera(id,this);
+    createCamera(cameraInit={},id=ChoreoGraph.id.get()) {
+      let newCamera = new ChoreoGraph.Camera();
       newCamera.id = id;
       newCamera.cg = this;
       ChoreoGraph.applyAttributes(newCamera,cameraInit);
@@ -184,8 +184,8 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       this.keys.cameras.push(id);
       return newCamera;
     };
-    createScene(sceneInit,id=ChoreoGraph.id.get()) {
-      let newScene = new ChoreoGraph.Scene(id,this);
+    createScene(sceneInit={},id=ChoreoGraph.id.get()) {
+      let newScene = new ChoreoGraph.Scene();
       newScene.id = id;
       newScene.cg = this;
       ChoreoGraph.applyAttributes(newScene,sceneInit);
@@ -193,7 +193,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       this.keys.scenes.push(id);
       return newScene;
     };
-    createGraphic(graphicInit,id=ChoreoGraph.id.get()) {
+    createGraphic(graphicInit={},id=ChoreoGraph.id.get()) {
       let newGraphic = new ChoreoGraph.Graphic(graphicInit,this);
       newGraphic.id = id;
       newGraphic.cg = this;
@@ -202,7 +202,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       this.keys.graphics.push(id);
       return newGraphic;
     };
-    createTransform(transformInit,id=ChoreoGraph.id.get()) {
+    createTransform(transformInit={},id=ChoreoGraph.id.get()) {
       let newTransform = new ChoreoGraph.Transform(transformInit,this);
       newTransform.id = id;
       newTransform.cg = this;
@@ -211,14 +211,21 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       this.keys.transforms.push(id);
       return newTransform;
     };
-    createImage(imageInit,id=ChoreoGraph.id.get()) {
+    createImage(imageInit={},id=ChoreoGraph.id.get()) {
       let newImage = new ChoreoGraph.Image(imageInit,this);
       newImage.id = id;
       newImage.cg = this;
-      ChoreoGraph.applyAttributes(newImage,imageInit);
       this.images[id] = newImage;
       this.keys.images.push(id);
       return newImage;
+    };
+    createObject(objectInit={},id=ChoreoGraph.id.get()) {
+      let newObject = new ChoreoGraph.Object(objectInit,this);
+      newObject.id = id;
+      newObject.cg = this;
+      this.objects[id] = newObject;
+      this.keys.objects.push(id);
+      return newObject;
     };
   }
   Canvas = class cgCanvas {
@@ -244,7 +251,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       this.c = this.element.getContext("2d",{alpha:this.background==null});
       this.element.style.imageRendering = "pixelated"; // Remove anti-ailiasing
       this.element.cgCanvas = this;
-    }
+    };
 
     setupParentElement(parentElement) {
       let ro = new ResizeObserver(entries => {
@@ -257,14 +264,14 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         }
       });
       ro.observe(parentElement);
-    }
+    };
     setCamera(camera) {
       if (this.camera !== null) {
         this.camera.canvas = null;
       }
       this.camera = camera;
       camera.canvas = this;
-    }
+    };
     draw() {
       this.c.resetTransform();
       if (this.background === null) {
@@ -277,70 +284,71 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       for (let scene of this.camera.scenes) {
         this.drawCollection(scene.drawBuffer);
       }
-    }
+    };
     drawCollection(collection) {
       for (let item of collection) {
         if (item.type=="graphic") {
-          let gx = item.transform.x;
-          let gy = item.transform.y;
-          let gax = item.transform.ax;
-          let gay = item.transform.ay;
-          let gox = item.transform.ox;
-          let goy = item.transform.oy;
-          let gr = item.transform.r;
-          let gsx = item.transform.sx;
-          let gsy = item.transform.sy;
-          let CGSpace = item.transform.CGSpace;
-          let flipX = item.transform.flipX;
-          let flipY = item.transform.flipY;
-          let canvasSpaceXAnchor = item.transform.canvasSpaceXAnchor;
-          let canvasSpaceYAnchor = item.transform.canvasSpaceYAnchor;
-          
-          let box = 0;
-          let boy = 0;
-
-          if (this.cg.settings.core.frustumCulling&&item.graphic.getBounds!==undefined) {
-            let [bw, bh] = item.graphic.getBounds();
-
-            if (item.transform.r!==0) {
-              let r = -item.transform.r+90;
-              let rad = r*Math.PI/180;
-              let savedbw = bw;
-              bw = Math.abs(bw*Math.cos(rad))+Math.abs(bh*Math.sin(rad));
-              bh = Math.abs(savedbw*Math.sin(rad))+Math.abs(bh*Math.cos(rad));
-
-              let rox = Math.sin(rad)*gax-Math.cos(rad)*gay;
-              let roy = Math.cos(rad)*gax+Math.sin(rad)*gay;
-              box += rox;
-              boy += roy;
-            } else {
-              box += gax;
-              boy += gay;
-            }
-
-            bw *= item.transform.sx;
-            bh *= item.transform.sy;
-            let bx = gx+gox+box;
-            let by = gy+goy+boy;
-            let camera = this.camera;
-            if (camera.cullOverride!==null) { camera = camera.cullOverride; }
-            let cx = camera.x;
-            let cy = camera.y;
-            let cw = this.width/camera.z;
-            let ch = this.height/camera.z;
-
-            ChoreoGraph.transformContext(this.camera,bx,by);
-            
-            if (bx+bw*0.5<cx-cw*0.5||bx-bw*0.5>cx+cw*0.5||by+bh*0.5<cy-ch*0.5||by-bh*0.5>cy+ch*0.5) { continue; }
-          }
-
-          ChoreoGraph.transformContext(this.camera,gx+gox,gy+goy,gr,gsx,gsy,CGSpace,flipX,flipY,canvasSpaceXAnchor,canvasSpaceYAnchor);
-
-          item.graphic.draw(this.c,gax,gay);
+          this.drawGraphic(item);
         } else if (item.type=="collection") {
           this.drawCollection(item.children);
         }
       }
+    };
+    drawGraphic(item) {
+      let gx = item.transform.x;
+      let gy = item.transform.y;
+      let gax = item.transform.ax;
+      let gay = item.transform.ay;
+      let gr = item.transform.r;
+      let gsx = item.transform.sx;
+      let gsy = item.transform.sy;
+      let CGSpace = item.transform.CGSpace;
+      let flipX = item.transform.flipX;
+      let flipY = item.transform.flipY;
+      let canvasSpaceXAnchor = item.transform.canvasSpaceXAnchor;
+      let canvasSpaceYAnchor = item.transform.canvasSpaceYAnchor;
+      
+      let box = 0;
+      let boy = 0;
+
+      if (this.cg.settings.core.frustumCulling&&item.graphic.getBounds!==undefined) {
+        let [bw, bh] = item.graphic.getBounds();
+
+        if (item.transform.r!==0) {
+          let r = -item.transform.r+90;
+          let rad = r*Math.PI/180;
+          let savedbw = bw;
+          bw = Math.abs(bw*Math.cos(rad))+Math.abs(bh*Math.sin(rad));
+          bh = Math.abs(savedbw*Math.sin(rad))+Math.abs(bh*Math.cos(rad));
+
+          let rox = Math.sin(rad)*gax-Math.cos(rad)*gay;
+          let roy = Math.cos(rad)*gax+Math.sin(rad)*gay;
+          box += rox;
+          boy += roy;
+        } else {
+          box += gax;
+          boy += gay;
+        }
+
+        bw *= item.transform.sx;
+        bh *= item.transform.sy;
+        let bx = gx+box;
+        let by = gy+boy;
+        let camera = this.camera;
+        if (camera.cullOverride!==null) { camera = camera.cullOverride; }
+        let cx = camera.x;
+        let cy = camera.y;
+        let cw = this.width/camera.z;
+        let ch = this.height/camera.z;
+
+        ChoreoGraph.transformContext(this.camera,bx,by);
+        
+        if (bx+bw*0.5<cx-cw*0.5||bx-bw*0.5>cx+cw*0.5||by+bh*0.5<cy-ch*0.5||by-bh*0.5>cy+ch*0.5) { return; }
+      }
+
+      ChoreoGraph.transformContext(this.camera,gx,gy,gr,gsx,gsy,CGSpace,flipX,flipY,canvasSpaceXAnchor,canvasSpaceYAnchor);
+
+      item.graphic.draw(this.c,gax,gay);
     }
   };
 
@@ -455,7 +463,13 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         }
       }
       return newItem;
-    }
+    };
+    addObject(object) {
+      this.objects.push(object);
+    };
+    removeObject(object) {
+      this.objects.splice(this.objects.indexOf(object),1);
+    };
     remove(id) {
       for (let i=0;i<this.structure.length;i++) {
         if (this.structure[i].id==id) {
@@ -463,13 +477,13 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         }
       }
       return this;
-    }
+    };
     update() {
       this.drawBuffer.length = 0;
       this.drawBufferCollections = {};
       this.processCollection(this.structure,this.drawBuffer);
       this.processObjects();
-    }
+    };
     processCollection(collection,buffer) {
       for (let item of collection) {
         if (item.type=="graphic") {
@@ -482,19 +496,12 @@ const ChoreoGraph = new class ChoreoGraphEngine {
           this.processCollection(item.children,newBufferCollection.children);
         }
       }
-    }
+    };
     processObjects() {
       for (let object of this.objects) {
-        let graphics = object.update();
-        for (let graphic of graphics) {
-          if (graphic.collection===null) {
-            this.drawBuffer.push(graphic);
-          } else {
-            this.drawBufferCollections[graphic.collection].push(graphic);
-          }
-        }
+        object.update(this);
       }
-    }
+    };
     addToBuffer(graphic,transform,collection=null) {
       if (collection===null) {
         this.drawBuffer.push({type:"graphic",transform:transform,graphic:graphic});
@@ -504,7 +511,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         }
         this.drawBufferCollections[collection].push({type:"graphic",transform:transform,graphic:graphic});
       }
-    }
+    };
   };
 
   SceneItem = class cgSceneItem {
@@ -542,23 +549,18 @@ const ChoreoGraph = new class ChoreoGraphEngine {
   };
 
   Transform = class cgTransform {
-    x = 0; // X
-    y = 0; // Y
-    sx = 1; // Scale X
-    sy = 1; // Scale Y
-    ax = 0; // Anchor X
-    ay = 0; // Anchor Y
-    r = 0; // Rotation
-    o = 1; // Opacity
+    _x = 0; // X
+    _y = 0; // Y
+    _sx = 1; // Scale X
+    _sy = 1; // Scale Y
+    _ax = 0; // Anchor X
+    _ay = 0; // Anchor Y
+    _r = 0; // Rotation
+    _o = 1; // Opacity
 
     ox = 0; // Offset X
     oy = 0; // Offset Y
-    osx = 0; // Offset Scale X
-    osy = 0; // Offset Scale Y
-    oax = 0; // Offset Anchor X
-    oay = 0; // Offset Anchor Y
     or = 0; // Offset Rotation
-    oo = 0; // Offset Opacity
 
     flipX = false; // Flip X
     flipY = false; // Flip Y
@@ -566,6 +568,31 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     CGSpace = true; // CG Space or Canvas Space
     canvasSpaceXAnchor = 0; // 0-1
     canvasSpaceYAnchor = 0; // 0-1
+
+    parent = null;
+
+    get x() { if (this.parent===null) { return this._x+this.ox; } else { return this.parent.x+this._x+this.ox } }
+    set x(value) { this._x = value; }
+    get y() { if (this.parent===null) { return this._y+this.oy; } else { return this.parent.y+this._y+this.oy } }
+    set y(value) { this._y = value; }
+    get sx() { if (this.parent===null) { return this._sx; } else { return this.parent.sx*this._sx } }
+    set sx(value) { this._sx = value; }
+    get sy() { if (this.parent===null) { return this._sy; } else { return this.parent.sy*this._sy } }
+    set sy(value) { this._sy = value; }
+    get ax() { if (this.parent===null) { return this._ax; } else { return this.parent.ax+this._ax } }
+    set ax(value) { this._ax = value; }
+    get ay() { if (this.parent===null) { return this._ay; } else { return this.parent.ay+this._ay } }
+    set ay(value) { this._ay = value; }
+    get r() { if (this.parent===null) { return this._r+this.or; } else { return this.parent.r+this._r+this.or } }
+    set r(value) { this._r = value; }
+    get o() { if (this.parent===null) { return this._o; } else { return this.parent.o*this._o } }
+    set o(value) { this._o = value; }
+
+    delete() {
+      ChoreoGraph.id.release(this.id);
+      this.cg.keys.transforms.splice(this.cg.keys.transforms.indexOf(this.id),1);
+      delete this.cg.transforms[this.id];
+    }
   };
 
   Image = class cgImage {
@@ -654,145 +681,113 @@ const ChoreoGraph = new class ChoreoGraphEngine {
   };
 
   Object = class cgObject {
-    components = {};
-    delete = false;
+    objectData = {
+      components : [],
+      deleteTransformOnDelete : true
+    };
+    transform = null;
 
-    constructor(objectInit={}) {
-      this.attach("Transform");
+    constructor(objectInit,cg) {
+      if (objectInit.transform==undefined) {
+        if (objectInit.transformId!=undefined) {
+          this.transform = cg.createTransform();
+        } else {
+          this.transform = cg.createTransform({},objectInit.transformId);
+          delete objectInit.transformId;
+        }
+      }
+      if (objectInit.deleteTransformOnDelete) {
+        this.objectData.deleteTransformOnDelete = true;
+        delete objectInit.deleteTransformOnDelete;
+      }
+      ChoreoGraph.applyAttributes(this,objectInit);
+    };
 
-      for (let key in this.Transform) {
-        if (["manifest","id"].includes(key)) { continue; }
-        if (objectInit[key]!==undefined) {
-          this.Transform[key] = objectInit[key];
-          delete objectInit[key];
+    attach(componentName,componentInit={}) {
+      if (ChoreoGraph.ObjectComponents[componentName]==undefined) { console.error('The component type: "'+componentName+'" does not exist.'); return; }
+      let newComponent = new ChoreoGraph.ObjectComponents[componentName](componentInit,this);
+      newComponent.object = this;
+      newComponent.cg = this.cg;
+      if (newComponent.manifest.master) {
+        this[newComponent.manifest.key] = newComponent;
+      }
+      this.objectData.components.push(newComponent);
+      return this;
+    };
+
+    update(scene) {
+      for (let component of this.objectData.components) {
+        if (component.update!=undefined) { component.update(scene); }
+      }
+    };
+
+    delete() {
+      if (this.objectData.deleteTransformOnDelete) {
+        this.transform.delete();
+      };
+      for (let component of this.objectData.components) {
+        if (component.delete!=undefined) { component.delete(); }
+      }
+      this.cg.keys.objects.splice(this.cg.keys.objects.indexOf(this.id),1);
+      delete this.cg.objects[this.id];
+    };
+  };
+
+  ObjectComponents = {
+    Graphic : class cgObjectGraphic {
+      manifest = {
+        key : "Graphic",
+        master : true,
+        functions : {
+          update : true,
+          delete : true
         }
       }
 
-      if (objectInit!=undefined) {
-        for (let key in objectInit) {
-          this[key] = objectInit[key];
-        }
-      }
-      if (this.id==undefined) { this.id = "obj_" + ChoreoGraph.createId(5); }
-    }
-    update() {
-      if (this.delete) { return; }
-      let output = [];
-      for (let compId in this.components) {
-        let component = this.components[compId];
-        if (component.manifest.update) {
-          if (component.graphical) {
-            output.push(component.update(this));
+      graphic = null;
+      collection = null;
+      transform = null;
+
+      deleteTransformOnDelete = true;
+
+      constructor(componentInit,object) {
+        if (componentInit.transform==undefined) {
+          if (componentInit.transformId!=undefined) {
+            this.transform = object.cg.createTransform();
           } else {
-            component.update(this);
+            this.transform = object.cg.createTransform({},componentInit.transformId);
+            delete componentInit.transformId;
           }
         }
-      }
-      return output;
-    }
-    attach(componentName, componentInit={}) {
-      if (ChoreoGraph.ObjectComponents[componentName]==undefined) { console.error('The component: "'+componentName+'" does not exist.'); return; }
-      let newComponent = new ChoreoGraph.ObjectComponents[componentName](componentInit,this);
-      if (newComponent.manifest.master) {
-        let componentKey = newComponent.manifest.title;
-        if (newComponent.manifest.keyOverride!="") {
-          componentKey = newComponent.manifest.keyOverride;
-        }
-        this[componentKey] = newComponent;
-      }
-      this.components[newComponent.id] = newComponent;
-      return this;
-    }
-    getComponent(componentName) {
-      for (let compId in this.components) {
-        let component = this.components[compId];
-        let componentKey = component.manifest.title;
-        if (component.manifest.keyOverride!="") { componentKey = component.manifest.keyOverride; }
-        if (componentKey==componentName) {
-          return component;
-        }
-      }
-      return null;
-    }
-  };
-  
-  ObjectComponents = {
-    Transform: class Transform {
-      manifest = {
-        title : "Transform",
-        master : true,
-        keyOverride : "",
-        update : false,
-        collapse : false,
-        graphical : false
-      }
-      x = 0; // X
-      y = 0; // Y
-      ox = 0; // Offset X
-      oy = 0; // Offset Y
-      sx = 1; // Scale X
-      sy = 1; // Scale Y
-      ax = 0; // Anchor X
-      ay = 0; // Anchor Y
-      r = 0; // Rotation
-      or = 0; // Offset Rotation
-
-      constructor(componentInit, object) {
-        ChoreoGraph.initObjectComponent(this, componentInit);
-      }
-    },
-    Graphic: class Graphic {
-      manifest = {
-        title : "Graphic",
-        master : false,
-        keyOverride : "",
-        update : true,
-        collapse : true,
-        graphical : true
-      }
-      collection = null;
-      graphic = null;
-      deleteGraphicOnCollapse = false;
-
-      transform = {};
-
-      constructor(componentInit, object) {
-        ChoreoGraph.initObjectComponent(this, componentInit);
+        ChoreoGraph.initObjectComponent(this,componentInit);
+        if (this.transform.parent==null) { this.transform.parent = object.transform; }
         if (this.graphic==null) {
-          console.error("Graphic not defined for graphic component " + this.id + " on " + object.id);
+          console.error("Graphic not defined for graphic component",this,componentInit);
         }
-      }
-      update(object) {
-        this.transform.x  = object.Transform.x + object.Transform.ox;
-        this.transform.y  = object.Transform.y + object.Transform.oy;
-        this.transform.sx = object.Transform.sx;
-        this.transform.sy = object.Transform.sy;
-        this.transform.ax = object.Transform.ax;
-        this.transform.ay = object.Transform.ay;
-        this.transform.r  = object.Transform.r + object.Transform.or;
+      };
 
-        return {callback:this.graphic.draw,transform:transform,collection:this.collection};
-      }
-      collapse() {
-        if (this.deleteGraphicOnCollapse&&this.graphic!=null) {
-          ChoreoGraph.releaseId(this.graphic.id.replace("graphic_",""));
-          delete this.graphic.ChoreoGraph.graphics[this.graphic.id];
-        }
-      }
+      update(scene) {
+        scene.addToBuffer(this.graphic,this.transform,this.collection);
+      };
+
+      delete() {
+        if (this.deleteTransformOnDelete) {
+          this.transform.delete();
+        };
+      };
     }
   };
 
-  initObjectComponent(component, componentInit) {
-    if (componentInit!=undefined) {
-      for (let key in componentInit) {
-        if (key=="master"||key=="keyOverride") {
-          component.manifest[key] = componentInit[key]; 
-        } else {
-          component[key] = componentInit[key];
-        }
-      }
+  initObjectComponent(component, componentInit={}) {
+    if (componentInit.master!==undefined) {
+      component.manifest.master = componentInit.master;
+      delete componentInit.master;
     }
-    if (component.id===undefined) { component.id = "comp_" + ChoreoGraph.createId(5); }
+    if (componentInit.key!==undefined) {
+      component.manifest.key = componentInit.key;
+      delete componentInit.key;
+    }
+    ChoreoGraph.applyAttributes(component,componentInit);
   };
 
   id = new class IDManager {
@@ -807,7 +802,9 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       return "!"+output;
     }
     release(id) {
-      this.used.splice(this.used.indexOf(id),1);
+      if (id[0]==="!") {
+        this.used.splice(this.used.indexOf(id),1);
+      }
     }
   };
 
