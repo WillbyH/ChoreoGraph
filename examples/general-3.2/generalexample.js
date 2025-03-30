@@ -35,14 +35,14 @@ cg.Audio.createSound({source:"magneticPlane.mp3"},"magneticPlane");
 cg.Audio.sounds.magneticPlane.play({allowBuffer:true,loop:true});
 
 cg.settings.core.callbacks.loopBefore = () => {
-  cg.sceneItems.cursorRectangle.transform.x = cg.Input.cursor.x;
-  cg.sceneItems.cursorRectangle.transform.y = cg.Input.cursor.y;
+  // cg.sceneItems.cursorRectangle.transform.x = cg.Input.cursor.x;
+  // cg.sceneItems.cursorRectangle.transform.y = cg.Input.cursor.y;
 
-  cg.sceneItems.downRectangle.transform.x = cg.Input.cursor.down.any.x;
-  cg.sceneItems.downRectangle.transform.y = cg.Input.cursor.down.any.y;
+  // cg.sceneItems.downRectangle.transform.x = cg.Input.cursor.down.any.x;
+  // cg.sceneItems.downRectangle.transform.y = cg.Input.cursor.down.any.y;
 
-  cg.sceneItems.upRectangle.transform.x = cg.Input.cursor.up.any.x;
-  cg.sceneItems.upRectangle.transform.y = cg.Input.cursor.up.any.y;
+  // cg.sceneItems.upRectangle.transform.x = cg.Input.cursor.up.any.x;
+  // cg.sceneItems.upRectangle.transform.y = cg.Input.cursor.up.any.y;
 
   // cg.sceneItems.canvasCursorRectangle.transform.x = cg.Input.cursor.canvasX;
   // cg.sceneItems.canvasCursorRectangle.transform.y = cg.Input.cursor.canvasY;
@@ -50,14 +50,14 @@ cg.settings.core.callbacks.loopBefore = () => {
 cg.settings.core.callbacks.loopAfter = () => {
   cg.c.strokeStyle = "white";
   ChoreoGraph.transformContext(cg.canvases.main.camera)
-  cg.c.beginPath();
-  cg.c.moveTo(cg.sceneItems.downRectangle.transform.x,cg.sceneItems.downRectangle.transform.y);
-  if (cg.Input.cursor.hold.any) {
-    cg.c.lineTo(cg.Input.cursor.x,cg.Input.cursor.y);
-  } else {
-    cg.c.lineTo(cg.sceneItems.upRectangle.transform.x,cg.sceneItems.upRectangle.transform.y);
-  }
-  cg.c.stroke();
+  // cg.c.beginPath();
+  // cg.c.moveTo(cg.sceneItems.downRectangle.transform.x,cg.sceneItems.downRectangle.transform.y);
+  // if (cg.Input.cursor.hold.any) {
+  //   cg.c.lineTo(cg.Input.cursor.x,cg.Input.cursor.y);
+  // } else {
+  //   cg.c.lineTo(cg.sceneItems.upRectangle.transform.x,cg.sceneItems.upRectangle.transform.y);
+  // }
+  // cg.c.stroke();
 
   if (cg.Input.cursor.activeTouches.length>1) {
     for (let id of cg.Input.cursor.activeTouches) {

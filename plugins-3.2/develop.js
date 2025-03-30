@@ -43,7 +43,7 @@ ChoreoGraph.plugin({
       generateInterface() {
         ChoreoGraph.Develop.section.innerHTML = "";
         for (let item of ChoreoGraph.Develop.interfaceItems) {
-          let newItem = new ChoreoGraph.Develop[item.type](item);
+          let newItem = new ChoreoGraph.Develop[item.type](item,this.cg);
           ChoreoGraph.Develop.section.appendChild(newItem.element);
         }
       };
@@ -114,143 +114,159 @@ ChoreoGraph.plugin({
       }
 
       processLoop(cg) {
-        if (cg.Develop.featureData.freeCam.active) {
-          let data = cg.Develop.featureData.freeCam;
-          if (cg.Input===undefined) {
-            data.active = false;
-            console.warn("FreeCam requires the Input plugin");
-            return;
+        for (let loop of ChoreoGraph.Develop.loops.process) {
+          if (loop.activeCheck.active) {
+            loop.func(cg);
           }
-          if (ChoreoGraph.Input.keyStates.shift) {
-            let canvas = cg.Develop.selectedCanvas;
-            let camera = cg.Develop.featureData.freeCam.canvasData[canvas.id].freeCamera;
-            if (data.dragging) {
-              if (!cg.Input.cursor.hold.any) {
-                data.dragging = false;
-                return;
-              }
-              let xo = (data.downCursorPosition.x - cg.Input.cursor.clientX)/camera.z;
-              let yo = (data.downCursorPosition.y - cg.Input.cursor.clientY)/camera.z;
-              camera.transform.x = data.downCameraPosition.x + xo;
-              camera.transform.y = data.downCameraPosition.y + yo;
-            } else {
-              if (cg.Input.cursor.hold.any) {
-                data.dragging = true;
-                data.downCameraPosition = {
-                  x : camera.transform.x,
-                  y : camera.transform.y
-                };
-                data.downCursorPosition = {
-                  x : cg.Input.cursor.clientX,
-                  y : cg.Input.cursor.clientY
-                };
-              }
+        }
+      };
+
+      processFreecam(cg) {
+        let data = cg.Develop.featureData.freeCam;
+        if (cg.Input===undefined) {
+          data.active = false;
+          console.warn("FreeCam requires the Input plugin");
+          return;
+        }
+        if (ChoreoGraph.Input.keyStates.shift) {
+          let canvas = cg.Develop.selectedCanvas;
+          let camera = cg.Develop.featureData.freeCam.canvasData[canvas.id].freeCamera;
+          if (data.dragging) {
+            if (!cg.Input.cursor.hold.any) {
+              data.dragging = false;
+              return;
+            }
+            let xo = (data.downCursorPosition.x - cg.Input.cursor.clientX)/camera.z;
+            let yo = (data.downCursorPosition.y - cg.Input.cursor.clientY)/camera.z;
+            camera.transform.x = data.downCameraPosition.x + xo;
+            camera.transform.y = data.downCameraPosition.y + yo;
+          } else {
+            if (cg.Input.cursor.hold.any) {
+              data.dragging = true;
+              data.downCameraPosition = {
+                x : camera.transform.x,
+                y : camera.transform.y
+              };
+              data.downCursorPosition = {
+                x : cg.Input.cursor.clientX,
+                y : cg.Input.cursor.clientY
+              };
             }
           }
         }
       };
 
       overlayLoop(cg) {
-        // CAMERAS
-        if (cg.settings.develop.cameras.active) {
-          let byScene = {};
-          for (let cameraId of cg.keys.cameras) {
-            let camera = cg.cameras[cameraId];
-            for (let scene of camera.scenes) {
-              if (byScene[scene.id]===undefined) {
-                byScene[scene.id] = [];
-              }
-              byScene[scene.id].push(camera);
-            }
+        for (let loop of ChoreoGraph.Develop.loops.overlay) {
+          if (loop.activeCheck.active) {
+            loop.func(cg);
           }
-          for (let canvasId of cg.keys.canvases) {
-            let canvas = cg.canvases[canvasId];
-            let c = canvas.c;
-            c.globalAlpha = 1;
-            if (canvas.camera===null) { continue; }
-            for (let scene of canvas.camera.scenes) {
-              let cameras = byScene[scene.id];
+        }
+      };
 
-              for (let camera of cameras) {
-                if (camera.id==canvas.camera.id) { continue; }
-                ChoreoGraph.transformContext(canvas.camera,camera.x,camera.y);
-                c.strokeStyle = cg.settings.develop.cameras.colour;
-                let cw = canvas.width/camera.cz;
-                let ch = canvas.height/camera.cz;
-                c.lineWidth = 3*camera.cz;
-                c.beginPath();
-                c.rect(-cw*0.5,-ch*0.5,cw,ch)
-                c.moveTo(-cw*0.5,-ch*0.5);
-                c.lineTo(cw*0.5,ch*0.5);
-                c.moveTo(cw*0.5,-ch*0.5);
-                c.lineTo(-cw*0.5,ch*0.5);
-                c.stroke();
-              }
+      overlayCameras(cg) {
+        let byScene = {};
+        for (let cameraId of cg.keys.cameras) {
+          let camera = cg.cameras[cameraId];
+          for (let scene of camera.scenes) {
+            if (byScene[scene.id]===undefined) {
+              byScene[scene.id] = [];
             }
+            byScene[scene.id].push(camera);
           }
-        };
-        // FRUSTUM CULLING
-        if (cg.settings.develop.frustumCulling.active) {
-          for (let canvasId of cg.keys.canvases) {
-            let canvas = cg.canvases[canvasId];
-            let c = canvas.c;
-            let cullCamera = canvas.camera;
-            if (cullCamera.cullOverride!==null) { cullCamera = cullCamera.cullOverride; }
-            ChoreoGraph.transformContext(canvas.camera,cullCamera.x,cullCamera.y);
-            c.strokeStyle = cg.settings.develop.frustumCulling.frustumColour;
-            c.lineWidth = 3*canvas.camera.cz;
-            c.lineWidth = 3;
-            c.strokeRect(-canvas.width*0.5,-canvas.height*0.5,canvas.width,canvas.height);
-            function drawCollectionCullBoxes(collection) {
-              for (let item of collection) {
-                if (item.type=="graphic"&&item.graphic.getBounds!==undefined) {
-                  let gx = item.transform.x;
-                  let gy = item.transform.y;
-                  let gax = item.transform.ax;
-                  let gay = item.transform.ay;
-                  let [bw, bh] = item.graphic.getBounds();
-                  bw *= item.transform.sx;
-                  bh *= item.transform.sy;
-                  if (item.transform.r!==0) {
-                    let r = -item.transform.r+90;
-                    let rad = r*Math.PI/180;
-                    let savedbw = bw;
-                    bw = Math.abs(bw*Math.cos(rad))+Math.abs(bh*Math.sin(rad));
-                    bh = Math.abs(savedbw*Math.sin(rad))+Math.abs(bh*Math.cos(rad));
+        }
+        for (let canvasId of cg.keys.canvases) {
+          let canvas = cg.canvases[canvasId];
+          let c = canvas.c;
+          c.globalAlpha = 1;
+          if (canvas.camera===null) { continue; }
+          for (let scene of canvas.camera.scenes) {
+            let cameras = byScene[scene.id];
 
-                    let rox = Math.sin(rad)*gax-Math.cos(rad)*gay;
-                    let roy = Math.cos(rad)*gax+Math.sin(rad)*gay;
-                    gx += rox;
-                    gy += roy;
-                  } else {
-                    gx += gax;
-                    gy += gay;
-                  }
-                  let cx = cullCamera.x;
-                  let cy = cullCamera.y;
-                  let cw = canvas.width/cullCamera.z;
-                  let ch = canvas.height/cullCamera.z;
-                  
-                  c.strokeStyle = cg.settings.develop.frustumCulling.unculledBoxColour;
-                  if (gx+bw*0.5<cx-cw*0.5||gx-bw*0.5>cx+cw*0.5||gy+bh*0.5<cy-ch*0.5||gy-bh*0.5>cy+ch*0.5) {
-                    c.strokeStyle = cg.settings.develop.frustumCulling.culledBoxColour;
-                  }
-
-                  ChoreoGraph.transformContext(canvas.camera,gx,gy);
-
-                  c.strokeRect(-bw/2,-bh/2,bw,bh);
-
-                } else if (item.type=="collection") {
-                  drawCollectionCullBoxes(item.children);
-                }
-              }
-            }
-            for (let scene of cullCamera.scenes) {
-              drawCollectionCullBoxes(scene.drawBuffer);
+            for (let camera of cameras) {
+              if (camera.id==canvas.camera.id) { continue; }
+              ChoreoGraph.transformContext(canvas.camera,camera.x,camera.y);
+              c.strokeStyle = cg.settings.develop.cameras.colour;
+              let cw = canvas.width/camera.cz;
+              let ch = canvas.height/camera.cz;
+              c.lineWidth = 3*camera.cz;
+              c.beginPath();
+              c.rect(-cw*0.5,-ch*0.5,cw,ch)
+              c.moveTo(-cw*0.5,-ch*0.5);
+              c.lineTo(cw*0.5,ch*0.5);
+              c.moveTo(cw*0.5,-ch*0.5);
+              c.lineTo(-cw*0.5,ch*0.5);
+              c.stroke();
             }
           }
         }
       };
+
+      overlayFrustumCulling(cg) {
+        for (let canvasId of cg.keys.canvases) {
+          let canvas = cg.canvases[canvasId];
+          let c = canvas.c;
+          let cullCamera = canvas.camera;
+          if (cullCamera.cullOverride!==null) { cullCamera = cullCamera.cullOverride; }
+          ChoreoGraph.transformContext(canvas.camera,cullCamera.x,cullCamera.y);
+          c.strokeStyle = cg.settings.develop.frustumCulling.frustumColour;
+          c.lineWidth = 3*canvas.camera.cz;
+          c.lineWidth = 3;
+          c.strokeRect(-canvas.width*0.5,-canvas.height*0.5,canvas.width,canvas.height);
+          function drawCollectionCullBoxes(collection) {
+            for (let item of collection) {
+              if (item.type=="graphic"&&item.graphic.getBounds!==undefined) {
+                let gx = item.transform.x;
+                let gy = item.transform.y;
+                let gax = item.transform.ax;
+                let gay = item.transform.ay;
+                let [bw, bh] = item.graphic.getBounds();
+                bw *= item.transform.sx;
+                bh *= item.transform.sy;
+                if (item.transform.r!==0) {
+                  let r = -item.transform.r+90;
+                  let rad = r*Math.PI/180;
+                  let savedbw = bw;
+                  bw = Math.abs(bw*Math.cos(rad))+Math.abs(bh*Math.sin(rad));
+                  bh = Math.abs(savedbw*Math.sin(rad))+Math.abs(bh*Math.cos(rad));
+
+                  let rox = Math.sin(rad)*gax-Math.cos(rad)*gay;
+                  let roy = Math.cos(rad)*gax+Math.sin(rad)*gay;
+                  gx += rox;
+                  gy += roy;
+                } else {
+                  gx += gax;
+                  gy += gay;
+                }
+                let cx = cullCamera.x;
+                let cy = cullCamera.y;
+                let cw = canvas.width/cullCamera.z;
+                let ch = canvas.height/cullCamera.z;
+                
+                c.strokeStyle = cg.settings.develop.frustumCulling.unculledBoxColour;
+                if (gx+bw*0.5<cx-cw*0.5||gx-bw*0.5>cx+cw*0.5||gy+bh*0.5<cy-ch*0.5||gy-bh*0.5>cy+ch*0.5) {
+                  c.strokeStyle = cg.settings.develop.frustumCulling.culledBoxColour;
+                }
+
+                ChoreoGraph.transformContext(canvas.camera,gx,gy);
+
+                c.strokeRect(-bw/2,-bh/2,bw,bh);
+
+              } else if (item.type=="collection") {
+                drawCollectionCullBoxes(item.children);
+              }
+            }
+          }
+          for (let scene of cullCamera.scenes) {
+            drawCollectionCullBoxes(scene.drawBuffer);
+          }
+        }
+      };
+    };
+
+    loops = {
+      process : [],
+      overlay : []
     };
 
     initiated = false;
@@ -258,7 +274,8 @@ ChoreoGraph.plugin({
     interfaceItems = [];
 
     UIToggleButton = class UIToggleButton {
-      constructor(init) {
+      constructor(init,cg) {
+        this.cg = cg;
         this.activeText = "On";
         this.inactiveText = "Off";
 
@@ -273,9 +290,9 @@ ChoreoGraph.plugin({
         this.element.onclick = () => {
           this.activated = !this.activated;
           if (this.activated) {
-            if (this.onActive!=null) { this.onActive(); }
+            if (this.onActive!=null) { this.onActive(this.cg); }
           } else {
-            if (this.onInactive!=null) { this.onInactive(); }
+            if (this.onInactive!=null) { this.onInactive(this.cg); }
           }
           this.setStylesAndText();
         };
@@ -300,7 +317,8 @@ ChoreoGraph.plugin({
     };
 
     UIActionButton = class UIActionButton {
-      constructor(init) {
+      constructor(init,cg) {
+        this.cg = cg;
         this.text = "Action";
         this.action = null;
         this.element = document.createElement("button");
@@ -309,7 +327,7 @@ ChoreoGraph.plugin({
         this.element.classList.add("develop_button");
         this.element.classList.add("btn_action");
         this.element.onclick = () => {
-          if (this.action!=null) { this.action(); }
+          if (this.action!=null) { this.action(this.cg); }
         };
         for (let key in init) {
           this[key] = init[key];
@@ -323,13 +341,13 @@ ChoreoGraph.plugin({
         type : "UIToggleButton",
         activeText : "Disable FreeCam",
         inactiveText : "Enable FreeCam",
-        onActive : () => { this.cg.Develop.enableFreeCam(); },
-        onInactive : () => { this.cg.Develop.disableFreeCam(); }
+        onActive : (cg) => { cg.Develop.enableFreeCam(); },
+        onInactive : (cg) => { cg.Develop.disableFreeCam(); }
       });
       this.interfaceItems.push({
         type : "UIActionButton",
         text : "Reset FreeCam",
-        action : () => { this.cg.Develop.resetFreeCam(); }
+        action : (cg) => { cg.Develop.resetFreeCam(); }
       });
       if (ChoreoGraph.Input!==undefined) {
         this.interfaceItems.push({
@@ -337,8 +355,8 @@ ChoreoGraph.plugin({
           activated : this.cg.settings.input.debug.active,
           activeText : "Hide Buttons",
           inactiveText : "Show Buttons",
-          onActive : () => { this.cg.settings.input.debug.active = true; },
-          onInactive : () => { this.cg.settings.input.debug.active = false; }
+          onActive : (cg) => { cg.settings.input.debug.active = true; },
+          onInactive : (cg) => { cg.settings.input.debug.active = false; }
         });
       };
       this.interfaceItems.push({
@@ -346,16 +364,16 @@ ChoreoGraph.plugin({
         activeText : "Hide Cameras",
         inactiveText : "Show Cameras",
         activated : this.cg.settings.develop.cameras.active,
-        onActive : () => { this.cg.settings.develop.cameras.active = true; },
-        onInactive : () => { this.cg.settings.develop.cameras.active = false; }
+        onActive : (cg) => { cg.settings.develop.cameras.active = true; },
+        onInactive : (cg) => { cg.settings.develop.cameras.active = false; }
       });
       this.interfaceItems.push({
         type : "UIToggleButton",
         activeText : "Hide Culling Boxes",
         inactiveText : "Show Culling Boxes",
         activated : this.cg.settings.develop.frustumCulling.active,
-        onActive : () => { this.cg.settings.develop.frustumCulling.active = true; },
-        onInactive : () => { this.cg.settings.develop.frustumCulling.active = false; }
+        onActive : (cg) => { cg.settings.develop.frustumCulling.active = true; },
+        onInactive : (cg) => { cg.settings.develop.frustumCulling.active = false; }
       });
       document.body.appendChild(this.section);
       this.section.classList.add("develop_section");
@@ -367,76 +385,79 @@ ChoreoGraph.plugin({
       let style = document.createElement("style");
       style.innerHTML = `
         .develop_section {
-            color:white;
-            margin-left: 20px;
-            margin-top: 10px;
+          color:white;
+          margin-left: 20px;
+          margin-top: 10px;
         }
         .develop_button {
-            background: black;
-            color: white;
-            margin:5px;
-            border: 3px solid white;
-            padding:10px;
-            border-radius:10px;
-            cursor: pointer;
+          background: black;
+          color: white;
+          margin:5px;
+          border: 3px solid white;
+          padding:10px;
+          border-radius:10px;
+          cursor: pointer;
         }
         .develop_button:hover {
-            background: #111;
+          background: #111;
         }
         .btn_off {
-            border-color: ${colOff};
+          border-color: ${colOff};
         }
         .btn_on {
-            border-color: ${colOn};
+          border-color: ${colOn};
         }
         .btn_action {
-            border-color: ${colAction};
+          border-color: ${colAction};
+        }
+        .btn_action:active {
+          background: #999999;
         }
         .develop_input {
-            margin:5px;
-            border:0;
-            padding:10px;
+          margin:5px;
+          border:0;
+          padding:10px;
         }
         .single_input {
-            background: black;
-            color: white;
-            padding: 10px;
-            border: 3px solid ${colAction};
-            border-radius: 10px;
+          background: black;
+          color: white;
+          padding: 10px;
+          border: 3px solid ${colAction};
+          border-radius: 10px;
         }
         .develop_textarea {
-            display: block;
-            margin-left: 20px;
-            width: 50%;
-            overflow: hidden;
-            resize: both;
-            min-height: 40px;
-            padding:10px;
-            background-color: #1f1f1f;
-            font-family: monospace;
+          display: block;
+          margin-left: 20px;
+          width: 50%;
+          overflow: hidden;
+          resize: both;
+          min-height: 40px;
+          padding:10px;
+          background-color: #1f1f1f;
+          font-family: monospace;
         }
         .code_keyword {
-            color: #dc98ff;
+          color: #dc98ff;
         }
         .code_comment {
-            color: #a3a3a3;
-            font-style: italic;
+          color: #a3a3a3;
+          font-style: italic;
         }
         .code_string {
-            color: #ce9178;
+          color: #ce9178;
         }
         .code_global {
-            color: #ffff00;
+          color: #ffff00;
         }
         .code_number {
-            color: #78ff7f;
+          color: #78ff7f;
         }
         .code_function {
-            color: #ff744a;
+          color: #ff744a;
         }
         .live_eval_error {
-            color: red;
-            margin: 10px;
+          color: red;
+          margin: 10px;
         }
       `;
       document.body.appendChild(style);
@@ -511,5 +532,10 @@ ChoreoGraph.plugin({
     if (ChoreoGraph.Develop.initiated===false) {
       ChoreoGraph.Develop.init();
     }
+
+    ChoreoGraph.Develop.loops.process.push({activeCheck:cg.Develop.featureData.freeCam,func:cg.Develop.processFreecam});
+
+    ChoreoGraph.Develop.loops.overlay.push({activeCheck:cg.settings.develop.cameras,func:cg.Develop.overlayCameras});
+    ChoreoGraph.Develop.loops.overlay.push({activeCheck:cg.settings.develop.frustumCulling,func:cg.Develop.overlayFrustumCulling});
   }
 });

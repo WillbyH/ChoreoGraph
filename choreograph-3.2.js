@@ -14,6 +14,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
 
   ChoreoGraphInstance = class ChoreoGraphInstance {
     settings = {};
+    
     canvases = {};
     cameras = {};
     scenes = {};
