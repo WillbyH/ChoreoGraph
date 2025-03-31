@@ -447,9 +447,16 @@ ChoreoGraph.plugin({
       // }
       let track = editor.track;
       if (track==null) { return; }
-      let lineWidth = 2;
+      let lineWidth = 2/cg.Input.cursor.canvas.camera.z;
       c.lineWidth = lineWidth;
       if (track.type=="path") {
+        if (track.segments.length==0&&ChoreoGraph.Input.keyStates[cg.settings.animation.editor.hotkeys.pathAdd]&&cg.Input.cursor.hold.any) {
+          c.strokeStyle = "white";
+          c.beginPath();
+          c.moveTo(editor.path.downPos[0],editor.path.downPos[1]);
+          c.lineTo(cg.Input.cursor.x,cg.Input.cursor.y);
+          c.stroke();
+        }
         editor.path.grabbablePoints = [];
         let line = [];
         let joints = [];
