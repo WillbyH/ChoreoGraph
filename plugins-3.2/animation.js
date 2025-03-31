@@ -31,10 +31,6 @@ ChoreoGraph.plugin({
 
         path : {
           downPos : [0,0],
-          savedControlA : [0,0],
-          savedControlB : [0,0],
-          savedPairControlA : [0,0],
-          savedPairControlB : [0,0],
           grabbing : false,
           grabData : {
             type : null, // curve joint control disconnected linear
@@ -44,9 +40,7 @@ ChoreoGraph.plugin({
             savedMainControlA : [0,0],
             savedMainControlB : [0,0],
             beforeControlB : null, // The B control on the before segment
-            savedBeforeControlB : [0,0],
             afterControlA : null, // The A control on the after segment
-            savedAfterControlA : [0,0],
             startTangent : null, // The tangent relating to the start
             endTangent : null, // The tangent relating to the end
 
@@ -71,11 +65,12 @@ ChoreoGraph.plugin({
             // LINEAR & JOINT & CONTROL & DISCONNECTED
             joint : null, // The related joint
           },
-          grabbedType : null,
-          grabbedSegment : null,
-          grabbablePoints : [],
-          grabbedPair : null,
-          grabbedPairDistance : 0
+
+          GRAB_CURVE : "curve",
+          GRAB_JOINT : "joint",
+          GRAB_CONTROL : "control",
+          GRAB_DISCONNECTED : "disconnected",
+          GRAB_LINEAR : "linear",
         }
       };
     };
@@ -193,83 +188,80 @@ ChoreoGraph.plugin({
       if (track.type=="path") {
         // GRABBING
         if (editor.path.grabbing) {
-          let segment = editor.path.grabbedSegment;
-          if (["start","end","controlA","controlB"].includes(editor.path.grabbedType)) {
-            segment[editor.path.grabbedType][0] = cg.Input.cursor.x;
-            segment[editor.path.grabbedType][1] = cg.Input.cursor.y;
-            if ((editor.path.grabbedType=="controlA"||editor.path.grabbedType=="controlB")&&editor.path.grabbedPair!=null) {
-              let tangentPair, tangentType, joint, control;
-              if (editor.path.grabbedType=="controlA") {
-                tangentPair = editor.path.grabbedPair.controlB;
-                tangentType = editor.path.grabbedSegment.tangent;
-                joint = editor.path.grabbedSegment.start;
-                control = editor.path.grabbedSegment.controlA;
-              } else if (editor.path.grabbedType=="controlB") {
-                tangentPair = editor.path.grabbedPair.controlA;
-                tangentType = editor.path.grabbedPair.tangent;
-                joint = editor.path.grabbedSegment.end;
-                control = editor.path.grabbedSegment.controlB;
-              }
-              let distance = 0;
-              if (tangentType==ChoreoGraph.Animation.TANGENT_ALIGNED) {
-                distance = editor.path.grabbedPairDistance;
-              } else if (tangentType==ChoreoGraph.Animation.TANGENT_MIRRORED) {
-                distance = Math.sqrt((control[0]-joint[0])**2+(control[1]-joint[1])**2);;
-              }
-              if (tangentType!=ChoreoGraph.Animation.TANGENT_BROKEN) {
-                let angle = -Math.atan2(control[0]-joint[0],control[1]-joint[1]);
-                angle -= Math.PI/2;
-                tangentPair[0] = joint[0] + distance*Math.cos(angle);
-                tangentPair[1] = joint[1] + distance*Math.sin(angle);
-              }
-            } else if (editor.path.grabbedPair!=null) {
-              let controlA, controlB;
-              if (editor.path.grabbedType=="start") {
-                controlA = editor.path.grabbedSegment.controlA;
-                controlB = editor.path.grabbedPair.controlB;
-              } else if (editor.path.grabbedType=="end") {
-                controlA = editor.path.grabbedPair.controlA;
-                controlB = editor.path.grabbedSegment.controlB;
-              };
-              controlA[0] = editor.path.savedControlA[0] + cg.Input.cursor.x - editor.path.downPos[0];
-              controlA[1] = editor.path.savedControlA[1] + cg.Input.cursor.y - editor.path.downPos[1];
-              controlB[0] = editor.path.savedControlB[0] + cg.Input.cursor.x - editor.path.downPos[0];
-              controlB[1] = editor.path.savedControlB[1] + cg.Input.cursor.y - editor.path.downPos[1];
-            } else if (editor.path.grabbedType=="start"||editor.path.grabbedType=="end") {
-              // Unconnected start or end
-              let control, saved;
-              if (editor.path.grabbedType=="start") {
-                control = editor.path.grabbedSegment.controlA;
-                saved = editor.path.savedControlA;
-              } else if (editor.path.grabbedType=="end") {
-                control = editor.path.grabbedSegment.controlB;
-                saved = editor.path.savedControlB;
-              }
-              control[0] = saved[0] + cg.Input.cursor.x - editor.path.downPos[0];
-              control[1] = saved[1] + cg.Input.cursor.y - editor.path.downPos[1];
-            };
-          } else if (editor.path.grabbedType=="curve") {
-            let offset = [cg.Input.cursor.x-editor.path.downPos[0],cg.Input.cursor.y-editor.path.downPos[1]];
-            let savedA = editor.path.savedControlA;
-            let savedB = editor.path.savedControlB;
-            segment.linear = false;
-            segment.controlA = [savedA[0]+offset[0]*1.32,savedA[1]+offset[1]*1.32];
-            segment.controlB = [savedB[0]+offset[0]*1.32,savedB[1]+offset[1]*1.32];
-            let pairControlB, pairControlA;
-            if (segment.before!=null&&segment.after!=null) {
-              pairControlB = segment.after.controlA;
-              pairControlA = segment.before.controlB;
-            } else if (segment.before!=null) {
-              pairControlB = segment.before.controlB;
-              pairControlA = [0,0];
-            } else if (segment.after!=null) {
-              pairControlB = [0,0];
-              pairControlA = segment.after.controlA;
+          let offset = [cg.Input.cursor.x-editor.path.downPos[0],cg.Input.cursor.y-editor.path.downPos[1]];
+          let grabData = editor.path.grabData;
+
+          function alignTangent(control,pair,joint,distance) {
+            let angle = -Math.atan2(pair[0]-joint[0],pair[1]-joint[1]);
+            angle -= Math.PI/2;
+            control[0] = joint[0] + distance*Math.cos(angle);
+            control[1] = joint[1] + distance*Math.sin(angle);
+          };
+          function mirrorTangent(control,pair,joint) {
+            let distance = Math.sqrt((pair[0]-joint[0])**2+(pair[1]-joint[1])**2);
+            let angle = -Math.atan2(pair[0]-joint[0],pair[1]-joint[1]);
+            angle -= Math.PI/2;
+            control[0] = joint[0] + distance*Math.cos(angle);
+            control[1] = joint[1] + distance*Math.sin(angle);
+          }
+
+          if (grabData.type==editor.path.GRAB_CURVE) {
+            let main = grabData.mainSegment;
+            if (main.linear) {
+              grabData.savedMainControlA[0] = main.start[0] + offset[0];
+              grabData.savedMainControlA[1] = main.start[1] + offset[1];
+              grabData.savedMainControlB[0] = main.end[0] + offset[0];
+              grabData.savedMainControlB[1] = main.end[1] + offset[1];
             }
-            pairControlA[0] = editor.path.savedPairControlA[0] + offset[0];
-            pairControlA[1] = editor.path.savedPairControlA[1] + offset[1];
-            pairControlB[0] = editor.path.savedPairControlB[0] + offset[0];
-            pairControlB[1] = editor.path.savedPairControlB[1] + offset[1];
+            main.linear = false;
+            main.controlA[0] = grabData.savedMainControlA[0] + offset[0];
+            main.controlA[1] = grabData.savedMainControlA[1] + offset[1];
+            main.controlB[0] = grabData.savedMainControlB[0] + offset[0];
+            main.controlB[1] = grabData.savedMainControlB[1] + offset[1];
+            if (grabData.startTangent!=null) {
+              if (grabData.startTangent==ChoreoGraph.Animation.TANGENT_ALIGNED) {
+                alignTangent(grabData.beforeControlB,main.controlA,main.start,grabData.distance);
+              } else if (grabData.startTangent==ChoreoGraph.Animation.TANGENT_MIRRORED) {
+                mirrorTangent(grabData.beforeControlB,main.controlA,main.start);
+              }
+            }
+            if (grabData.endTangent!=null) {
+              if (grabData.endTangent==ChoreoGraph.Animation.TANGENT_ALIGNED) {
+                alignTangent(grabData.afterControlA,main.controlB,main.end,grabData.distance);
+              } else if (grabData.endTangent==ChoreoGraph.Animation.TANGENT_MIRRORED) {
+                mirrorTangent(grabData.afterControlA,main.controlB,main.end);
+              }
+            }
+
+          } else if (grabData.type==editor.path.GRAB_JOINT) {
+            grabData.joint[0] = cg.Input.cursor.x;
+            grabData.joint[1] = cg.Input.cursor.y;
+            grabData.controlA[0] = grabData.savedControlA[0] + offset[0];
+            grabData.controlA[1] = grabData.savedControlA[1] + offset[1];
+            grabData.controlB[0] = grabData.savedControlB[0] + offset[0];
+            grabData.controlB[1] = grabData.savedControlB[1] + offset[1];
+
+
+          } else if (grabData.type==editor.path.GRAB_CONTROL) {
+            grabData.mainControl[0] = cg.Input.cursor.x;
+            grabData.mainControl[1] = cg.Input.cursor.y;
+            if (grabData.pairControl!=null) {
+              if (grabData.tangent==ChoreoGraph.Animation.TANGENT_ALIGNED) {
+                alignTangent(grabData.pairControl,grabData.mainControl,grabData.joint,grabData.distance);
+              } else if (grabData.tangent==ChoreoGraph.Animation.TANGENT_MIRRORED) {
+                mirrorTangent(grabData.pairControl,grabData.mainControl,grabData.joint);
+              }
+            }
+
+          } else if (grabData.type==editor.path.GRAB_DISCONNECTED) {
+            grabData.joint[0] = cg.Input.cursor.x;
+            grabData.joint[1] = cg.Input.cursor.y;
+            grabData.control[0] = grabData.savedControl[0] + offset[0];
+            grabData.control[1] = grabData.savedControl[1] + offset[1];
+
+          } else if (grabData.type==editor.path.GRAB_LINEAR) {
+            grabData.joint[0] = cg.Input.cursor.x;
+            grabData.joint[1] = cg.Input.cursor.y;
           }
         };
         // CURSOR DOWN
@@ -277,6 +269,8 @@ ChoreoGraph.plugin({
           if (editor.animation==null) { return; }
           if (track.segments.length==0) {
             editor.path.downPos = [cg.Input.cursor.x,cg.Input.cursor.y];
+
+          // ADD NEW SEGMENT
           } else if (ChoreoGraph.Input.keyStates[hotkeys.pathAdd]) {
             let segment = new ChoreoGraph.Animation.SplineSegment();
             segment.start = track.segments[track.segments.length-1].end;
@@ -286,6 +280,8 @@ ChoreoGraph.plugin({
             track.segments[track.segments.length-1].connected = true;
             track.segments.push(segment);
             ChoreoGraph.Animation.updateAnimationOverview(cg);
+
+          // GRAB and CHANGE TANGENT TYPE
           } else if (ChoreoGraph.Input.keyStates[hotkeys.pathGrab]||ChoreoGraph.Input.keyStates[hotkeys.pathChangeTangentType]) {
             let closestIndex = -1;
             let closestDistance = Infinity;
@@ -306,95 +302,100 @@ ChoreoGraph.plugin({
                 editor.path.grabbing = true;
                 let grabData = editor.path.grabData;
 
+                // Find Grab Type
                 if (grabbablePoint.type=="controlA"||grabbablePoint.type=="controlB") {
                   grabData.type = "control";
                 } else if (grabbablePoint.type=="start"||grabbablePoint.type=="end") {
-                  if (grabbablePoint.segment.linear) {
-                    grabData.type = "linear";
+                  if (grabbablePoint.pair==null) {
+                    grabData.type = "disconnected";
                   } else {
-                    grabData.type = "joint";
+                    if (grabbablePoint.segment.linear) {
+                      grabData.type = "linear";
+                    } else {
+                      grabData.type = "joint";
+                    }
                   }
                 } else if (grabbablePoint.type=="curve") {
                   grabData.type = "curve";
                 }
 
                 if (grabData.type=="curve") {
+                  editor.path.downPos = [cg.Input.cursor.x,cg.Input.cursor.y];
+                } else {
+                  editor.path.downPos = Array.from(segment[grabbablePoint.type]);
+                }
+
+                // Collect Grab Type Data
+                if (grabData.type==editor.path.GRAB_CURVE) {
                   grabData.mainSegment = segment;
                   grabData.savedMainControlA = Array.from(segment.controlA);
                   grabData.savedMainControlB = Array.from(segment.controlB);
                   grabData.startTangent = null;
                   grabData.endTangent = null;
-                  if (segment.before!=null) {
+                  if (segment.before!=null&&!segment.before.linear) {
                     grabData.beforeControlB = segment.before.controlB;
-                    grabData.savedBeforeControlB = Array.from(segment.before.controlB);
                     grabData.startTangent = segment.tangent;
+                    if (grabData.startTangent==ChoreoGraph.Animation.TANGENT_ALIGNED) {
+                      grabData.distance = Math.sqrt((grabData.beforeControlB[0]-segment.start[0])**2+(grabData.beforeControlB[1]-segment.start[1])**2);
+                    }
                   }
-                  if (segment.after!=null) {
+                  if (segment.after!=null&&!segment.after.linear) {
                     grabData.afterControlA = segment.after.controlA;
-                    grabData.savedAfterControlA = Array.from(segment.after.controlA);
                     grabData.endTangent = segment.after.tangent;
+                    if (grabData.endTangent==ChoreoGraph.Animation.TANGENT_ALIGNED) {
+                      grabData.distance = Math.sqrt((grabData.afterControlA[0]-segment.end[0])**2+(grabData.afterControlA[1]-segment.end[1])**2);
+                    }
                   }
-                } else if (grabData.type=="joint") {
-                  
+
+                } else if (grabData.type==editor.path.GRAB_JOINT) {
+                  // You can assume the point type is always a start
+                  grabData.controlA = segment.controlA;
+                  grabData.savedControlA = Array.from(segment.controlA);
+                  grabData.controlB = grabbablePoint.pair.controlB;
+                  grabData.savedControlB = Array.from(grabbablePoint.pair.controlB);
+                  grabData.tangent = segment.tangent;
+                  grabData.joint = segment.start;
+
+                } else if (grabData.type==editor.path.GRAB_CONTROL) {
+                  if (grabbablePoint.type=="controlA") {
+                    grabData.joint = segment.start;
+                    grabData.tangent = segment.tangent;
+                  } else {
+                    grabData.joint = segment.end;
+                    if (segment.after!=undefined) {
+                      grabData.tangent = segment.after.tangent;
+                    } else {
+                      grabData.tangent = ChoreoGraph.Animation.TANGENT_BROKEN;
+                    }
+                  }
+                  grabData.mainControl = segment[grabbablePoint.type];
+                  if (grabbablePoint.pair==null) {
+                    grabData.pairControl = null;
+                  } else {
+                    grabData.pairControl = grabbablePoint.pair[grabbablePoint.type=="controlA"?"controlB":"controlA"];
+                    grabData.distance = Math.sqrt((grabData.pairControl[0]-grabData.joint[0])**2+(grabData.pairControl[1]-grabData.joint[1])**2);
+                  }
+
+                } else if (grabData.type==editor.path.GRAB_DISCONNECTED) {
+                  if (grabbablePoint.type=="start") {
+                    grabData.control = segment.controlA;
+                    grabData.savedControl = Array.from(segment.controlA);
+                    grabData.joint = segment.start;
+                  } else {
+                    grabData.control = segment.controlB;
+                    grabData.savedControl = Array.from(segment.controlB);
+                    grabData.joint = segment.end;
+                  }
+
+                } else if (grabData.type==editor.path.GRAB_LINEAR) {
+                  if (grabbablePoint.type=="start") {
+                    grabData.joint = segment.start;
+                  } else {
+                    grabData.joint = segment.end;
+                  }
                 }
 
-                editor.path.grabbedType = grabbablePoint.type;
-                editor.path.grabbedSegment = segment;
-                editor.path.grabbedPair = grabbablePoint.pair || null;
-                if (editor.path.grabbedType=="controlA"&&editor.path.grabbedPair!=null) {
-                  let pairControl = editor.path.grabbedPair.controlB;
-                  let pairJoint = editor.path.grabbedPair.end;
-                  let distance = Math.sqrt((pairControl[0]-pairJoint[0])**2+(pairControl[1]-pairJoint[1])**2);
-                  if (editor.path.grabbedPair.linear) { distance = 0; }
-                  editor.path.grabbedPairDistance = distance;
-                } else if (editor.path.grabbedType=="controlB"&&editor.path.grabbedPair!=null) {
-                  let pairControl = editor.path.grabbedPair.controlA;
-                  let pairJoint = editor.path.grabbedPair.start;
-                  let distance = Math.sqrt((pairControl[0]-pairJoint[0])**2+(pairControl[1]-pairJoint[1])**2);
-                  if (editor.path.grabbedPair.linear) { distance = 0; }
-                  editor.path.grabbedPairDistance = distance;
-                }
-                if (grabbablePoint.type=="curve") {
-                  editor.path.downPos = [cg.Input.cursor.x,cg.Input.cursor.y];
-                } else {
-                  editor.path.downPos = Array.from(segment[grabbablePoint.type]);
-                }
-                if (grabbablePoint.type=="controlA"||grabbablePoint.type=="controlB") {
-                  editor.path.savedControlA = Array.from(segment.controlA);
-                  editor.path.savedControlB = Array.from(segment.controlB);
-                } else if (grabbablePoint.type=="start") {
-                  editor.path.savedControlA = Array.from(segment.controlA);
-                  if (grabbablePoint.pair==null) {
-                    editor.path.savedControlB = [0,0];
-                  } else {
-                    editor.path.savedControlB = Array.from(grabbablePoint.pair.controlB);
-                  }
-                } else if (grabbablePoint.type=="end") {
-                  if (grabbablePoint.pair==null) {
-                    editor.path.savedControlB = [0,0];
-                  } else {
-                    editor.path.savedControlA = Array.from(grabbablePoint.pair.controlA);
-                  }
-                  editor.path.savedControlB = Array.from(segment.controlB);
-                } else if (grabbablePoint.type=="curve") {
-                  editor.path.savedControlA = Array.from(segment.controlA);
-                  editor.path.savedControlB = Array.from(segment.controlB);
-                  if (segment.before!=null&&segment.after!=null) {
-                    editor.path.savedPairControlA = Array.from(segment.after.controlA);
-                    editor.path.savedPairControlB = Array.from(segment.before.controlB);
-                  } else if (segment.before!=null) {
-                    editor.path.savedPairControlB = Array.from(segment.before.controlB);
-                    editor.path.savedPairControlA = [0,0];
-                  } else if (segment.after!=null) {
-                    editor.path.savedPairControlB = [0,0];
-                    editor.path.savedPairControlA = Array.from(segment.after.controlA);
-                  }
-                }
-                if (segment.linear) {
-                  editor.path.savedControlA = Array.from(segment.start);
-                  editor.path.savedControlB = Array.from(segment.end); 
-                }
-                // CHANGE TANGENT TYPE
+              // CHANGE TANGENT TYPE
               } else if (ChoreoGraph.Input.keyStates[hotkeys.pathChangeTangentType]) {
                 if (grabbablePoint.type=="start"||grabbablePoint.type=="end") {
                   if (segment.tangent==ChoreoGraph.Animation.TANGENT_BROKEN) {
@@ -412,6 +413,7 @@ ChoreoGraph.plugin({
         // CURSOR UP
         if (cg.Input.cursor.impulseUp.any) {
           if (editor.animation==null) { return; }
+          // ADD FIRST DRAGGED SEGMENT
           if (track.segments.length==0&&ChoreoGraph.Input.keyStates[hotkeys.pathAdd]) {
             let segment = new ChoreoGraph.Animation.SplineSegment();
             segment.start = editor.path.downPos;
@@ -424,6 +426,7 @@ ChoreoGraph.plugin({
           }
         };
         if (ChoreoGraph.Input.lastKeyDownFrame==ChoreoGraph.frame) {
+          // UNDO
           if (ChoreoGraph.Input.lastKeyDown==hotkeys.pathUndo) {
             track.segments.pop();
             // This needs to be replaced because simply popping is not the same as an undo
