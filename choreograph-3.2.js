@@ -14,7 +14,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
 
   ChoreoGraphInstance = class ChoreoGraphInstance {
     settings = {};
-    
+
     canvases = {};
     cameras = {};
     scenes = {};
@@ -294,6 +294,8 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       }
     };
     drawGraphic(item) {
+      let go = item.transform.o;
+      if (go==0) { return; }
       let gx = item.transform.x;
       let gy = item.transform.y;
       let gax = item.transform.ax;
@@ -347,6 +349,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
 
       ChoreoGraph.transformContext(this.camera,gx,gy,gr,gsx,gsy,CGSpace,flipX,flipY,canvasSpaceXAnchor,canvasSpaceYAnchor);
 
+      this.c.globalAlpha = go;
       item.graphic.draw(this.c,gax,gay);
     }
   };

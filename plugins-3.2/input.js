@@ -30,7 +30,9 @@ ChoreoGraph.plugin({
     }
     instanceObject = class Input {
       get cursor() { return this.canvasCursors[this.cg.settings.core.defaultCanvas.id]; }
-      lastInputType = "mouse";
+      lastInputType = "mouse"; // mouse touch keyboard controller
+      lastKeyboardType = "keyboard"; // keyboard controller
+      lastCursorType = "mouse"; // mouse touch controller
       lastInteraction = {
         cursor : -Infinity,
         keyboard : -Infinity,
@@ -60,6 +62,7 @@ ChoreoGraph.plugin({
       };
       updateCursor(canvas,event) {
         this.cg.Input.lastInputType = event.pointerType;
+        this.cg.Input.lastCursorType = event.pointerType;
         const cursor = this.canvasCursors[canvas.id];
         if (cursor===undefined) { return; }
         cursor.update(event);
@@ -328,6 +331,8 @@ ChoreoGraph.plugin({
     keyDown(event) {
       for (let cg of ChoreoGraph.instances) {
         if ((cg.settings.input.focusKeys&&ChoreoGraph.Input.lastClickedCanvas!==null&&ChoreoGraph.Input.lastClickedCanvas.cg.id==cg.id)||(!cg.settings.input.focusKeys)) {
+          cg.Input.lastInputType = event.keyboardType || "keyboard";
+          cg.Input.lastKeyboardType = event.keyboardType || "keyboard";
           let key = ChoreoGraph.Input.getSimplifiedKey(event);
           if (ChoreoGraph.Input.keyStates[key]===undefined) { return; }
           if (ChoreoGraph.Input.keyStates[key]) { return; }
@@ -346,6 +351,8 @@ ChoreoGraph.plugin({
     keyUp(event) {
       for (let cg of ChoreoGraph.instances) {
         if ((cg.settings.input.focusKeys&&ChoreoGraph.Input.lastClickedCanvas!==null&&ChoreoGraph.Input.lastClickedCanvas.cg.id==cg.id)||(!cg.settings.input.focusKeys)) {
+          cg.Input.lastInputType = event.keyboardType || "keyboard";
+          cg.Input.lastKeyboardType = event.keyboardType || "keyboard";
           let key = ChoreoGraph.Input.getSimplifiedKey(event);
           if (ChoreoGraph.Input.keyStates[key]===undefined) { return; }
           if (ChoreoGraph.Input.keyStates[key]==false) { return; }
@@ -396,7 +403,6 @@ ChoreoGraph.plugin({
 
     GamePadController = class cgGamePadController {
       connected = true;
-      layout = "xbox";
 
       lastButtons = [false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false];
 
@@ -461,6 +467,7 @@ ChoreoGraph.plugin({
             type = null;
             gamepadButtonIndex = buttonIndex;
             key = getButtonName(buttonIndex);
+            keyboardType = "controller";
           }
           if (pressed) {
             fakeEvent.type = "keydown";
@@ -529,7 +536,7 @@ ChoreoGraph.plugin({
           type = "pointermove";
           clientX = cursor.clientX;
           clientY = cursor.clientY;
-          pointerType = "mouse";
+          pointerType = "controller";
         }
         ChoreoGraph.Input.pointerMove(fakeEvent);
       }
@@ -553,7 +560,7 @@ ChoreoGraph.plugin({
             type = "pointerdown";
             clientX = cursor.clientX;
             clientY = cursor.clientY;
-            pointerType = "mouse";
+            pointerType = "controller";
           }
           ChoreoGraph.Input.pointerDown(fakeEvent);
         }
@@ -566,7 +573,7 @@ ChoreoGraph.plugin({
             type = "pointerup";
             clientX = cursor.clientX;
             clientY = cursor.clientY;
-            pointerType = "mouse";
+            pointerType = "controller";
           }
           ChoreoGraph.Input.pointerUp(fakeEvent);
         }

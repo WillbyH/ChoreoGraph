@@ -35,8 +35,13 @@ cg.Audio.createSound({source:"magneticPlane.mp3"},"magneticPlane");
 cg.Audio.sounds.magneticPlane.play({allowBuffer:true,loop:true});
 
 cg.settings.core.callbacks.loopBefore = () => {
-  // cg.sceneItems.cursorRectangle.transform.x = cg.Input.cursor.x;
-  // cg.sceneItems.cursorRectangle.transform.y = cg.Input.cursor.y;
+  cg.sceneItems.cursorRectangle.transform.x = cg.Input.cursor.x;
+  cg.sceneItems.cursorRectangle.transform.y = cg.Input.cursor.y;
+  if (cg.Input.lastCursorType=="controller") {
+    cg.sceneItems.cursorRectangle.transform.o = 1;
+  } else {
+    cg.sceneItems.cursorRectangle.transform.o = 0;
+  }
 
   // cg.sceneItems.downRectangle.transform.x = cg.Input.cursor.down.any.x;
   // cg.sceneItems.downRectangle.transform.y = cg.Input.cursor.down.any.y;
@@ -48,8 +53,11 @@ cg.settings.core.callbacks.loopBefore = () => {
   // cg.sceneItems.canvasCursorRectangle.transform.y = cg.Input.cursor.canvasY;
 }
 cg.settings.core.callbacks.loopAfter = () => {
+  ChoreoGraph.transformContext(cg.canvases.main.camera);
   cg.c.strokeStyle = "white";
-  ChoreoGraph.transformContext(cg.canvases.main.camera)
+  cg.c.font = "20px Arial";
+  cg.c.fillStyle = "white";
+  cg.c.fillText(cg.Input.lastInputType,10,50);
   // cg.c.beginPath();
   // cg.c.moveTo(cg.sceneItems.downRectangle.transform.x,cg.sceneItems.downRectangle.transform.y);
   // if (cg.Input.cursor.hold.any) {
