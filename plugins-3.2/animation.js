@@ -90,8 +90,12 @@ ChoreoGraph.plugin({
     Animation = class cgAnimation {
       data = [];
       tracks = [];
+      packDecimals = 2;
+
       createTrack(trackType) {
         let newTrack = new ChoreoGraph.Animation.TrackTypes[trackType]();
+        newTrack.cg = this.cg;
+        newTrack.animation = this;
         this.tracks.push(newTrack);
         return newTrack;
       };
@@ -120,7 +124,18 @@ ChoreoGraph.plugin({
         };
 
         info() {
-          return this.segments.length+" segments";
+          let info = this.segments.length+" segments ";
+          for (let segment of this.segments) {
+            if (segment.linear) {
+              info += "-"
+            } else {
+              info += "("
+            }
+            if (segment.connected==false) {
+              info += " ";
+            }
+          };
+          return info;
         };
       },
       sprite : class cgSpriteAnimation {
@@ -221,7 +236,9 @@ ChoreoGraph.plugin({
 
           if (grabData.type==editor.path.GRAB_CURVE) {
             let main = grabData.mainSegment;
+            let update = false;
             if (main.linear) {
+              update = true;
               grabData.savedMainControlA[0] = main.start[0] + offset[0];
               grabData.savedMainControlA[1] = main.start[1] + offset[1];
               grabData.savedMainControlB[0] = main.end[0] + offset[0];
@@ -246,6 +263,7 @@ ChoreoGraph.plugin({
                 mirrorTangent(grabData.afterControlA,main.controlB,main.end);
               }
             }
+            if (update) { ChoreoGraph.Animation.updateAnimationOverview(cg); }
 
           } else if (grabData.type==editor.path.GRAB_JOINT) {
             grabData.joint[0] = cg.Input.cursor.x;
@@ -285,7 +303,7 @@ ChoreoGraph.plugin({
             editor.path.downPos = [cg.Input.cursor.x,cg.Input.cursor.y];
 
           // ADD NEW SEGMENT
-          } else if (actionType==editor.path.ACTION_ADD&&editor.path.connectedMode) {
+          } else if (actionType==editor.path.ACTION_ADD&&editor.path.connectedMode&&track.segments.length>0) {
             let segment = new ChoreoGraph.Animation.SplineSegment();
             segment.start = track.segments[track.segments.length-1].end;
             segment.end = [cg.Input.cursor.x,cg.Input.cursor.y];
@@ -299,11 +317,12 @@ ChoreoGraph.plugin({
           } else if (actionType!=editor.path.ACTION_ADD) {
             let closestIndex = -1;
             let closestDistance = Infinity;
+            let grabDistance = cg.settings.animation.editor.grabDistance*cg.Input.cursor.canvas.camera.z;
             for (let i=0;i<editor.path.grabbablePoints.length;i++) {
               let grabbablePoint = editor.path.grabbablePoints[i];
               let point = grabbablePoint.point;
               let distance = Math.sqrt((cg.Input.cursor.x-point[0])**2+(cg.Input.cursor.y-point[1])**2);
-              if (distance<closestDistance&&distance<cg.settings.animation.editor.grabDistance) {
+              if (distance<closestDistance&&distance<grabDistance) {
                 closestDistance = distance;
                 closestIndex = i;
               }
@@ -425,6 +444,62 @@ ChoreoGraph.plugin({
               } else if (actionType==editor.path.ACTION_LINEARIFY) {
                 if (grabbablePoint.type=="curve") {
                   segment.linear = true;
+                  ChoreoGraph.Animation.updateAnimationOverview(cg);
+                }
+
+              // DELETE
+              } else if (actionType==editor.path.ACTION_DELETE) {
+                if (grabbablePoint.type=="start"||grabbablePoint.type=="end") {
+                  let index = track.segments.indexOf(segment);
+                  let newSegments = [];
+        
+                  for (let i=0;i<track.segments.length;i++) {
+                    if (i!=index) {
+                      newSegments.push(track.segments[i]);
+                    }
+                  }
+                  
+                  if (grabbablePoint.type=="start") {
+                    let before = segment.before;
+                    let after = segment.after;
+
+                    if (before!=null&&after!=null) {
+                      segment.before.after = segment.after;
+                      segment.after.before = segment.before;
+                      segment.before.end = segment.after.start;
+                      segment.after.start = segment.before.end;
+                    } else if (before==null&&after!=null) {
+                      segment.after.before = null;
+                    } else if (before!=null&&after==null) {
+                      segment.before.after = null;
+                      segment.before.connected = false;
+                      segment.before.end = segment.end;
+                    }
+                  } else if (grabbablePoint.type=="end"&&segment.before!=null) {
+                    segment.before.after = segment.after;
+                    segment.before.connected = false;
+                  }
+                  track.segments = newSegments;
+                  ChoreoGraph.Animation.updateAnimationOverview(cg);
+                }
+
+              // INSERT
+              } else if (actionType==editor.path.ACTION_INSERT) {
+                if (grabbablePoint.type=="curve") {
+                  let newSegment = new ChoreoGraph.Animation.SplineSegment();
+                  newSegment.connected = (segment.after!=null);
+                  let middle = segment.getPoint(0.5);
+                  newSegment.end = segment.end;
+                  newSegment.before = segment;
+                  newSegment.after = segment.after;
+                  if (segment.after!=null) { segment.after.before = newSegment; }
+                  segment.after = newSegment;
+                  segment.end = middle;
+                  newSegment.start = middle;
+
+                  track.segments.splice(track.segments.indexOf(segment)+1,0,newSegment);
+
+                  ChoreoGraph.Animation.updateAnimationOverview(cg);
                 }
               }
             }
@@ -482,17 +557,25 @@ ChoreoGraph.plugin({
       let c = cg.Input.cursor.canvas.c;
       let track = editor.track;
       if (track==null) { return; }
-      let lineWidth = 2/cg.Input.cursor.canvas.camera.z;
-      c.lineWidth = lineWidth;
+      let size = cg.Input.cursor.canvas.camera.z;
+      c.lineWidth = size*2;
       if (track.type=="path") {
         let actionType = editor.path.actionType;
 
-        if (cg.Animation.editor.path.actionType==editor.path.ACTION_ADD&&cg.Input.cursor.hold.any) {
+        if (cg.Animation.editor.path.actionType==editor.path.ACTION_ADD) {
           c.strokeStyle = "white";
-          c.beginPath();
-          c.moveTo(editor.path.downPos[0],editor.path.downPos[1]);
-          c.lineTo(cg.Input.cursor.x,cg.Input.cursor.y);
-          c.stroke();
+          if (cg.Input.cursor.hold.any&&cg.Animation.editor.path.connectedMode==false) {
+            c.beginPath();
+            c.moveTo(editor.path.downPos[0],editor.path.downPos[1]);
+            c.lineTo(cg.Input.cursor.x,cg.Input.cursor.y);
+            c.stroke();
+          } else if (cg.Animation.editor.path.connectedMode&&track.segments.length>0) {
+            let end = track.segments[track.segments.length-1].end;
+            c.beginPath();
+            c.moveTo(end[0],end[1]);
+            c.lineTo(cg.Input.cursor.x,cg.Input.cursor.y);
+            c.stroke();
+          }
         }
         editor.path.grabbablePoints = [];
         let lines = [];
@@ -553,7 +636,7 @@ ChoreoGraph.plugin({
         if (actionType==editor.path.ACTION_GRAB||actionType==editor.path.ACTION_SWITCH_TANGENT_TYPE||actionType==editor.path.ACTION_LINEARIFY) {
           // CONTROL LINES
           c.strokeStyle = "cyan";
-          c.lineWidth = lineWidth/2;
+          c.lineWidth = size;
           c.beginPath();
           for (let control of controls) {
             let point = control.point;
@@ -563,7 +646,7 @@ ChoreoGraph.plugin({
           c.stroke();
         }
         // LINES
-        c.lineWidth = lineWidth;
+        c.lineWidth = size*2;
         c.strokeStyle = "white";
         let lastPoint = null;
         for (let line of lines) {
@@ -580,8 +663,8 @@ ChoreoGraph.plugin({
           }
           c.stroke();
           if (lastPoint!=null) {
-            c.globalAlpha = 0.5;
-            c.setLineDash([lineWidth*2, lineWidth*2]);
+            c.globalAlpha = 0.3;
+            c.setLineDash([size*4, size*4]);
             c.beginPath();
             c.moveTo(lastPoint[0],lastPoint[1]);
           }
@@ -601,8 +684,8 @@ ChoreoGraph.plugin({
             c.fillStyle = "black";
           }
           c.beginPath();
-          c.moveTo(point[0]-5,point[1]);
-          c.arc(point[0],point[1],5,0,2*Math.PI);
+          c.moveTo(point[0]-6*size,point[1]);
+          c.arc(point[0],point[1],6*size,0,2*Math.PI);
           c.fill();
         }
         if (actionType==editor.path.ACTION_GRAB||actionType==editor.path.ACTION_SWITCH_TANGENT_TYPE||actionType==editor.path.ACTION_LINEARIFY) {
@@ -611,17 +694,17 @@ ChoreoGraph.plugin({
           c.beginPath();
           for (let control of controls) {
             let point = control.point;
-            c.moveTo(point[0]+5,point[1]);
-            c.arc(point[0],point[1],5,0,2*Math.PI);
+            c.moveTo(point[0]+6*size,point[1]);
+            c.arc(point[0],point[1],6*size,0,2*Math.PI);
           }
           c.stroke();
         }
-        if (actionType==editor.path.ACTION_GRAB||actionType==editor.path.ACTION_SWITCH_TANGENT_TYPE||actionType==editor.path.ACTION_LINEARIFY) {
+        if (actionType==editor.path.ACTION_GRAB||actionType==editor.path.ACTION_SWITCH_TANGENT_TYPE||actionType==editor.path.ACTION_LINEARIFY||actionType==editor.path.ACTION_INSERT) {
           // CURVE GRABS
           c.strokeStyle = "green";
           c.beginPath();
           for (let point of curveGrabs) {
-            let radius = 5;
+            let radius = 6*size;
             if (actionType==editor.path.ACTION_LINEARIFY) { radius = 10; }
             c.moveTo(point[0]+radius,point[1]);
             c.arc(point[0],point[1],radius,0,2*Math.PI);
@@ -633,7 +716,7 @@ ChoreoGraph.plugin({
           let point = grabbablePoint.point;
           let distance = Math.sqrt((cg.Input.cursor.x-point[0])**2+(cg.Input.cursor.y-point[1])**2);
           c.beginPath();
-          if (distance<cg.settings.animation.editor.grabDistance) {
+          if (distance<cg.settings.animation.editor.grabDistance*cg.Input.cursor.canvas.camera.z) {
             c.strokeStyle = "red";
           } else {
             c.strokeStyle = "green";
@@ -733,7 +816,6 @@ ChoreoGraph.plugin({
         let newTrack = e.target.cg.Animation.editor.animation.createTrack(trackType);
         if (e.target.cg.Animation.editor.track==null) { e.target.cg.Animation.editor.track = newTrack; }
         ChoreoGraph.Animation.updateAnimationOverview(e.target.cg);
-        console.log("hello")
         ChoreoGraph.Animation.updateTrackContext(e.target.cg);
       }
       section.appendChild(addPathTrackButton);
@@ -904,7 +986,7 @@ ChoreoGraph.plugin({
     cg.attachSettings("animation",{
       editor : {
         active : false,
-        grabDistance : 30,
+        grabDistance : 25,
         hotkeys : {
           undo : "z",
           redo : "y",
