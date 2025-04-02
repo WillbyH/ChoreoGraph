@@ -46,6 +46,8 @@ ChoreoGraph.plugin({
             savedMainControlB : [0,0],
             beforeControlB : null, // The B control on the before segment
             afterControlA : null, // The A control on the after segment
+            beforeDistance : 0, // The distance between the before control and the start joint
+            afterDistance : 0, // The distance between the after control and the end joint
             startTangent : null, // The tangent relating to the start
             endTangent : null, // The tangent relating to the end
 
@@ -273,14 +275,14 @@ ChoreoGraph.plugin({
             main.controlB[1] = grabData.savedMainControlB[1] + offset[1];
             if (grabData.startTangent!=null) {
               if (grabData.startTangent==ChoreoGraph.Animation.TANGENT_ALIGNED) {
-                alignTangent(grabData.beforeControlB,main.controlA,main.start,grabData.distance);
+                alignTangent(grabData.beforeControlB,main.controlA,main.start,grabData.beforeDistance);
               } else if (grabData.startTangent==ChoreoGraph.Animation.TANGENT_MIRRORED) {
                 mirrorTangent(grabData.beforeControlB,main.controlA,main.start);
               }
             }
             if (grabData.endTangent!=null) {
               if (grabData.endTangent==ChoreoGraph.Animation.TANGENT_ALIGNED) {
-                alignTangent(grabData.afterControlA,main.controlB,main.end,grabData.distance);
+                alignTangent(grabData.afterControlA,main.controlB,main.end,grabData.afterDistance);
               } else if (grabData.endTangent==ChoreoGraph.Animation.TANGENT_MIRRORED) {
                 mirrorTangent(grabData.afterControlA,main.controlB,main.end);
               }
@@ -326,13 +328,13 @@ ChoreoGraph.plugin({
 
           // ADD NEW SEGMENT
           } else if (actionType==editor.path.ACTION_ADD&&editor.path.connectedMode&&track.segments.length>0) {
-            let segment = new ChoreoGraph.Animation.SplineSegment();
-            segment.start = track.segments[track.segments.length-1].end;
-            segment.end = [cg.Input.cursor.x,cg.Input.cursor.y];
-            track.segments[track.segments.length-1].after = segment;
-            segment.before = track.segments[track.segments.length-1];
+            let newSegment = new ChoreoGraph.Animation.SplineSegment();
+            newSegment.start = track.segments[track.segments.length-1].end;
+            newSegment.end = [cg.Input.cursor.x,cg.Input.cursor.y];
+            track.segments[track.segments.length-1].after = newSegment;
+            newSegment.before = track.segments[track.segments.length-1];
             track.segments[track.segments.length-1].connected = true;
-            track.segments.push(segment);
+            track.segments.push(newSegment);
             ChoreoGraph.Animation.updateAnimationOverview(cg);
 
           // MODIFICATION
@@ -391,14 +393,14 @@ ChoreoGraph.plugin({
                     grabData.beforeControlB = segment.before.controlB;
                     grabData.startTangent = segment.tangent;
                     if (grabData.startTangent==ChoreoGraph.Animation.TANGENT_ALIGNED) {
-                      grabData.distance = Math.sqrt((grabData.beforeControlB[0]-segment.start[0])**2+(grabData.beforeControlB[1]-segment.start[1])**2);
+                      grabData.beforeDistance = Math.sqrt((grabData.beforeControlB[0]-segment.start[0])**2+(grabData.beforeControlB[1]-segment.start[1])**2);
                     }
                   }
                   if (segment.after!=null&&!segment.after.linear) {
                     grabData.afterControlA = segment.after.controlA;
                     grabData.endTangent = segment.after.tangent;
                     if (grabData.endTangent==ChoreoGraph.Animation.TANGENT_ALIGNED) {
-                      grabData.distance = Math.sqrt((grabData.afterControlA[0]-segment.end[0])**2+(grabData.afterControlA[1]-segment.end[1])**2);
+                      grabData.afterDistance = Math.sqrt((grabData.afterControlA[0]-segment.end[0])**2+(grabData.afterControlA[1]-segment.end[1])**2);
                     }
                   }
 
@@ -579,7 +581,7 @@ ChoreoGraph.plugin({
       let c = cg.Input.cursor.canvas.c;
       let track = editor.track;
       if (track==null) { return; }
-      let size = cg.Input.cursor.canvas.camera.z;
+      let size = 1/cg.Input.cursor.canvas.camera.z;
       c.lineWidth = size*2;
       if (track.type=="path") {
         let actionType = editor.path.actionType;
@@ -605,6 +607,7 @@ ChoreoGraph.plugin({
         let joints = [];
         let controls = [];
         let curveGrabs = [];
+        // Find all the points
         for (let segment of track.segments) {
           let tangent = segment.tangent;
           if (segment.before==null) {
