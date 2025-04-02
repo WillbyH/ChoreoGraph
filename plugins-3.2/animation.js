@@ -177,6 +177,7 @@ ChoreoGraph.plugin({
       after = null;
       connected = false;
       triggers = {};
+      density = 20;
   
       getPoint(t) {
         let sX = this.start[0];
@@ -199,7 +200,28 @@ ChoreoGraph.plugin({
         let x = (1-t)**3*sX + 3*(1-t)**2*t*cAX + 3*(1-t)*t**2*cBX + t**3*eX;
         let y = (1-t)**3*sY + 3*(1-t)**2*t*cAY + 3*(1-t)*t**2*cBY + t**3*eY;
         return [x,y];
+      };
+
+      getLength(samples) {
+        let length = 0;
+        if (this.linear) {
+          length = Math.sqrt((this.end[0]-this.start[0])**2+(this.end[1]-this.start[1])**2);
+        } else {
+          let lastX = this.start[0];
+          let lastY = this.start[1];
+          for (let i=1;i<=samples;i++) {
+            let point = this.getPoint(i/samples);
+            length += Math.sqrt((point[0]-lastX)**2+(point[1]-lastY)**2);
+            lastX = point[0];
+            lastY = point[1];
+          }
+        }
+        return length;
       }
+
+      getScaledSampleSize() {
+        return Math.floor(this.getLength(30)/this.density);
+      };
     };
 
     processEditor(cg) {
@@ -299,7 +321,7 @@ ChoreoGraph.plugin({
         // CURSOR DOWN
         if (cg.Input.cursor.impulseDown.any) {
           if (editor.animation==null) { return; }
-          if (editor.path.connectedMode==false) {
+          if (editor.path.connectedMode==false||track.segments.length==0) {
             editor.path.downPos = [cg.Input.cursor.x,cg.Input.cursor.y];
 
           // ADD NEW SEGMENT
@@ -509,7 +531,7 @@ ChoreoGraph.plugin({
         if (cg.Input.cursor.impulseUp.any) {
           if (editor.animation==null) { return; }
           // ADD DISCONNECTED DRAGGED SEGMENT
-          if (actionType==editor.path.ACTION_ADD&&editor.path.connectedMode==false) {
+          if (actionType==editor.path.ACTION_ADD&&(editor.path.connectedMode==false||track.segments.length==0)) {
             let segment = new ChoreoGraph.Animation.SplineSegment();
             segment.start = editor.path.downPos;
             segment.end = [cg.Input.cursor.x,cg.Input.cursor.y];
@@ -564,7 +586,7 @@ ChoreoGraph.plugin({
 
         if (cg.Animation.editor.path.actionType==editor.path.ACTION_ADD) {
           c.strokeStyle = "white";
-          if (cg.Input.cursor.hold.any&&cg.Animation.editor.path.connectedMode==false) {
+          if (cg.Input.cursor.hold.any&&(cg.Animation.editor.path.connectedMode==false||track.segments.length==0)) {
             c.beginPath();
             c.moveTo(editor.path.downPos[0],editor.path.downPos[1]);
             c.lineTo(cg.Input.cursor.x,cg.Input.cursor.y);
@@ -608,8 +630,9 @@ ChoreoGraph.plugin({
           }
 
           if (segment.linear==false) {
-            for (let i=0;i<50;i++) {
-              currentLine.push(segment.getPoint(i/50));
+            let samples = segment.getScaledSampleSize(30);
+            for (let i=0;i<samples;i++) {
+              currentLine.push(segment.getPoint(i/samples));
             }
             controls.push({joint:segment.start,point:segment.controlA});
             editor.path.grabbablePoints.push({type:"controlA",segment:segment,pair:segment.before,point:segment.controlA});
@@ -648,26 +671,30 @@ ChoreoGraph.plugin({
         // LINES
         c.lineWidth = size*2;
         c.strokeStyle = "white";
-        let lastPoint = null;
+        let lastPoint = [0,0];
+        let first = true;
+        let alternate = true;
         for (let line of lines) {
-          if (lastPoint!=null&&line.length>0) {
+          if (!first&&line.length>0) {
             c.lineTo(line[0][0],line[0][1]);
             c.stroke();
           }
           c.globalAlpha = 1;
           c.setLineDash([]);
-          c.beginPath();
           for (let point of line) {
-            c.lineTo(point[0],point[1]);
-            lastPoint = point;
-          }
-          c.stroke();
-          if (lastPoint!=null) {
-            c.globalAlpha = 0.3;
-            c.setLineDash([size*4, size*4]);
+            c.strokeStyle = alternate ? "white" : "black";
+            alternate = !alternate;
             c.beginPath();
             c.moveTo(lastPoint[0],lastPoint[1]);
+            c.lineTo(point[0],point[1]);
+            c.stroke();
+            lastPoint = point;
           }
+          c.globalAlpha = 0.3;
+          c.setLineDash([size*4, size*4]);
+          c.beginPath();
+          c.moveTo(lastPoint[0],lastPoint[1]);
+          first = false;
         }
         c.stroke();
         c.setLineDash([]);
