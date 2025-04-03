@@ -95,8 +95,8 @@ ChoreoGraph.plugin({
       packDecimals = 2;
 
       createTrack(trackType) {
-        let newTrack = new ChoreoGraph.Animation.TrackTypes[trackType]();
-        newTrack.cg = this.cg;
+        let newTrack = new ChoreoGraph.Animation.TrackTypes[trackType](this.cg.cg);
+        newTrack.cg = this.cg.cg;
         newTrack.animation = this;
         this.tracks.push(newTrack);
         return newTrack;
@@ -120,6 +120,11 @@ ChoreoGraph.plugin({
       path : class cgPathAnimation {
         type = "path";
         segments = [];
+        triggers = {};
+
+        constructor(cg) {
+          this.density = cg.settings.animation.editor.defaultPathDensity;
+        }
         
         pack() {
           return "spliiiinedata";
@@ -178,8 +183,6 @@ ChoreoGraph.plugin({
       before = null;
       after = null;
       connected = false;
-      triggers = {};
-      density = 20;
   
       getPoint(t) {
         let sX = this.start[0];
@@ -221,8 +224,8 @@ ChoreoGraph.plugin({
         return length;
       }
 
-      getScaledSampleSize() {
-        return Math.floor(this.getLength(30)/this.density);
+      getScaledSampleSize(density) {
+        return Math.floor(this.getLength(30)/density);
       };
     };
 
@@ -269,10 +272,10 @@ ChoreoGraph.plugin({
               grabData.savedMainControlB[1] = main.end[1] + offset[1];
             }
             main.linear = false;
-            main.controlA[0] = grabData.savedMainControlA[0] + offset[0];
-            main.controlA[1] = grabData.savedMainControlA[1] + offset[1];
-            main.controlB[0] = grabData.savedMainControlB[0] + offset[0];
-            main.controlB[1] = grabData.savedMainControlB[1] + offset[1];
+            main.controlA[0] = grabData.savedMainControlA[0] + offset[0]*1.328;
+            main.controlA[1] = grabData.savedMainControlA[1] + offset[1]*1.328;
+            main.controlB[0] = grabData.savedMainControlB[0] + offset[0]*1.328;
+            main.controlB[1] = grabData.savedMainControlB[1] + offset[1]*1.328;
             if (grabData.startTangent!=null) {
               if (grabData.startTangent==ChoreoGraph.Animation.TANGENT_ALIGNED) {
                 alignTangent(grabData.beforeControlB,main.controlA,main.start,grabData.beforeDistance);
@@ -633,7 +636,7 @@ ChoreoGraph.plugin({
           }
 
           if (segment.linear==false) {
-            let samples = segment.getScaledSampleSize(30);
+            let samples = segment.getScaledSampleSize(track.density);
             for (let i=0;i<samples;i++) {
               currentLine.push(segment.getPoint(i/samples));
             }
@@ -1017,6 +1020,7 @@ ChoreoGraph.plugin({
       editor : {
         active : false,
         grabDistance : 25,
+        defaultPathDensity : 20,
         hotkeys : {
           undo : "z",
           redo : "y",
