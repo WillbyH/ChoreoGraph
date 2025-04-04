@@ -36,7 +36,9 @@ ChoreoGraph.plugin({
           actionType : "add",
           connectedMode : false,
           downPos : [0,0],
+          selectedTangentType : "broken",
           grabbing : false,
+
           grabData : {
             type : null, // curve joint control disconnected linear
 
@@ -48,8 +50,6 @@ ChoreoGraph.plugin({
             afterControlA : null, // The A control on the after segment
             beforeDistance : 0, // The distance between the before control and the start joint
             afterDistance : 0, // The distance between the after control and the end joint
-            startTangent : null, // The tangent relating to the start
-            endTangent : null, // The tangent relating to the end
 
             // JOINT
             controlA : null, // The control point later in the spline
@@ -62,9 +62,6 @@ ChoreoGraph.plugin({
             pairControl : null, // The control point that is connected to the same joint
             distance : 0, // The distance between the pair control point and the joint
 
-            // JOINT & CONTROL
-            tangent : null, // The tangent type of the joint or connected joint
-
             // DISCONNECTED
             control : null, // The singular control point connected to the joint
             savedControl : [0,0],
@@ -72,6 +69,11 @@ ChoreoGraph.plugin({
             // LINEAR & JOINT & CONTROL & DISCONNECTED
             joint : null, // The related joint
           },
+          
+
+          TANGENT_BROKEN : "broken",
+          TANGENT_ALIGNED : "aligned",
+          TANGENT_MIRRORED : "mirrored",
 
           GRAB_CURVE : "curve",
           GRAB_JOINT : "joint",
@@ -83,8 +85,7 @@ ChoreoGraph.plugin({
           ACTION_GRAB : "grab",
           ACTION_DELETE : "delete",
           ACTION_INSERT : "insert",
-          ACTION_LINEARIFY : "linearify",
-          ACTION_SWITCH_TANGENT_TYPE : "switch tangent type"
+          ACTION_LINEARIFY : "linearify"
         }
       };
     };
@@ -169,13 +170,8 @@ ChoreoGraph.plugin({
       }
     };
 
-    TANGENT_BROKEN = "broken";
-    TANGENT_ALIGNED = "aligned";
-    TANGENT_MIRRORED = "mirrored";
-
     SplineSegment = class SplineSegment {
       start = [0,0];
-      tangent = ChoreoGraph.Animation.TANGENT_BROKEN;
       linear = true;
       controlA = [0,0];
       controlB = [0,0];
@@ -276,17 +272,18 @@ ChoreoGraph.plugin({
             main.controlA[1] = grabData.savedMainControlA[1] + offset[1]*1.328;
             main.controlB[0] = grabData.savedMainControlB[0] + offset[0]*1.328;
             main.controlB[1] = grabData.savedMainControlB[1] + offset[1]*1.328;
-            if (grabData.startTangent!=null) {
-              if (grabData.startTangent==ChoreoGraph.Animation.TANGENT_ALIGNED) {
+            if (editor.path.selectedTangentType==editor.path.TANGENT_ALIGNED) {
+              if (grabData.beforeControlB!=null) {
                 alignTangent(grabData.beforeControlB,main.controlA,main.start,grabData.beforeDistance);
-              } else if (grabData.startTangent==ChoreoGraph.Animation.TANGENT_MIRRORED) {
+              }
+              if (grabData.afterControlA!=null) {
+                alignTangent(grabData.afterControlA,main.controlB,main.end,grabData.afterDistance);
+              }
+            } else if (editor.path.selectedTangentType==editor.path.TANGENT_MIRRORED) {
+              if (grabData.beforeControlB!=null) {
                 mirrorTangent(grabData.beforeControlB,main.controlA,main.start);
               }
-            }
-            if (grabData.endTangent!=null) {
-              if (grabData.endTangent==ChoreoGraph.Animation.TANGENT_ALIGNED) {
-                alignTangent(grabData.afterControlA,main.controlB,main.end,grabData.afterDistance);
-              } else if (grabData.endTangent==ChoreoGraph.Animation.TANGENT_MIRRORED) {
+              if (grabData.afterControlA!=null) {
                 mirrorTangent(grabData.afterControlA,main.controlB,main.end);
               }
             }
@@ -305,9 +302,9 @@ ChoreoGraph.plugin({
             grabData.mainControl[0] = cg.Input.cursor.x;
             grabData.mainControl[1] = cg.Input.cursor.y;
             if (grabData.pairControl!=null) {
-              if (grabData.tangent==ChoreoGraph.Animation.TANGENT_ALIGNED) {
+              if (editor.path.selectedTangentType==editor.path.TANGENT_ALIGNED) {
                 alignTangent(grabData.pairControl,grabData.mainControl,grabData.joint,grabData.distance);
-              } else if (grabData.tangent==ChoreoGraph.Animation.TANGENT_MIRRORED) {
+              } else if (editor.path.selectedTangentType==editor.path.TANGENT_MIRRORED) {
                 mirrorTangent(grabData.pairControl,grabData.mainControl,grabData.joint);
               }
             }
@@ -390,19 +387,17 @@ ChoreoGraph.plugin({
                   grabData.mainSegment = segment;
                   grabData.savedMainControlA = Array.from(segment.controlA);
                   grabData.savedMainControlB = Array.from(segment.controlB);
-                  grabData.startTangent = null;
-                  grabData.endTangent = null;
+                  grabData.beforeControlB = null;
+                  grabData.afterControlA = null;
                   if (segment.before!=null&&!segment.before.linear) {
                     grabData.beforeControlB = segment.before.controlB;
-                    grabData.startTangent = segment.tangent;
-                    if (grabData.startTangent==ChoreoGraph.Animation.TANGENT_ALIGNED) {
+                    if (editor.path.selectedTangentType==ChoreoGraph.Animation.TANGENT_ALIGNED) {
                       grabData.beforeDistance = Math.sqrt((grabData.beforeControlB[0]-segment.start[0])**2+(grabData.beforeControlB[1]-segment.start[1])**2);
                     }
                   }
                   if (segment.after!=null&&!segment.after.linear) {
                     grabData.afterControlA = segment.after.controlA;
-                    grabData.endTangent = segment.after.tangent;
-                    if (grabData.endTangent==ChoreoGraph.Animation.TANGENT_ALIGNED) {
+                    if (editor.path.selectedTangentType==editor.path.TANGENT_ALIGNED) {
                       grabData.afterDistance = Math.sqrt((grabData.afterControlA[0]-segment.end[0])**2+(grabData.afterControlA[1]-segment.end[1])**2);
                     }
                   }
@@ -413,20 +408,13 @@ ChoreoGraph.plugin({
                   grabData.savedControlA = Array.from(segment.controlA);
                   grabData.controlB = grabbablePoint.pair.controlB;
                   grabData.savedControlB = Array.from(grabbablePoint.pair.controlB);
-                  grabData.tangent = segment.tangent;
                   grabData.joint = segment.start;
 
                 } else if (grabData.type==editor.path.GRAB_CONTROL) {
                   if (grabbablePoint.type=="controlA") {
                     grabData.joint = segment.start;
-                    grabData.tangent = segment.tangent;
                   } else {
                     grabData.joint = segment.end;
-                    if (segment.after!=undefined) {
-                      grabData.tangent = segment.after.tangent;
-                    } else {
-                      grabData.tangent = ChoreoGraph.Animation.TANGENT_BROKEN;
-                    }
                   }
                   grabData.mainControl = segment[grabbablePoint.type];
                   if (grabbablePoint.pair==null) {
@@ -452,18 +440,6 @@ ChoreoGraph.plugin({
                     grabData.joint = segment.start;
                   } else {
                     grabData.joint = segment.end;
-                  }
-                }
-
-              // SWITCH TANGENT TYPE
-              } else if (actionType==editor.path.ACTION_SWITCH_TANGENT_TYPE) {
-                if (grabbablePoint.type=="start"||grabbablePoint.type=="end") {
-                  if (segment.tangent==ChoreoGraph.Animation.TANGENT_BROKEN) {
-                    segment.tangent = ChoreoGraph.Animation.TANGENT_ALIGNED;
-                  } else if (segment.tangent==ChoreoGraph.Animation.TANGENT_ALIGNED) {
-                    segment.tangent = ChoreoGraph.Animation.TANGENT_MIRRORED;
-                  } else if (segment.tangent==ChoreoGraph.Animation.TANGENT_MIRRORED) {
-                    segment.tangent = ChoreoGraph.Animation.TANGENT_BROKEN;
                   }
                 }
 
@@ -570,9 +546,6 @@ ChoreoGraph.plugin({
           } else if (ChoreoGraph.Input.lastKeyDown==hotkeys.pathLinearify) {
             editor.path.actionType = editor.path.ACTION_LINEARIFY;
             ChoreoGraph.Animation.updateTrackContext(cg);
-          } else if (ChoreoGraph.Input.lastKeyDown==hotkeys.pathChangeTangentType) {
-            editor.path.actionType = editor.path.ACTION_SWITCH_TANGENT_TYPE;
-            ChoreoGraph.Animation.updateTrackContext(cg);
           }
         };
       }
@@ -612,23 +585,13 @@ ChoreoGraph.plugin({
         let curveGrabs = [];
         // Find all the points
         for (let segment of track.segments) {
-          let tangent = segment.tangent;
-          if (segment.before==null) {
-            tangent = ChoreoGraph.Animation.TANGENT_BROKEN;
-          }
-          joints.push({tangent:tangent,point:segment.start});
+          joints.push({point:segment.start});
           editor.path.grabbablePoints.push({type:"start",pair:segment.before,segment:segment,point:segment.start});
 
           if (segment.connected) {
             if (segment.linear==false) { controls.push({joint:segment.after.start,point:segment.controlB}); }
           } else {
-            let tangent = segment.tangent;
-            if (segment.after==null) {
-              tangent = ChoreoGraph.Animation.TANGENT_BROKEN;
-            } else {
-              tangent = segment.after.tangent;
-            }
-            joints.push({tangent:tangent,point:segment.end});
+            joints.push({point:segment.end});
             if (segment.linear==false) {controls.push({joint:segment.end,point:segment.controlB}); }
             if (segment.after==null) {
               editor.path.grabbablePoints.push({type:"end",pair:segment.after,segment:segment,point:segment.end});
@@ -662,7 +625,7 @@ ChoreoGraph.plugin({
         };
         lines.push(currentLine);
 
-        if (actionType==editor.path.ACTION_GRAB||actionType==editor.path.ACTION_SWITCH_TANGENT_TYPE||actionType==editor.path.ACTION_LINEARIFY) {
+        if (actionType==editor.path.ACTION_GRAB||actionType==editor.path.ACTION_LINEARIFY) {
           // CONTROL LINES
           c.strokeStyle = "cyan";
           c.lineWidth = size;
@@ -708,20 +671,13 @@ ChoreoGraph.plugin({
         // JOINTS
         for (let joint of joints) {
           let point = joint.point;
-          let tangent = joint.tangent;
-          if (tangent==ChoreoGraph.Animation.TANGENT_BROKEN) {
-            c.fillStyle = "magenta";
-          } else if (tangent==ChoreoGraph.Animation.TANGENT_ALIGNED) {
-            c.fillStyle = "cyan";
-          } else if (tangent==ChoreoGraph.Animation.TANGENT_MIRRORED) {
-            c.fillStyle = "black";
-          }
+          c.fillStyle = "magenta";
           c.beginPath();
           c.moveTo(point[0]-6*size,point[1]);
           c.arc(point[0],point[1],6*size,0,2*Math.PI);
           c.fill();
         }
-        if (actionType==editor.path.ACTION_GRAB||actionType==editor.path.ACTION_SWITCH_TANGENT_TYPE||actionType==editor.path.ACTION_LINEARIFY) {
+        if (actionType==editor.path.ACTION_GRAB||actionType==editor.path.ACTION_LINEARIFY) {
           // CONTROL POINTS
           c.strokeStyle = "blue";
           c.beginPath();
@@ -732,7 +688,7 @@ ChoreoGraph.plugin({
           }
           c.stroke();
         }
-        if (actionType==editor.path.ACTION_GRAB||actionType==editor.path.ACTION_SWITCH_TANGENT_TYPE||actionType==editor.path.ACTION_LINEARIFY||actionType==editor.path.ACTION_INSERT) {
+        if (actionType==editor.path.ACTION_GRAB||actionType==editor.path.ACTION_LINEARIFY||actionType==editor.path.ACTION_INSERT) {
           // CURVE GRABS
           c.strokeStyle = "green";
           c.beginPath();
@@ -936,7 +892,6 @@ ChoreoGraph.plugin({
         createPathTrackActionButton(cg.Animation.editor.path.ACTION_DELETE);
         createPathTrackActionButton(cg.Animation.editor.path.ACTION_INSERT);
         createPathTrackActionButton(cg.Animation.editor.path.ACTION_LINEARIFY);
-        createPathTrackActionButton(cg.Animation.editor.path.ACTION_SWITCH_TANGENT_TYPE);
 
         let connectedToggle = new ChoreoGraph.Develop.UIToggleButton({
           activeText : "Connected Mode On",
@@ -946,6 +901,24 @@ ChoreoGraph.plugin({
         },cg);
         div.appendChild(connectedToggle.element);
         cg.Animation.editor.ui.connectedToggle = connectedToggle;
+
+        // SELECTED TANGENT TYPE DROPDOWN
+        let dropdown = document.createElement("select");
+        dropdown.cg = cg;
+        cg.Animation.editor.ui.dropdown = dropdown;
+        dropdown.className = "develop_button";
+        div.appendChild(dropdown);
+  
+        for (let type of [cg.Animation.editor.path.TANGENT_ALIGNED,cg.Animation.editor.path.TANGENT_MIRRORED,cg.Animation.editor.path.TANGENT_BROKEN]) {
+          let option = document.createElement("option");
+          option.text = type;
+          option.cg = cg;
+          dropdown.add(option);
+        }
+        dropdown.onchange = (e) => {
+          e.target.cg.Animation.editor.path.selectedTangentType = e.target.value;
+        }
+        dropdown.value = cg.Animation.editor.path.selectedTangentType;
       }
     }
 
@@ -1028,8 +1001,7 @@ ChoreoGraph.plugin({
           pathGrab : "g",
           pathDelete : "x",
           pathInsert : "i",
-          pathLinearify : "l",
-          pathChangeTangentType : "t"
+          pathLinearify : "l"
         }
       }
     });
