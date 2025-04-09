@@ -29,7 +29,9 @@ cg.scenes.main.createItem("graphic",{graphic:cg.graphics.upRectangle},"upRectang
 cg.scenes.main.createItem("graphic",{graphic:cg.graphics.cursorRectangle},"cursorRectangle");
 // cg.scenes.main.createItem("graphic",{graphic:cg.graphics.canvasCursorRectangle},"canvasCursorRectangle");
 
-cg.Input.createButton({type:"rectangle",x:500,y:30,width:120},"egg");
+cg.Input.createButton({type:"rectangle",x:500,y:30,width:120,down:function(){
+  cg.Audio.masterVolume = cg.Audio.masterVolume==0 ? 1 : 0;
+}},"toggleAudio");
 
 cg.Audio.createSound({source:"magneticPlane.mp3"},"magneticPlane");
 cg.Audio.sounds.magneticPlane.play({allowBuffer:true,loop:true});

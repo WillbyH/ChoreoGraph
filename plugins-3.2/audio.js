@@ -19,7 +19,7 @@ ChoreoGraph.plugin({
     ctx = null;
 
     onReady = null;
-    calledOnReady = false;
+    hasCalledOnReady = false;
 
     cache = {};
 
@@ -38,14 +38,17 @@ ChoreoGraph.plugin({
       get masterVolume() { return this.#masterVolume; }
       set masterVolume(value) {
         this.#masterVolume = value;
-        if (this.mode==this.AUDIOCONTEXT) {
-          if (this.masterGain==null) { this.masterVolumeBuffer = value; return; }
-          if (this.cg.settings.masterChangeTime==0) {
+        if (ChoreoGraph.Audio.mode==null) { this.masterVolumeBuffer = value; return; }
+        if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.AUDIOCONTEXT) {
+          if (this.cg.settings.audio.masterChangeTime==0) {
             this.masterGain.gain.value = this.#masterVolume;
           } else {
-            this.masterGain.gain.linearRampToValueAtTime(this.#masterVolume, ChoreoGraph.Audio.ctx.currentTime + this.cg.settings.audio.masterChangeTime);
+            const now = ChoreoGraph.Audio.ctx.currentTime;
+            this.masterGain.gain.cancelScheduledValues(now);
+            this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, now);
+            this.masterGain.gain.linearRampToValueAtTime(this.#masterVolume, now + this.cg.settings.audio.masterChangeTime);
           }
-        } else if (this.mode==this.HTMLAUDIO) {
+        } else if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.HTMLAUDIO) {
           for (let id in this.playing) {
             if (this.#masterVolume==0) {
               this.playing[id].savedVolume = this.playing[id].source.volume;
@@ -470,7 +473,7 @@ ChoreoGraph.plugin({
 
     update() {
       if (!ChoreoGraph.Audio.checkSetup()) { return; };
-      if (Audio.calledOnReady==false&&Audio.ready&&Audio.onReady!==null) { Audio.calledOnReady = true; Audio.onReady(); }
+      if (Audio.hasCalledOnReady==false&&Audio.ready&&Audio.onReady!==null) { Audio.hasCalledOnReady = true; Audio.onReady(); }
       if (Audio.mode==ChoreoGraph.Audio.HTMLAUDIO) {
         for (let id in Audio.playing) {
           let sound = Audio.playing[id];
@@ -511,7 +514,7 @@ ChoreoGraph.plugin({
       baseAudioPath : "audio/",
       forceMode : false, // false, "AudioContext", "HTMLAudio"
       skipURIEncoding : false,
-      masterChangeTime : 0.3
+      masterChangeTime : 0.1
     });
     cg.keys.sounds = [];
     cg.Audio = new ChoreoGraph.Audio.instanceObject(cg);
