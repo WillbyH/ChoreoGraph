@@ -33,19 +33,21 @@ ChoreoGraph.plugin({
       buses = {};
       masterGain = null;
 
-      _masterVolume = 1;
-      get masterVolume() { return this._masterVolume; }
+      masterVolumeBuffer = 1;
+      #masterVolume = 1;
+      get masterVolume() { return this.#masterVolume; }
       set masterVolume(value) {
-        this._masterVolume = value;
+        this.#masterVolume = value;
         if (this.mode==this.AUDIOCONTEXT) {
+          if (this.masterGain==null) { this.masterVolumeBuffer = value; return; }
           if (this.cg.settings.masterChangeTime==0) {
-            this.masterGain.gain.value = this._masterVolume;
+            this.masterGain.gain.value = this.#masterVolume;
           } else {
-            this.masterGain.gain.linearRampToValueAtTime(this._masterVolume, ChoreoGraph.Audio.ctx.currentTime + this.cg.settings.audio.masterChangeTime);
+            this.masterGain.gain.linearRampToValueAtTime(this.#masterVolume, ChoreoGraph.Audio.ctx.currentTime + this.cg.settings.audio.masterChangeTime);
           }
         } else if (this.mode==this.HTMLAUDIO) {
           for (let id in this.playing) {
-            if (this._masterVolume==0) {
+            if (this.#masterVolume==0) {
               this.playing[id].savedVolume = this.playing[id].source.volume;
               this.playing[id].source.volume = 0;
             } else {
@@ -139,7 +141,7 @@ ChoreoGraph.plugin({
           newSoundInstance.fadeTo = options.volume;
           newSoundInstance.fadeStart = ChoreoGraph.nowint;
           newSoundInstance.fadeEnd = ChoreoGraph.nowint+options.fadeIn*1000;
-          if (this.masterVolume==0) { newSoundInstance.savedVolume = savedVolume; }
+          if (this.#masterVolume==0) { newSoundInstance.savedVolume = savedVolume; }
           source.id = newSoundInstance.id;
           source.cgAudio = this;
 
@@ -215,7 +217,7 @@ ChoreoGraph.plugin({
             sound.source.gainNode.gain.linearRampToValueAtTime(volume, ChoreoGraph.Audio.ctx.currentTime + seconds);
           }
         } else if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.HTMLAUDIO) {
-          if (this.masterVolume==0) { sound.savedVolume = volume; } // Save Volume When Muted
+          if (this.#masterVolume==0) { sound.savedVolume = volume; } // Save Volume When Muted
           if (volume<0) { volume = 0; } else if (volume>1) { volume = 1; }
           if (seconds==0) { sound.source.volume = volume; }
           else {
@@ -241,7 +243,7 @@ ChoreoGraph.plugin({
       init() {
         if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.AUDIOCONTEXT) {
           this.masterGain = ChoreoGraph.Audio.ctx.createGain();
-          this.masterGain.gain.value = 1;
+          this.masterGain.gain.value = this.masterVolumeBuffer;
           this.masterGain.connect(ChoreoGraph.Audio.ctx.destination);
         }
         this.ready = true;
