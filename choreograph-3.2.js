@@ -7,6 +7,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
 
   frame = 0;
   lastPerformanceTime = performance.now();
+  now = new Date();
   nowint = new Date().getTime();
 
   plugins = {};

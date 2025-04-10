@@ -36,6 +36,10 @@ cg.Input.createButton({type:"rectangle",x:500,y:30,width:120,down:function(){
 cg.Audio.createSound({source:"magneticPlane.mp3"},"magneticPlane");
 cg.Audio.sounds.magneticPlane.play({allowBuffer:true,loop:true});
 
+cg.settings.input.callbacks.keyDown = function(key,event) {
+  console.log(key);
+}
+
 cg.settings.core.callbacks.loopBefore = () => {
   cg.sceneItems.cursorRectangle.transform.x = cg.Input.cursor.x;
   cg.sceneItems.cursorRectangle.transform.y = cg.Input.cursor.y;
