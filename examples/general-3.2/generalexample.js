@@ -32,13 +32,19 @@ cg.scenes.main.createItem("graphic",{graphic:cg.graphics.cursorRectangle},"curso
 cg.Input.createButton({type:"rectangle",x:500,y:30,width:120,down:function(){
   cg.Audio.masterVolume = cg.Audio.masterVolume==0 ? 1 : 0;
 }},"toggleAudio");
+cg.Input.createButton({type:"rectangle",x:400,y:30,width:120},"dummy");
 
 cg.Audio.createSound({source:"magneticPlane.mp3"},"magneticPlane");
 cg.Audio.sounds.magneticPlane.play({allowBuffer:true,loop:true});
 
-cg.settings.input.callbacks.keyDown = function(key,event) {
-  console.log(key);
-}
+// cg.settings.input.callbacks.keyDown = function(key,event) {
+//   console.log(key);
+// }
+
+cg.Input.createAction({keys:["w","up","conleftup","condpadup","conrightup"]},"forward");
+cg.Input.createAction({keys:["s","down","conleftdown","condpaddown","conrightdown"]},"backward");
+cg.Input.createAction({keys:["a","left","conleftleft","condpadleft","conrightleft"]},"left");
+cg.Input.createAction({keys:["d","right","conrightright","condpadright","conleftright"]},"right");
 
 cg.settings.core.callbacks.loopBefore = () => {
   cg.sceneItems.cursorRectangle.transform.x = cg.Input.cursor.x;
@@ -64,6 +70,18 @@ cg.settings.core.callbacks.loopAfter = () => {
   cg.c.font = "20px Arial";
   cg.c.fillStyle = "white";
   cg.c.fillText(cg.Input.lastInputType,10,50);
+
+  cg.c.fillText(cg.Input.actions.forward.get().toFixed(2),40,80);
+  cg.c.fillText(cg.Input.actions.backward.get().toFixed(2),40,120);
+  cg.c.fillText(cg.Input.actions.left.get().toFixed(2),15,100);
+  cg.c.fillText(cg.Input.actions.right.get().toFixed(2),65,100);
+
+  let dir = cg.Input.getActionNormalisedVector("forward","backward","left","right");
+  cg.c.fillText(dir[0],40,160);
+  cg.c.fillText(dir[1],40,200);
+  cg.sceneItems.another.transform.x += dir[0]*0.2*cg.timeDelta;
+  cg.sceneItems.another.transform.y += dir[1]*0.2*cg.timeDelta;
+
   // cg.c.beginPath();
   // cg.c.moveTo(cg.sceneItems.downRectangle.transform.x,cg.sceneItems.downRectangle.transform.y);
   // if (cg.Input.cursor.hold.any) {

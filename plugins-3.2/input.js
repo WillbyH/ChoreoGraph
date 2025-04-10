@@ -55,6 +55,9 @@ ChoreoGraph.plugin({
       buttons = {};
       lastCheckedButtonChecks = -1;
       cachedButtonChecks = {};
+      hoveredButtons = 0;
+
+      actions = {};
 
       get buttonChecks() {
         if (this.cg.settings.input.callbacks.updateButtonChecks!==null) {
@@ -119,7 +122,38 @@ ChoreoGraph.plugin({
         this.buttons[id] = newButton;
         this.cg.keys.buttons.push(id);
         return newButton;
-      }
+      };
+
+      createAction(actionInit,id=ChoreoGraph.id.get()) {
+        let action = new ChoreoGraph.Input.Action(actionInit);
+        action.id = id;
+        action.cg = this.cg;
+        this.actions[id] = action;
+        this.cg.keys.actions.push(id);
+        return action;
+      };
+
+      getActionNormalisedVector(up, down, left, right) {
+        let x = 0;
+        let y = 0;
+        if (up instanceof ChoreoGraph.Input.Action) {
+          y += up.get();
+          y -= down.get();
+          x += left.get();
+          x -= right.get();
+        } else {
+          y -= this.cg.Input.actions[up].get();
+          y += this.cg.Input.actions[down].get();
+          x -= this.cg.Input.actions[left].get();
+          x += this.cg.Input.actions[right].get();
+        }
+        let magnitude = Math.sqrt(x*x+y*y);
+        if (magnitude>1) {
+          x /= magnitude;
+          y /= magnitude;
+        };
+        return [x,y];
+      };
     };
 
     // CURSORS
@@ -245,6 +279,11 @@ ChoreoGraph.plugin({
             this.canvas.cg.settings.input.callbacks.cursorUp(event,this.canvas);
           }
         } else if (event.type=="pointermove") {
+          if (cg.Input.cursor.canvas.hasHiddenCursorForEmulatedCursor&&event.pointerType=="mouse") {
+            cg.Input.cursor.canvas.hasHiddenCursorForEmulatedCursor = false;
+            cg.Input.cursor.canvas.keepCursorHidden = false;
+            cg.Input.cursor.canvas.element.style.cursor = cg.settings.core.defaultCursor;
+          }
           if (this.touches[event.pointerId]!==undefined) {
             this.touches[event.pointerId].x = this.x;
             this.touches[event.pointerId].y = this.y;
@@ -303,12 +342,14 @@ ChoreoGraph.plugin({
       ChoreoGraph.Input.downCanvases[event.pointerId] = event.target.cgCanvas;
       ChoreoGraph.Input.updateButtons(event.target.cgCanvas,event,"down");
 
-      let fakeEvent = new class FakeKeyboardEvent {
-        type = "keydown";
-        key = ["mouseleft","mousemiddle","mouseright","mousebutton1","mousebutton2"][event.button];
-        keyType = "mouse";
+      if (event.pointerType=="mouse") {
+        let fakeEvent = new class FakeKeyboardEvent {
+          type = "keydown";
+          key = ["mouseleft","mousemiddle","mouseright","mousebutton1","mousebutton2"][event.button];
+          keyType = "mouse";
+        }
+        ChoreoGraph.Input.keyDown(fakeEvent);
       }
-      ChoreoGraph.Input.keyDown(fakeEvent);
     };
     pointerUp(event) {
       let canvas = ChoreoGraph.Input.downCanvases[event.pointerId];
@@ -317,12 +358,14 @@ ChoreoGraph.plugin({
       ChoreoGraph.Input.updateButtons(canvas,event,"up");
       delete ChoreoGraph.Input.downCanvases[event.pointerId];
 
-      let fakeEvent = new class FakeKeyboardEvent {
-        type = "keyup";
-        key = ["mouseleft","mousemiddle","mouseright","mousebutton1","mousebutton2"][event.button];
-        keyType = "mouse";
+      if (event.pointerType=="mouse") {
+        let fakeEvent = new class FakeKeyboardEvent {
+          type = "keyup";
+          key = ["mouseleft","mousemiddle","mouseright","mousebutton1","mousebutton2"][event.button];
+          keyType = "mouse";
+        }
+        ChoreoGraph.Input.keyUp(fakeEvent);
       }
-      ChoreoGraph.Input.keyUp(fakeEvent);
     };
     pointerMove(event) {
       for (let cg of ChoreoGraph.instances) {
@@ -402,6 +445,10 @@ ChoreoGraph.plugin({
     lastKeyDownFrame = -1;
     activeKeys = 0;
     capsLock = false;
+    altKey = false;
+    ctrlKey = false;
+    shiftKey = false;
+    metaKey = false;
 
     isInstanceKeyAvailable(cg) {
       return (cg.settings.input.focusKeys&&ChoreoGraph.Input.lastClickedCanvas!==null&&ChoreoGraph.Input.lastClickedCanvas.cg.id==cg.id)||(!cg.settings.input.focusKeys);
@@ -455,6 +502,12 @@ ChoreoGraph.plugin({
           if (cg.settings.input.callbacks.keyUp!==null) {
             cg.settings.input.callbacks.keyUp(key,event);
           }
+          if (ChoreoGraph.Input.activeKeys==0) {
+            ChoreoGraph.Input.altKey = false;
+            ChoreoGraph.Input.ctrlKey = false;
+            ChoreoGraph.Input.shiftKey = false;
+            ChoreoGraph.Input.metaKey = false;
+          }
         } else {
           continue;
         }
@@ -470,6 +523,10 @@ ChoreoGraph.plugin({
         this.keyStates[key] = false;
       }
       ChoreoGraph.Input.activeKeys = 0;
+      ChoreoGraph.Input.altKey = false;
+      ChoreoGraph.Input.ctrlKey = false;
+      ChoreoGraph.Input.shiftKey = false;
+      ChoreoGraph.Input.metaKey = false;
     }
 
     getSimplifiedKey(event) {
@@ -568,18 +625,19 @@ ChoreoGraph.plugin({
       if (controller==null||controller.connected==false) { return; }
       if (ChoreoGraph.Input.lastClickedCanvas===null) { return; }
       let cursor = cg.Input.canvasCursors[ChoreoGraph.Input.lastClickedCanvas.id];
+      let emulatedCursor = cg.settings.input.controller.emulatedCursor;
       let gamepad = controller.gamepad;
       let xi = 0;
       let yi = 1;
-      if (cg.settings.input.controller.emulatedCursor.stickSide=="right") {
+      if (emulatedCursor.stickSide=="right") {
         xi = 2;
         yi = 3;
       }
       let sx = gamepad.axes[xi];
       let sy = gamepad.axes[yi];
 
-      let sen = cg.settings.input.controller.emulatedCursor.stickSensitivity;
-      let dead = cg.settings.input.controller.emulatedCursor.stickDeadzone;
+      let sen = emulatedCursor.stickSensitivity;
+      let dead = emulatedCursor.stickDeadzone;
 
       if (Math.abs(sx)<dead) { sx = 0; }
       if (Math.abs(sy)<dead) { sy = 0; }
@@ -588,11 +646,21 @@ ChoreoGraph.plugin({
         cursor.clientX += sen*sx*ChoreoGraph.timeDelta;
         cursor.clientY += sen*sy*ChoreoGraph.timeDelta;
   
-        if (cg.settings.input.controller.emulatedCursor.lockCursorCanvas) {
+        if (emulatedCursor.lockCursorCanvas) {
           if (cursor.clientX<cursor.boundBox.left) { cursor.clientX = cursor.boundBox.left; }
           if (cursor.clientX>cursor.boundBox.right) { cursor.clientX = cursor.boundBox.right; }
           if (cursor.clientY<cursor.boundBox.top) { cursor.clientY = cursor.boundBox.top; }
           if (cursor.clientY>cursor.boundBox.bottom) { cursor.clientY = cursor.boundBox.bottom; }
+        }
+        let canvas = cg.Input.cursor.canvas;
+        if (emulatedCursor.hideCursor&&canvas.keepCursorHidden==false) {
+          canvas.hasHiddenCursorForEmulatedCursor = true;
+          canvas.keepCursorHidden = true;
+          canvas.element.style.cursor = "none";
+        } else if (!emulatedCursor.hideCursor&&canvas.keepCursorHidden&&canvas.hasHiddenCursorForEmulatedCursor) {
+          canvas.hasHiddenCursorForEmulatedCursor = false;
+          canvas.keepCursorHidden = false;
+          canvas.element.style.cursor = cg.settings.core.defaultCursor;
         }
   
         let fakeEvent = new class FakePointerEvent {
@@ -606,7 +674,7 @@ ChoreoGraph.plugin({
         ChoreoGraph.Input.pointerMove(fakeEvent);
       }
 
-      if (cg.settings.input.controller.emulatedCursor.buttons.active) {
+      if (emulatedCursor.buttons.active) {
         if (controller.emulatedCursorLastButtons===undefined) {
           controller.emulatedCursorLastButtons = {
             left : false,
@@ -615,7 +683,7 @@ ChoreoGraph.plugin({
           };
         };
         let buttons = controller.emulatedCursorLastButtons;
-        let settings = cg.settings.input.controller.emulatedCursor.buttons;
+        let settings = emulatedCursor.buttons;
         function pointerDown(side) {
           if (ChoreoGraph.Input.lastClickedCanvas===null) { return; }
           let fakeEvent = new class FakePointerEvent {
@@ -802,6 +870,10 @@ ChoreoGraph.plugin({
             button.hovered = true;
             button.enterTime = ChoreoGraph.nowint;
             button.hoverCount++;
+            cg.Input.hoveredButtons++;
+            if (cg.Input.cursor.canvas.keepCursorHidden==false) {
+              cg.Input.cursor.canvas.element.style.cursor = button.cursor;
+            }
             if (button.enter!==null) {
               button.enter(event,canvas);
             }
@@ -828,6 +900,7 @@ ChoreoGraph.plugin({
             button.hovered = false;
             button.exitTime = ChoreoGraph.nowint;
             button.hoverCount--;
+            cg.Input.hoveredButtons--;
             if (button.hoverCount==0&&(button.pressed||button.allowUpWithNoPress)) {
               button.upTime = ChoreoGraph.nowint;
               if (button.up!==null) {
@@ -836,6 +909,9 @@ ChoreoGraph.plugin({
             }
             if (button.hoverCount==0) {
               button.pressed = false;
+            }
+            if (cg.Input.hoveredButtons==0&&cg.Input.cursor.canvas.keepCursorHidden==false) {
+              cg.Input.cursor.canvas.element.style.cursor = cg.settings.core.defaultCursor;
             }
             if (button.exit!==null) {
               button.exit(event,canvas);
@@ -863,11 +939,114 @@ ChoreoGraph.plugin({
         }
       }
     };
+
+    // ACTIONS
+
+    ActionKey = class cgActionKey {
+      main = null;
+      shift = false;
+      ctrl = false;
+      alt = false;
+      meta = false;
+      deadzone = 0.2;
+
+      constructor(init) {
+        this.main = init.main;
+        this.shift = init.shift || false;
+        this.ctrl = init.ctrl || false;
+        this.alt = init.alt || false;
+        this.meta = init.meta || false;
+        if (init.deadzone!=undefined) {
+          this.deadzone = init.deadzone;
+        }
+      };
+
+      get() {
+        if (this.cachedFrame==ChoreoGraph.frame) { return this.cachedValue; }
+        if (this.main==null) { return 0; }
+        if (!ChoreoGraph.Input.altKey&&this.alt) { return 0; }
+        if (!ChoreoGraph.Input.ctrlKey&&this.ctrl) { return 0; }
+        if (!ChoreoGraph.Input.shiftKey&&this.shift) { return 0; }
+        if (!ChoreoGraph.Input.metaKey&&this.meta) { return 0; }
+        let controllerAxes = ["conleftup","conleftdown","conleftleft","conleftright","conrightup","conrightdown","conrightleft","conrightright"];
+        if (controllerAxes.indexOf(this.main)>-1) {
+          let controller = ChoreoGraph.Input.controller;
+          if (controller==null||controller.connected==false) { return 0; }
+          let gamepad = controller.gamepad;
+          switch (this.main) {
+            case "conleftup":
+              if (gamepad.axes[1]<-this.deadzone) { return -gamepad.axes[1]; }
+              return 0;
+            case "conleftdown":
+              if (gamepad.axes[1]>this.deadzone) { return gamepad.axes[1]; }
+              return 0;
+            case "conleftleft":
+              if (gamepad.axes[0]<-this.deadzone) { return -gamepad.axes[0]; }
+              return 0;
+            case "conleftright":
+              if (gamepad.axes[0]>this.deadzone) { return gamepad.axes[0]; }
+              return 0;
+            case "conrightup":
+              if (gamepad.axes[3]<-this.deadzone) { return -gamepad.axes[3]; }
+              return 0;
+            case "conrightdown":
+              if (gamepad.axes[3]>this.deadzone) { return gamepad.axes[3]; }
+              return 0;
+            case "conrightleft":
+              if (gamepad.axes[2]<-this.deadzone) { return -gamepad.axes[2]; }
+              return 0;
+            case "conrightright":
+              if (gamepad.axes[2]>this.deadzone) { return gamepad.axes[2]; }
+              return 0;
+          }
+        } else if (ChoreoGraph.Input.keyStates[this.main]!==undefined) {
+          return ChoreoGraph.Input.keyStates[this.main]*1;
+        } else {
+          return 0;
+        }
+      }
+    };
+
+    Action = class cgAction {
+      keys = [];
+      controllerAxes = [];
+
+      cachedValue = 0;
+      cachedFrame = -1;
+
+      down = null;
+      up = null;
+
+      constructor(init) {
+        for (let key of init.keys) {
+          if (typeof key == "string") {
+            this.keys.push(new ChoreoGraph.Input.ActionKey({main:key}));
+          } else if (key instanceof ChoreoGraph.Input.ActionKey) {
+            this.keys.push(key);
+          } else {
+            this.keys.push(new ChoreoGraph.Input.ActionKey(key));
+          }
+        }
+      }
+
+      get() {
+        if (this.cachedFrame==ChoreoGraph.frame) { return this.cachedValue; }
+        let value = 0;
+        for (let key of this.keys) {
+          value += key.get();
+        }
+        value = Math.min(value,1);
+        this.cachedFrame = ChoreoGraph.frame;
+        this.cachedValue = value;
+        return value;
+      };
+    };
   },
 
   instanceConnect(cg) {
     cg.Input = new ChoreoGraph.Input.instanceObject(cg);
     cg.keys.buttons = [];
+    cg.keys.actions = [];
     cg.attachSettings("input",{
       preventSingleTouch : true, // Prevents touches starting on the canvas from scrolling the page, unless you would get trapped
       preventContextMenu : false, // Prevents the context menu from appearing on right click
@@ -882,6 +1061,7 @@ ChoreoGraph.plugin({
         keyStickDeadzone : 0.5,
         emulatedCursor : {
           active : true,
+          hideCursor : true,
           lockCursorCanvas : true,
           stickSide : "left",
           stickDeadzone : 0.1,

@@ -81,6 +81,8 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         canvasSpaceScale : 1,
         frustumCulling : true,
         baseImagePath : "images/",
+        defaultCursor : "default",
+
         callbacks : {
           loopBefore : null, // loopBefore(cg) runs before canvases are drawn
           loopAfter : null, // loopAfter(cg) runs after canvases are drawn
@@ -231,6 +233,8 @@ const ChoreoGraph = new class ChoreoGraphEngine {
   Canvas = class cgCanvas {
     width = 600;
     height = 400;
+
+    keepCursorHidden = false;
 
     camera = null;
     parentElement = null;
@@ -689,7 +693,6 @@ const ChoreoGraph = new class ChoreoGraphEngine {
           if (this.loadAttempts<3) {
             console.warn("Load failed for " + this.id);
             this.loadAttempts++;
-            console.log(cg.settings.core.baseImagePath + this.file)
             this.image.src = cg.settings.core.baseImagePath + this.file;
           } else { console.error("Image failed to load for " + this.id + " at " + this.image.src); return; }
         };
