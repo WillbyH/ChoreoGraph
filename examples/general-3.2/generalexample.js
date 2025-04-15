@@ -7,12 +7,24 @@ const cg = ChoreoGraph.instantiate({
   },
   audio : {
     // forceMode : "HTMLAudio"
+  },
+  input : {
+    controller : {
+      emulatedCursor : {
+        active : true
+      }
+    },
+    debug : {
+      active : true
+    }
   }
 });
 cg.createCanvas({element:document.getElementsByTagName("canvas")[0],
   height : 450,
   width : 600
 });
+
+cg.Audio.masterVolume = 0;
 
 cg.scenes.main.createItem("collection",{},"stuff")
 

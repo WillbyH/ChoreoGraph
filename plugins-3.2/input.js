@@ -477,6 +477,9 @@ ChoreoGraph.plugin({
       for (let cg of ChoreoGraph.instances) {
         if (ChoreoGraph.Input.isInstanceKeyAvailable(cg)) {
           let key = ChoreoGraph.Input.standardKeyFunctions(event);
+          if (cg.settings.input.preventDefaultKeys.indexOf(key)>-1) {
+            event.preventDefault();
+          }
           if (ChoreoGraph.Input.keyStates[key]===undefined) { return; }
           if (ChoreoGraph.Input.keyStates[key]) { return; }
           ChoreoGraph.Input.lastKeyDown = key;
@@ -1056,15 +1059,17 @@ ChoreoGraph.plugin({
 
       focusKeys : false, // If true, keys will only be sent to the last clicked canvases instance
 
+      preventDefaultKeys : [],
+
       allowController : true, // Allow controller input events
       controller : {
         keyStickDeadzone : 0.5,
         emulatedCursor : {
-          active : true,
+          active : false,
           hideCursor : true,
           lockCursorCanvas : true,
           stickSide : "left",
-          stickDeadzone : 0.1,
+          stickDeadzone : 0.15,
           stickSensitivity : 0.5,
           buttons : {
             active : true,
@@ -1089,7 +1094,7 @@ ChoreoGraph.plugin({
       },
 
       debug : {
-        active : true,
+        active : false,
         buttons : {
           active : true,
           opacity : 0.4,
