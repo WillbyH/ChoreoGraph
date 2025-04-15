@@ -53,7 +53,7 @@ cg.Audio.sounds.magneticPlane.play({allowBuffer:true,loop:true});
 //   console.log(key);
 // }
 
-cg.Input.createAction({keys:["w","up","conleftup","condpadup","conrightup"]},"forward");
+cg.Input.createAction({keys:["w","up","conleftup","condpadup","conrightup",cg.Input.buttons.dummy]},"forward");
 cg.Input.createAction({keys:["s","down","conleftdown","condpaddown","conrightdown"]},"backward");
 cg.Input.createAction({keys:["a","left","conleftleft","condpadleft","conrightleft"]},"left");
 cg.Input.createAction({keys:["d","right","conrightright","condpadright","conleftright"]},"right");

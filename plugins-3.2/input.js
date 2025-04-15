@@ -256,7 +256,7 @@ ChoreoGraph.plugin({
             x : this.x,
             y : this.y
           };
-          if (this.activeTouches.indexOf(event.pointerId)==-1) {
+          if (!this.activeTouches.includes(event.pointerId)) {
             this.activeTouches.push(event.pointerId);
           }
           if (this.canvas.cg.settings.input.callbacks.cursorDown!==null) {
@@ -477,7 +477,7 @@ ChoreoGraph.plugin({
       for (let cg of ChoreoGraph.instances) {
         if (ChoreoGraph.Input.isInstanceKeyAvailable(cg)) {
           let key = ChoreoGraph.Input.standardKeyFunctions(event);
-          if (cg.settings.input.preventDefaultKeys.indexOf(key)>-1) {
+          if (cg.settings.input.preventDefaultKeys.includes(key)) {
             event.preventDefault();
           }
           if (ChoreoGraph.Input.keyStates[key]===undefined) { return; }
@@ -972,7 +972,7 @@ ChoreoGraph.plugin({
         if (!ChoreoGraph.Input.shiftKey&&this.shift) { return 0; }
         if (!ChoreoGraph.Input.metaKey&&this.meta) { return 0; }
         let controllerAxes = ["conleftup","conleftdown","conleftleft","conleftright","conrightup","conrightdown","conrightleft","conrightright"];
-        if (controllerAxes.indexOf(this.main)>-1) {
+        if (controllerAxes.includes(this.main)) {
           let controller = ChoreoGraph.Input.controller;
           if (controller==null||controller.connected==false) { return 0; }
           let gamepad = controller.gamepad;
@@ -1003,7 +1003,9 @@ ChoreoGraph.plugin({
               return 0;
           }
         } else if (ChoreoGraph.Input.keyStates[this.main]!==undefined) {
-          return ChoreoGraph.Input.keyStates[this.main]*1;
+          return Number(ChoreoGraph.Input.keyStates[this.main]);
+        } else if (this.main instanceof ChoreoGraph.Input.Button) {
+          return Number(this.main.pressed);
         } else {
           return 0;
         }
@@ -1024,9 +1026,11 @@ ChoreoGraph.plugin({
         for (let key of init.keys) {
           if (typeof key == "string") {
             this.keys.push(new ChoreoGraph.Input.ActionKey({main:key}));
+          } else if (key instanceof ChoreoGraph.Input.Button) {
+            this.keys.push(new ChoreoGraph.Input.ActionKey({main:key}));
           } else if (key instanceof ChoreoGraph.Input.ActionKey) {
             this.keys.push(key);
-          } else {
+          } else if (typeof key == "object") {
             this.keys.push(new ChoreoGraph.Input.ActionKey(key));
           }
         }

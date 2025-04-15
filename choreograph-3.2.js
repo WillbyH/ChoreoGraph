@@ -93,6 +93,10 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       });
     };
     attachSettings(category,settings) {
+      if (this.settings[category]!==undefined) {
+        console.warn("Settings category already exists:",category);
+        return;
+      }
       this.settings[category] = settings;
     };
     loop() {
@@ -961,19 +965,6 @@ const ChoreoGraph = new class ChoreoGraphEngine {
   plugin(pluginInit) {
     let plugin = new this.Plugin(pluginInit);
     ChoreoGraph.plugins[plugin.key] = plugin;
-    // for (let i=0; i<ChoreoGraph.instances.length; i++) {
-    //   let instance = ChoreoGraph.instances[i];
-    //   for (let j=0;j<plugin.instanceExternalLoops.length;j++) {
-    //     instance.externalLoops.push(plugin.instanceExternalLoops[j]);
-    //   }
-    //   if (plugin.instanceConnect!=null) { plugin.instanceConnect(instance); }
-    // }
-    // for (let j=0;j<plugin.externalContentLoops.length;j++) {
-    //   this.externalContentLoops.push(plugin.externalContentLoops[j]);
-    // }
-    // for (let j=0;j<plugin.externalMainLoops.length;j++) {
-    //   this.externalMainLoops.push(plugin.externalMainLoops[j]);
-    // }
   };
 
   instantiate(init={}) {
