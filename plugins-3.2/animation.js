@@ -29,7 +29,8 @@ ChoreoGraph.plugin({
           addPathTrackButton : null,
           trackContext : null,
           pathActionButtons : {},
-          connectedToggle : null
+          connectedToggle : null,
+          tangentDropdown : null,
         },
 
         path : {
@@ -92,7 +93,6 @@ ChoreoGraph.plugin({
     Animation = class cgAnimation {
       data = [];
       tracks = [];
-      packDecimals = 2;
 
       createTrack(trackType) {
         let newTrack = new ChoreoGraph.Animation.TrackTypes[trackType](this.cg.cg);
@@ -124,11 +124,140 @@ ChoreoGraph.plugin({
 
         constructor(cg) {
           this.density = cg.settings.animation.editor.defaultPathDensity;
+          this.cg = cg;
         }
-        
+
         pack() {
-          return "spliiiinedata";
+          let output = "";
+          output += this.density
+          output += ":";
+          function chop(number,cg) {
+            number = number.toString();
+            let decimals = cg.settings.animation.editor.decimalRounding;
+            if (number.includes(".")) {
+              let split = number.split(".");
+              let integer = split[0];
+              let decimal = split[1];
+              if (decimal.length>decimals) {
+                decimal = decimal.slice(0,decimals);
+                return integer+"."+decimal;
+              } else {
+                return number;
+              }
+            } else {
+              return number;
+            }
+          }
+          for (let i=0;i<this.segments.length;i++) {
+            let segment = this.segments[i];
+            output += chop(segment.start[0],this.cg)+","+chop(segment.start[1],this.cg);
+            let trailingSymbol = false;
+            if (!segment.controlAEnabled&&!segment.controlAEnabled) {
+              output += "_";
+              trailingSymbol = true;
+            } else {
+              if (segment.controlAEnabled) {
+                output += ","+chop(segment.controlA[0],this.cg)+","+chop(segment.controlA[1],this.cg);
+              } else {
+                trailingSymbol = true;
+                output += "!";
+              }
+              if (segment.controlBEnabled) {
+                if (!trailingSymbol) { output += ","; }
+                output += chop(segment.controlB[0],this.cg)+","+chop(segment.controlB[1],this.cg);
+                trailingSymbol = false;
+              } else {
+                trailingSymbol = true;
+                output += "!";
+              }
+            }
+            if (!segment.connected) {
+              if (!trailingSymbol) { output += ","; }
+              output += chop(segment.end[0],this.cg)+","+chop(segment.end[1],this.cg);
+              if (i!=this.segments.length-1) { output += "^"; }
+            } else {
+              output += "~";
+            }
+
+            if (output[output.length-2]=="_"&&output[output.length-1]=="~") {
+              output = output.slice(0,-2);
+              output += "=";
+            }
+          }
+          return output;
         };
+
+        unpack(data) {
+          this.density = parseInt(data.split(":")[0]);
+          let segments = data.split(":")[1];
+          let pointer = 0;
+          let previousSegment = null;
+          let numberChars = "0123456789.-";
+          function getNumber(data,pointer) {
+            let number = "";
+            while (numberChars.includes(data[pointer])) {
+              number += data[pointer];
+              pointer++;
+            }
+            number = Number(number);
+            return [number,pointer]
+          }
+          function set(part,segment,data,pointer) {
+            let x, y = 0;
+            [x, pointer] = getNumber(data,pointer);
+            pointer++;
+            [y, pointer] = getNumber(data,pointer);
+            segment[part] = [x,y];
+            if (part=="controlA") {
+              segment.controlAEnabled = true;
+            } else if (part=="controlB") {
+              segment.controlBEnabled = true;
+            }
+            return pointer;
+          }
+          function setFromControlB(segment,data,pointer) {
+            if (data[pointer]=="!") {
+              pointer++;
+            } else if (data[pointer]==",") {
+              pointer = set("controlB",segment,data,++pointer);
+            }
+            if (data[pointer]=="~") {
+              segment.connected = true;
+            } else if (data[pointer]==",") {
+              pointer = set("end",segment,data,++pointer);
+            } else if (numberChars.includes(data[pointer])) {
+              pointer = set("end",segment,data,pointer);
+            }
+            return pointer;
+          }
+
+          while (pointer<segments.length) {
+            let newSegment = new ChoreoGraph.Animation.SplineSegment();
+
+            pointer = set("start",newSegment,segments,pointer);
+
+            if (previousSegment?.connected) {
+              previousSegment.end = newSegment.start;
+              newSegment.before = previousSegment;
+              previousSegment.after = newSegment;
+            }
+            previousSegment = newSegment;
+
+            if (segments[pointer]=="=") {
+              newSegment.connected = true;
+            } else if (segments[pointer]=="_") {
+              pointer = set("end",newSegment,segments,++pointer);
+            } else if (segments[pointer]==",") {
+              pointer = set("controlA",newSegment,segments,++pointer);
+              pointer = setFromControlB(newSegment,segments,pointer);
+            } else if (segments[pointer]=="!") {
+              pointer = setFromControlB(newSegment,segments,++pointer);
+            }
+
+            this.segments.push(newSegment);
+            pointer++;
+          }
+        }
 
         info() {
           let info = this.segments.length+" segments ";
@@ -231,7 +360,7 @@ ChoreoGraph.plugin({
       getScaledSampleSize(density) {
         return Math.floor(this.getLength(30)/density);
       };
-    };
+    };    
 
     processEditor(cg) {
       if (cg.Input===undefined) { console.warn("Animation editor requires Input plugin"); return; }
@@ -246,9 +375,24 @@ ChoreoGraph.plugin({
       if (track.type=="path") {
         let actionType = editor.path.actionType;
 
+        const snapX = function snapEditorPointX(x,cg,ignoreOffset=false) {
+          let gridSize = cg.settings.animation.editor.snapGridSize;
+          let offset = cg.settings.animation.editor.snapGridOffsetX;
+          if (ignoreOffset) { offset = 0; }
+          let snappedX = Math.round((x+offset)/gridSize)*gridSize - offset;
+          return snappedX;
+        };
+        const snapY = function snapEditorPointY(y,cg,ignoreOffset=false) {
+          let gridSize = cg.settings.animation.editor.snapGridSize;
+          let offset = cg.settings.animation.editor.snapGridOffsetY;
+          if (ignoreOffset) { offset = 0; }
+          let snappedY = Math.round((y+offset)/gridSize)*gridSize - offset;
+          return snappedY;
+        };
+
         // GRABBING
         if (editor.path.grabbing) {
-          let offset = [cg.Input.cursor.x-editor.path.downPos[0],cg.Input.cursor.y-editor.path.downPos[1]];
+          let offset = [snapX(cg.Input.cursor.x-editor.path.downPos[0],cg,true),snapY(cg.Input.cursor.y-editor.path.downPos[1],cg,true)];
           let grabData = editor.path.grabData;
 
           function alignTangent(control,pair,joint,distance) {
@@ -302,8 +446,8 @@ ChoreoGraph.plugin({
             if (update) { ChoreoGraph.Animation.updateAnimationOverview(cg); }
 
           } else if (grabData.type==editor.path.GRAB_JOINT) {
-            grabData.joint[0] = cg.Input.cursor.x;
-            grabData.joint[1] = cg.Input.cursor.y;
+            grabData.joint[0] = snapX(cg.Input.cursor.x,cg);
+            grabData.joint[1] = snapY(cg.Input.cursor.y,cg);
             grabData.controlA[0] = grabData.savedControlA[0] + offset[0];
             grabData.controlA[1] = grabData.savedControlA[1] + offset[1];
             grabData.controlB[0] = grabData.savedControlB[0] + offset[0];
@@ -311,8 +455,8 @@ ChoreoGraph.plugin({
 
 
           } else if (grabData.type==editor.path.GRAB_CONTROL) {
-            grabData.mainControl[0] = cg.Input.cursor.x;
-            grabData.mainControl[1] = cg.Input.cursor.y;
+            grabData.mainControl[0] = snapX(cg.Input.cursor.x,cg);
+            grabData.mainControl[1] = snapY(cg.Input.cursor.y,cg);
             if (grabData.pairControl!=null) {
               if (editor.path.selectedTangentType==editor.path.TANGENT_ALIGNED) {
                 alignTangent(grabData.pairControl,grabData.mainControl,grabData.joint,grabData.distance);
@@ -322,14 +466,14 @@ ChoreoGraph.plugin({
             }
 
           } else if (grabData.type==editor.path.GRAB_DISCONNECTED) {
-            grabData.joint[0] = cg.Input.cursor.x;
-            grabData.joint[1] = cg.Input.cursor.y;
+            grabData.joint[0] = snapX(cg.Input.cursor.x,cg);
+            grabData.joint[1] = snapY(cg.Input.cursor.y,cg);
             grabData.control[0] = grabData.savedControl[0] + offset[0];
             grabData.control[1] = grabData.savedControl[1] + offset[1];
 
           } else if (grabData.type==editor.path.GRAB_LINEAR) {
-            grabData.joint[0] = cg.Input.cursor.x;
-            grabData.joint[1] = cg.Input.cursor.y;
+            grabData.joint[0] = snapX(cg.Input.cursor.x,cg);
+            grabData.joint[1] = snapY(cg.Input.cursor.y,cg);
           }
         };
         // CURSOR DOWN
@@ -342,7 +486,7 @@ ChoreoGraph.plugin({
           } else if (actionType==editor.path.ACTION_ADD&&editor.path.connectedMode&&track.segments.length>0) {
             let newSegment = new ChoreoGraph.Animation.SplineSegment();
             newSegment.start = track.segments[track.segments.length-1].end;
-            newSegment.end = [cg.Input.cursor.x,cg.Input.cursor.y];
+            newSegment.end = [snapX(cg.Input.cursor.x,cg),snapY(cg.Input.cursor.y,cg)];
             track.segments[track.segments.length-1].after = newSegment;
             newSegment.before = track.segments[track.segments.length-1];
             track.segments[track.segments.length-1].connected = true;
@@ -353,7 +497,7 @@ ChoreoGraph.plugin({
           } else if (actionType!=editor.path.ACTION_ADD) {
             let closestIndex = -1;
             let closestDistance = Infinity;
-            let grabDistance = cg.settings.animation.editor.grabDistance*cg.Input.cursor.canvas.camera.z;
+            let grabDistance = cg.settings.animation.editor.grabDistance*(1/cg.Input.cursor.canvas.camera.z);
             for (let i=0;i<editor.path.grabbablePoints.length;i++) {
               let grabbablePoint = editor.path.grabbablePoints[i];
               let point = grabbablePoint.point;
@@ -373,25 +517,24 @@ ChoreoGraph.plugin({
 
                 // Find Grab Type
                 if (grabbablePoint.type=="controlA"||grabbablePoint.type=="controlB") {
-                  grabData.type = "control";
+                  grabData.type = editor.path.GRAB_CONTROL;
                 } else if (grabbablePoint.type=="end") {
-                  grabData.type = "disconnected";
+                  grabData.type = editor.path.GRAB_DISCONNECTED;
+                } else if (grabbablePoint.type=="curve") {
+                  grabData.type = editor.path.GRAB_CURVE;
                 } else if (grabbablePoint.type=="start") {
                   let before = grabbablePoint.segment.before;
                   if (grabbablePoint.pair==null) {
-                    grabData.type = "disconnected";
+                    grabData.type = editor.path.GRAB_DISCONNECTED;
                   } else if (grabbablePoint.segment.controlAEnabled&&before.controlBEnabled) {
-                    grabData.type = "joint";
+                    grabData.type = editor.path.GRAB_JOINT;
                   } else if (
                     (!grabbablePoint.segment.controlAEnabled&&before.controlBEnabled)||(grabbablePoint.segment.controlAEnabled&&!before.controlBEnabled)) {
-                    grabData.type = "disconnected";
+                    grabData.type = editor.path.GRAB_DISCONNECTED;
                   } else {
-                    grabData.type = "linear";
+                    grabData.type = editor.path.GRAB_LINEAR;
                   }
-                } else if (grabbablePoint.type=="curve") {
-                  grabData.type = "curve";
                 }
-                console.log(grabData.type)
 
                 if (grabData.type=="curve") {
                   editor.path.downPos = [cg.Input.cursor.x,cg.Input.cursor.y];
@@ -408,7 +551,7 @@ ChoreoGraph.plugin({
                   grabData.afterControlA = null;
                   if (segment.before!=null&&segment.before.controlBEnabled) {
                     grabData.beforeControlB = segment.before.controlB;
-                    if (editor.path.selectedTangentType==ChoreoGraph.Animation.TANGENT_ALIGNED) {
+                    if (editor.path.selectedTangentType==editor.path.TANGENT_ALIGNED) {
                       grabData.beforeDistance = Math.sqrt((grabData.beforeControlB[0]-segment.start[0])**2+(grabData.beforeControlB[1]-segment.start[1])**2);
                     }
                   }
@@ -449,6 +592,9 @@ ChoreoGraph.plugin({
                     } else if (segment.before!=null&&segment.before.controlBEnabled) {
                       grabData.control = segment.before.controlB;
                       grabData.savedControl = Array.from(segment.before.controlB);
+                    } else {
+                      grabData.control = segment.controlA;
+                      grabData.savedControl = Array.from(segment.controlA);
                     }
                     grabData.joint = segment.start;
                   } else {
@@ -534,8 +680,8 @@ ChoreoGraph.plugin({
           // ADD DISCONNECTED DRAGGED SEGMENT
           if (actionType==editor.path.ACTION_ADD&&(editor.path.connectedMode==false||track.segments.length==0)) {
             let segment = new ChoreoGraph.Animation.SplineSegment();
-            segment.start = editor.path.downPos;
-            segment.end = [cg.Input.cursor.x,cg.Input.cursor.y];
+            segment.start = [snapX(editor.path.downPos[0],cg),snapY(editor.path.downPos[1],cg)];
+            segment.end = [snapX(cg.Input.cursor.x,cg),snapY(cg.Input.cursor.y,cg)];
             track.segments.push(segment);
             ChoreoGraph.Animation.updateAnimationOverview(cg);
           }
@@ -543,6 +689,7 @@ ChoreoGraph.plugin({
           cg.Animation.editor.ui.connectedToggle.activated = true;
           editor.path.connectedMode = true;
           cg.Animation.editor.ui.connectedToggle.setStylesAndText();
+          ChoreoGraph.Animation.updateAnimationOverview(cg);
         };
         if (ChoreoGraph.Input.lastKeyDownFrame==ChoreoGraph.frame) {
           if (ChoreoGraph.Input.lastKeyDown==hotkeys.undo) {
@@ -571,6 +718,7 @@ ChoreoGraph.plugin({
     overlayEditor(cg) {
       if (cg.Input===undefined) { return; }
       let editor = cg.Animation.editor;
+      let pathStyle = cg.settings.animation.editor.pathStyle;
       let c = cg.Input.cursor.canvas.c;
       let track = editor.track;
       if (track==null) { return; }
@@ -615,14 +763,18 @@ ChoreoGraph.plugin({
             }
           }
 
-          if (segment.controlAEnabled) {
+          if (segment.controlAEnabled||segment.controlBEnabled) {
             let samples = segment.getScaledSampleSize(track.density);
-            for (let i=0;i<samples;i++) {
+            for (let i=0;i<=samples;i++) {
               currentLine.push(segment.getPoint(i/samples));
             }
-            controls.push({joint:segment.start,point:segment.controlA});
-            editor.path.grabbablePoints.push({type:"controlA",segment:segment,pair:segment.before,point:segment.controlA});
-            editor.path.grabbablePoints.push({type:"controlB",segment:segment,pair:segment.after,point:segment.controlB});
+            if (segment.controlAEnabled) {
+              controls.push({joint:segment.start,point:segment.controlA});
+              editor.path.grabbablePoints.push({type:"controlA",segment:segment,pair:segment.before,point:segment.controlA});
+            }
+            if (segment.controlBEnabled) {
+              editor.path.grabbablePoints.push({type:"controlB",segment:segment,pair:segment.after,point:segment.controlB});
+            }
           } else {
             currentLine.push(segment.start);
             if (segment.connected) {
@@ -632,15 +784,17 @@ ChoreoGraph.plugin({
             }
           }
 
-          if (!segment.connected) {
-            lines.push(currentLine);
-            currentLine = [];
-          };
-
           curveGrabs.push(segment.getPoint(0.5));
           editor.path.grabbablePoints.push({type:"curve",segment:segment,point:segment.getPoint(0.5)});
+
+          lines.push(currentLine);
+
+          if (!segment.connected) {
+            lines.push("gap");
+          }
+
+          currentLine = [];
         };
-        lines.push(currentLine);
 
         if (actionType==editor.path.ACTION_GRAB||actionType==editor.path.ACTION_DELETE) {
           // CONTROL LINES
@@ -655,40 +809,77 @@ ChoreoGraph.plugin({
           c.stroke();
         }
         // LINES
-        c.lineWidth = size*2;
-        c.strokeStyle = "white";
+        let ASections = [];
+        let BSections = [];
+        let disconnectedSections = [];
+        let alternateAlternate = true;
         let lastPoint = [0,0];
+        let addGap = false;
         let first = true;
-        let alternate = true;
         for (let line of lines) {
-          if (!first&&line.length>0) {
-            c.lineTo(line[0][0],line[0][1]);
-            c.stroke();
+          if (line == "gap") {
+            addGap = true;
+            continue;
           }
-          c.globalAlpha = 1;
-          c.setLineDash([]);
-          for (let point of line) {
-            c.strokeStyle = alternate ? "white" : "black";
+          let alternate = alternateAlternate;
+          alternateAlternate = !alternateAlternate;
+          for (let i=0;i<line.length;i++) {
+            let point = line[i];
+            if (addGap) {
+              disconnectedSections.push(lastPoint,point);
+              addGap = false
+            } else if (!first) {
+              if (alternate) {
+                ASections.push(lastPoint,point);
+              } else {
+                BSections.push(lastPoint,point);
+              }
+            } else {
+              first = false;
+            }
             alternate = !alternate;
-            c.beginPath();
-            c.moveTo(lastPoint[0],lastPoint[1]);
-            c.lineTo(point[0],point[1]);
-            c.stroke();
             lastPoint = point;
           }
-          c.globalAlpha = 0.3;
-          c.setLineDash([size*4, size*4]);
-          c.beginPath();
-          c.moveTo(lastPoint[0],lastPoint[1]);
-          first = false;
+        }
+
+        c.lineWidth = size*2;
+        c.strokeStyle = pathStyle.lineA;
+        c.beginPath();
+        for (let i=0;i<ASections.length;i+=2) {
+          let point = ASections[i];
+          c.moveTo(point[0],point[1]);
+          point = ASections[i+1];
+          c.lineTo(point[0],point[1]);
+        }
+        c.stroke();
+
+        c.strokeStyle = pathStyle.lineB;
+        c.beginPath();
+        for (let i=0;i<BSections.length;i+=2) {
+          let point = BSections[i];
+          c.moveTo(point[0],point[1]);
+          point = BSections[i+1];
+          c.lineTo(point[0],point[1]);
+        }
+        c.stroke();
+
+        c.setLineDash([size*4, size*4]);
+        c.strokeStyle = pathStyle.lineC;
+        c.beginPath();
+        for (let i=0;i<disconnectedSections.length;i+=2) {
+          let point = disconnectedSections[i];
+          c.moveTo(point[0],point[1]);
+          point = disconnectedSections[i+1];
+          c.lineTo(point[0],point[1]);
         }
         c.stroke();
         c.setLineDash([]);
         c.globalAlpha = 1;
+
         // JOINTS
         for (let joint of joints) {
           let point = joint.point;
-          c.fillStyle = "magenta";
+          c.fillStyle = pathStyle.joint;
           c.beginPath();
           c.moveTo(point[0]-6*size,point[1]);
           c.arc(point[0],point[1],6*size,0,2*Math.PI);
@@ -696,7 +887,7 @@ ChoreoGraph.plugin({
         }
         if (actionType==editor.path.ACTION_GRAB||actionType==editor.path.ACTION_DELETE) {
           // CONTROL POINTS
-          c.strokeStyle = "blue";
+          c.strokeStyle = pathStyle.control;
           c.beginPath();
           for (let control of controls) {
             let point = control.point;
@@ -707,7 +898,7 @@ ChoreoGraph.plugin({
         }
         if (actionType==editor.path.ACTION_GRAB||actionType==editor.path.ACTION_INSERT) {
           // CURVE GRABS
-          c.strokeStyle = "green";
+          c.strokeStyle = pathStyle.curve;
           c.beginPath();
           for (let point of curveGrabs) {
             let radius = 6*size;
@@ -920,7 +1111,7 @@ ChoreoGraph.plugin({
         // SELECTED TANGENT TYPE DROPDOWN
         let dropdown = document.createElement("select");
         dropdown.cg = cg;
-        cg.Animation.editor.ui.dropdown = dropdown;
+        cg.Animation.editor.ui.tangentDropdown = dropdown;
         dropdown.className = "develop_button";
         div.appendChild(dropdown);
   
@@ -1009,6 +1200,10 @@ ChoreoGraph.plugin({
         active : false,
         grabDistance : 25,
         defaultPathDensity : 20,
+        snapGridSize : 1,
+        snapGridOffsetX : 0,
+        snapGridOffsetY : 0,
+        decimalRounding : 3,
         hotkeys : {
           undo : "z",
           redo : "y",
@@ -1016,6 +1211,14 @@ ChoreoGraph.plugin({
           pathGrab : "g",
           pathDelete : "x",
           pathInsert : "i"
+        },
+        pathStyle : {
+          lineA : "#ff0000",
+          lineB : "#0000ff",
+          lineC : "#ffffff",
+          joint : "#00ff00",
+          control : "#00ffff",
+          curve : "#00ff00",
         }
       }
     });
@@ -1041,6 +1244,42 @@ ChoreoGraph.plugin({
     }
   }
 });
+
+ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
+  manifest = {
+    key : "Animator",
+    master : true,
+    functions : {
+      update : true,
+      delete : true
+    }
+  }
+
+  animation = null;
+  speed = 1;
+  playhead = 0;
+  stt = 0;
+  ent = 0;
+  from = [];
+  to = [];
+  ease = "linear";
+
+  deleteAnimationOnDelete = false;
+
+  constructor(componentInit,object) {
+    ChoreoGraph.initObjectComponent(this,componentInit);
+  };
+
+  update(scene) {
+    
+  };
+
+  delete() {
+    if (this.deleteTransformOnDelete) {
+      this.transform.delete();
+    };
+  };
+}
 
 // ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
 //   manifest = {
