@@ -808,7 +808,7 @@ ChoreoGraph.plugin({
       type = "rectangle";
       width = 100;
       height = 100;
-      cursorInside(cursor) {
+      cursorInside(cursor,onlyPrimaryTouch=false) {
         if (!super.cursorNear(cursor)) { return false; }
         function inside(x,y,button) {
           if (x>button.x-button.width/2&&x<button.x+button.width/2&&y>button.y-button.height/2&&y<button.y+button.height/2) {
@@ -817,9 +817,15 @@ ChoreoGraph.plugin({
         }
         let hovered = false;
         if (this.cg.Input.lastInputType==ChoreoGraph.Input.TOUCH) {
-          for (let touch of cursor.activeTouches) {
-            if (inside(cursor.touches[touch].x,cursor.touches[touch].y,this)) {
+          if (onlyPrimaryTouch) {
+            if (inside(cursor.x,cursor.y,this)) {
               hovered = true;
+            }
+          } else {
+            for (let touch of cursor.activeTouches) {
+              if (inside(cursor.touches[touch].x,cursor.touches[touch].y,this)) {
+                hovered = true;
+              }
             }
           }
         } else {
@@ -868,7 +874,7 @@ ChoreoGraph.plugin({
       let cg = canvas.cg;
       for (let buttonId of cg.keys.buttons) {
         let button = cg.Input.buttons[buttonId];
-        if (button.cursorInside(cg.Input.canvasCursors[canvas.id])) {
+        if (button.cursorInside(cg.Input.canvasCursors[canvas.id],special=="down")) {
           if (!button.hovered) {
             button.hovered = true;
             button.enterTime = ChoreoGraph.nowint;
