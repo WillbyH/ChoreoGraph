@@ -15,7 +15,7 @@ ChoreoGraph.plugin({
     instanceLoadBuffer = [];
     playBuffer = [];
     
-    mode = null; // AudioContext or HTMLAudio
+    mode = null; // WebAudio or HTMLAudio
     ctx = null;
 
     onReady = null;
@@ -23,7 +23,7 @@ ChoreoGraph.plugin({
 
     cache = {};
 
-    AUDIOCONTEXT = "AudioContext";
+    WEBAUDIO = "WebAudio";
     HTMLAUDIO = "HTMLAudio";
 
     instanceObject = class cgAudio {
@@ -39,7 +39,7 @@ ChoreoGraph.plugin({
       set masterVolume(value) {
         this.#masterVolume = value;
         if (ChoreoGraph.Audio.mode==null) { this.masterVolumeBuffer = value; return; }
-        if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.AUDIOCONTEXT) {
+        if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.WEBAUDIO) {
           if (this.cg.settings.audio.masterChangeTime==0) {
             this.masterGain.gain.value = this.#masterVolume;
           } else {
@@ -84,7 +84,7 @@ ChoreoGraph.plugin({
           ChoreoGraph.Audio.playBuffer.push(options);
           return;
         }
-        if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.AUDIOCONTEXT) {
+        if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.WEBAUDIO) {
           // SOURCE -> GAIN -> EFFECT NODES -> BUS GAIN -> MASTER GAIN -> DESTINATION
     
           let source = ChoreoGraph.Audio.ctx.createBufferSource();
@@ -161,7 +161,7 @@ ChoreoGraph.plugin({
         if (this.playing[id]==undefined) { console.warn("Sound not found"); return; }
         let sound = this.playing[id];
         
-        if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.AUDIOCONTEXT) {
+        if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.WEBAUDIO) {
           if (fadeoutSeconds==0) {
             sound.source.stopped = true;
             sound.source.stop();
@@ -190,7 +190,7 @@ ChoreoGraph.plugin({
         if (!this.ready) { return; }
         if (this.playing[id]==undefined) { console.warn("Sound not found"); return; }
         let sound = this.playing[id];
-        if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.AUDIOCONTEXT) {
+        if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.WEBAUDIO) {
           if (sound.nodes.length>0) {
             for (let i=sound.nodes.length-1;i>=0;i--) {
               sound.nodes[i].disconnect();
@@ -213,7 +213,7 @@ ChoreoGraph.plugin({
         if (!this.ready) { return; }
         if (this.playing[id]==undefined) { console.warn("Sound not found"); return; }
         let sound = this.playing[id];
-        if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.AUDIOCONTEXT) {
+        if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.WEBAUDIO) {
           if (seconds==0) { sound.source.gainNode.gain.value = volume; }
           else {
             sound.source.gainNode.gain.setValueAtTime(sound.source.gainNode.gain.value, ChoreoGraph.Audio.ctx.currentTime);
@@ -236,7 +236,7 @@ ChoreoGraph.plugin({
         if (!this.ready) { return; }
         if (this.playing[id]==undefined) { console.warn("Sound not found"); return; }
         let sound = this.playing[id];
-        if (this.mode==ChoreoGraph.Audio.AUDIOCONTEXT) {
+        if (this.mode==ChoreoGraph.Audio.WEBAUDIO) {
           sound.source.playbackRate.value = speed;
         } else if (this.mode==ChoreoGraph.Audio.HTMLAUDIO) {
           sound.source.playbackRate = speed;
@@ -244,7 +244,7 @@ ChoreoGraph.plugin({
       };
 
       init() {
-        if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.AUDIOCONTEXT) {
+        if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.WEBAUDIO) {
           this.masterGain = ChoreoGraph.Audio.ctx.createGain();
           this.masterGain.gain.value = this.masterVolumeBuffer;
           this.masterGain.connect(ChoreoGraph.Audio.ctx.destination);
@@ -303,7 +303,6 @@ ChoreoGraph.plugin({
 
       HTMLAudioInit = async () => {
         let url = URL.createObjectURL(this.blobAudio);
-        let sound = this;
         this.audio = await new Promise((resolve, reject) => {
           let audio = new Audio(url);
   
@@ -340,7 +339,7 @@ ChoreoGraph.plugin({
       applyEndListener() {
         this.source.addEventListener('ended', e => {
           if(!e.target.loop&&e.target.stopped!=true){
-            if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.AUDIOCONTEXT) {
+            if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.WEBAUDIO) {
               e.target.stop();
             } else if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.HTMLAUDIO) {
               e.target.pause();
@@ -369,7 +368,7 @@ ChoreoGraph.plugin({
     };
 
     generateImpulseResponse(duration, decay, cache=true) {
-      if (this.mode!=this.AUDIOCONTEXT) { console.warn("Impulse Response only available in AudioContext mode"); return; }
+      if (this.mode!=this.WEBAUDIO) { console.warn("Impulse Response only available in WebAudio mode"); return; }
       if (this.cache["impulse_"+duration+"_"+decay]!=undefined) { return this.cache["impulse_"+duration+"_"+decay]; }
       let length = this.ctx.sampleRate * duration;
       let impulse = this.ctx.createBuffer(2,length,this.ctx.sampleRate)
@@ -385,7 +384,7 @@ ChoreoGraph.plugin({
 
     createEffectNode(type, options) {
       if (this.ctx==null) { console.warn("AudioContext not ready"); return; }
-      if (this.mode!=this.AUDIOCONTEXT) { console.warn("Nodes are only supported in AudioContext mode"); return; }
+      if (this.mode!=this.WEBAUDIO) { console.warn("Nodes are only supported in WebAudio mode"); return; }
       if (type=="reverb") { // duration, decay
         let convolver = this.ctx.createConvolver();
         convolver.buffer = this.generateImpulseResponse(options.duration, options.decay);
@@ -426,7 +425,7 @@ ChoreoGraph.plugin({
         for (let i=0;i<this.soundLoadBuffer.length;i++) {
           let sound = this.soundLoadBuffer[i];
           if (sound.blobAudio!=null) {
-            if (this.mode==this.AUDIOCONTEXT) {
+            if (this.mode==this.WEBAUDIO) {
               sound.audioContextInit();
             } else if (this.mode==this.HTMLAUDIO) {
               sound.HTMLAudioInit();
@@ -462,9 +461,9 @@ ChoreoGraph.plugin({
         }
       }
       let AudioContext = window.AudioContext || window.webkitAudioContext;
-      if ((AudioContext!=undefined&&["http:","https:"].includes(location.protocol)&&force!=this.HTMLAUDIO)||force==this.AUDIOCONTEXT) {
+      if ((AudioContext!=undefined&&["http:","https:"].includes(location.protocol)&&force!=this.HTMLAUDIO)||force==this.WEBAUDIO) {
         this.ctx = new AudioContext();
-        this.mode = this.AUDIOCONTEXT;
+        this.mode = this.WEBAUDIO;
       } else {
         console.warn("Using HTMLAudio")
         this.mode = this.HTMLAUDIO;
@@ -472,9 +471,10 @@ ChoreoGraph.plugin({
     };
 
     update() {
-      if (!ChoreoGraph.Audio.checkSetup()) { return; };
+      let Audio = ChoreoGraph.Audio;
+      if (!Audio.checkSetup()) { return; };
       if (Audio.hasCalledOnReady==false&&Audio.ready&&Audio.onReady!==null) { Audio.hasCalledOnReady = true; Audio.onReady(); }
-      if (Audio.mode==ChoreoGraph.Audio.HTMLAUDIO) {
+      if (Audio.mode==Audio.HTMLAUDIO) {
         for (let id in Audio.playing) {
           let sound = Audio.playing[id];
           if (sound.fadeEnd!=0) {
@@ -487,34 +487,47 @@ ChoreoGraph.plugin({
           }
         }
       };
-      for (let id in Audio.playing) {
-        let soundInstance = Audio.playing[id];
-        if (soundInstance.paused!=soundInstance.lastPausedState) {
-          if (soundInstance.paused) {
-            if (Audio.mode==ChoreoGraph.Audio.AUDIOCONTEXT) {
-              soundInstance.source.playbackRate.value = 0;
-            } else if (Audio.mode==ChoreoGraph.Audio.HTMLAUDIO) {
-              soundInstance.source.pause();
-            }
-          } else {
-            if (Audio.mode==ChoreoGraph.Audio.AUDIOCONTEXT) {
-              soundInstance.source.playbackRate.value = 1;
-            } else if (Audio.mode==ChoreoGraph.Audio.HTMLAUDIO) {
-              soundInstance.source.play();
+      for (let cg of ChoreoGraph.instances) {
+        for (let id in cg.Audio.playing) {
+          let soundInstance = cg.Audio.playing[id];
+          if (soundInstance.paused!=soundInstance.lastPausedState) {
+            if (soundInstance.paused) {
+              if (Audio.mode==Audio.WEBAUDIO) {
+                soundInstance.savedPausedVolume = soundInstance.source.gainNode.gain.value;
+                const now = ChoreoGraph.Audio.ctx.currentTime;
+                soundInstance.source.gainNode.gain.cancelScheduledValues(now);
+                soundInstance.source.gainNode.gain.setValueAtTime(soundInstance.source.gainNode.gain.value, now);
+                soundInstance.source.gainNode.gain.linearRampToValueAtTime(0, now + cg.settings.audio.pauseFadeTime);
+                soundInstance.source.playbackRate.setValueAtTime(0, now + cg.settings.audio.pauseFadeTime);
+              } else if (Audio.mode==ChoreoGraph.Audio.HTMLAUDIO) {
+                soundInstance.source.pause();
+              }
+            } else {
+              if (Audio.mode==Audio.WEBAUDIO) {
+                soundInstance.source.playbackRate.value = 1;
+                
+                const now = ChoreoGraph.Audio.ctx.currentTime;
+                soundInstance.source.gainNode.gain.cancelScheduledValues(now);
+                soundInstance.source.gainNode.gain.setValueAtTime(soundInstance.source.gainNode.gain.value, now);
+                soundInstance.source.gainNode.gain.linearRampToValueAtTime(soundInstance.savedPausedVolume || 1, now + cg.settings.audio.pauseFadeTime);
+              } else if (Audio.mode==ChoreoGraph.Audio.HTMLAUDIO) {
+                soundInstance.source.play();
+              }
             }
           }
-        }
-        soundInstance.lastPausedState = soundInstance.paused;
-      };
+          soundInstance.lastPausedState = soundInstance.paused;
+        };
+      }
     };
   },
 
   instanceConnect(cg) {
     cg.attachSettings("audio",{
       baseAudioPath : "audio/",
-      forceMode : false, // false, "AudioContext", "HTMLAudio"
+      forceMode : false, // false, "WebAudio", "HTMLAudio"
       skipURIEncoding : false,
-      masterChangeTime : 0.1
+      masterChangeTime : 0.1,
+      pauseFadeTime : 0.1
     });
     cg.keys.sounds = [];
     cg.Audio = new ChoreoGraph.Audio.instanceObject(cg);
