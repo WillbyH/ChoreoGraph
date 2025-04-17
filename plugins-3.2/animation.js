@@ -92,7 +92,13 @@ ChoreoGraph.plugin({
 
     Animation = class cgAnimation {
       data = [];
+      keys = [];
       tracks = [];
+
+      loadRaw(data,keys) {
+        this.data = data;
+        this.keys = keys;
+      };
 
       createTrack(trackType) {
         let newTrack = new ChoreoGraph.Animation.TrackTypes[trackType](this.cg.cg);
@@ -1129,10 +1135,12 @@ ChoreoGraph.plugin({
     }
 
     updateAnimationOverview(cg) {
-      let div = cg.Animation.editor.ui.animationInformation;
-      div.innerHTML = "";
       let anim = cg.Animation.editor.animation;
       if (anim==null) { return; }
+      
+      let div = cg.Animation.editor.ui.animationInformation;
+      if (div==null) { return; }
+      div.innerHTML = "";
 
       div.appendChild(document.createElement("br"));
 
@@ -1179,9 +1187,10 @@ ChoreoGraph.plugin({
       };
       div.appendChild(copyButton);
 
-      let packedDiv = document.createElement("div");
-      packedDiv.innerHTML = anim.pack();
-      div.appendChild(packedDiv);
+      let packed = document.createElement("p");
+      packed.style.overflowWrap = "break-word";
+      packed.innerHTML = anim.pack();
+      div.appendChild(packed);
     };
 
     removeInterface(cg) {
@@ -1199,7 +1208,7 @@ ChoreoGraph.plugin({
       editor : {
         active : false,
         grabDistance : 25,
-        defaultPathDensity : 20,
+        defaultPathDensity : 15,
         snapGridSize : 1,
         snapGridOffsetX : 0,
         snapGridOffsetY : 0,
@@ -1263,6 +1272,7 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
   from = [];
   to = [];
   ease = "linear";
+  paused = true;
 
   deleteAnimationOnDelete = false;
 
@@ -1271,6 +1281,7 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
   };
 
   update(scene) {
+    if (this.animation==null) { return; }
     
   };
 
@@ -1279,212 +1290,4 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
       this.transform.delete();
     };
   };
-}
-
-// ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
-//   manifest = {
-//     key : "Graphic",
-//     master : true,
-//     functions : {
-//       update : true,
-//       delete : true
-//     }
-//   }
-//   anim = null; // Animation that is to be running (required)
-//   part = 0; // Index in the Animation data
-//   fprog = 0; // 0 - 1 frame progress for lerp
-//   stt = 0; // Start time
-//   ent = 0; // End time
-//   timeDebt = 0; // Time Debt (because time)
-//   locked = false; // If true, free will be false (this is for manual changes)
-//   freeChecks = []; // A list of key lists to check on the object
-//   free = true; // If false, Animator will be static
-//   ease = "linear"; // Easing function (linear, inoutA, inoutB, inA, inB, inC, outA, outB, outC)
-//   selfDestructAnimation = false; // Deletes the Animatation entirely after reaching the end of the Animation
-//   selfDestructAnimator = false; // Deletes the Animator component entirely after reaching the end of the Animation
-//   selfDestructObject = false; // Deletes the Object entirely after reaching the end of the Animation
-//   to = null; // The next positional keyframe
-//   from = null; // The last positional keyframe
-//   speed = 1; // A multiplier on the animations time values
-//   lastUpdate = 0; // Last time the object was updated
-//   triggerCallbacks = { // Callbacks for when a trigger is passed
-//     "S" : this.defaultTriggerCallbacks,
-//     "E" : this.defaultTriggerCallbacks,
-//     "C" : this.defaultTriggerCallbacks,
-//     "V" : this.defaultTriggerCallbacks,
-//   }
-
-//   deleteAnimationOnCollapse = false; // Deletes the Animation when the Object is deleted through an Object Collapse
-
-//   constructor(componentInit, object) {
-//     ChoreoGraph.initObjectComponent(this, componentInit);
-//     if (this.anim!=null) { this.anim.inUse = true; }
-//   }
-//   update(object) {
-//     let cg = object.ChoreoGraph;
-//     this.free = !this.locked;
-//     for (let i=0; i<this.freeChecks.length; i++) {
-//       if (this.freeChecks[i].reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), object)) {
-//         this.free = false;
-//         break;
-//       }
-//     }
-
-//     if (this.anim==null) { this.free = false; }
-
-//     if (this.free) { // Update last update time
-//       if (cg.clock-this.lastUpdate>object.ChoreoGraph.settings.inactiveTime) {
-//         this.stt = this.stt + (cg.clock-this.lastUpdate);
-//         this.ent = this.ent + (cg.clock-this.lastUpdate);
-//       }
-//       this.lastUpdate = cg.clock;
-//     } else if (this.anim!=null&&typeof(this.anim.data[this.part][0])!="number") {
-//       this.passAllTriggers(object,0);
-//     }
-
-//     if (cg.clock<this.ent&&this.free) { // If animation is running
-//       this.fprog = 1-((this.ent-cg.clock)/(this.ent-this.stt));
-//       if (this.ease!="linear") { // A to Z = Least Intense to Most Intense
-//         if (this.ease=="inoutA") {
-//           this.fprog = (this.fprog**2)*(3-2*this.fprog);
-//         } else if (this.ease=="inoutB") {
-//           this.fprog = (this.fprog**2)/(2*((this.fprog**2)-this.fprog)+1);
-//         } else if (this.ease=="inA") {
-//           this.fprog = -Math.sin(this.fprog*(Math.PI/2)-1.5*Math.PI)+1;
-//         } else if (this.ease=="inB") {
-//           this.fprog = this.fprog**3;
-//         } else if (this.ease=="inC") {
-//           this.fprog = this.fprog**4;
-//         } else if (this.ease=="outA") {
-//           this.fprog = Math.sin(this.fprog*(Math.PI/2));
-//         } else if (this.ease=="outB") {
-//           this.fprog = -((1-this.fprog)**3)+1;
-//         } else if (this.ease=="outC") {
-//           this.fprog = -((1-this.fprog)**5)+1;
-//         }
-//       }
-//       this.updateValues(object);
-//     } else if (this.free) {
-//       if (this.part>=this.anim.data.length-1) { // if part is last of animation
-//         let lastAnimid = this.anim.id;
-//         let lastAnimKeys = JSON.stringify(this.anim.keys);
-//         this.anim.inUse = false;
-//         if (this.anim.endCallback) { this.anim.endCallback(object,this); }
-//         if (this.selfDestructObject||this.selfDestructAnimator||this.selfDestructAnimation) {
-//           if (this.selfDestructAnimation) {
-//             ChoreoGraph.releaseId(lastAnimid.replace("anim_",""));
-//             delete object.ChoreoGraph.animations[lastAnimid];
-//           }
-//           if (this.selfDestructObject) {
-//             object.delete = true;
-//           } else if (this.selfDestructAnimator) {
-//             if (this.manifest.keyOverride == "") {
-//               delete object[this.manifest.title];
-//             } else {
-//               delete object[this.manifest.keyOverride];
-//             }
-//             delete object.components[this.id];
-//             ChoreoGraph.releaseId(this.id.replace("comp_",""));
-//           }
-//           return;
-//         }
-//         this.part = 0;
-//         if (this.anim!=null) {
-//           this.anim.inUse = true;
-//           if (JSON.stringify(this.anim.keys)!=lastAnimKeys) { this.to = null; }
-//           if (this.anim.startCallback) { this.anim.startCallback(object,this); }
-//         } else {
-//           return;
-//         }
-//       } else {
-//         this.part++;
-//       }
-//       if (this.to==null) { // if this is the first time the animation is running
-//         this.from = this.anim.data[0];
-//         this.part = 1;
-//       } else {
-//         this.from = this.to;
-//         this.timeDebt = cg.clock-this.ent;
-//       }
-//       if (this.anim.duration==0) { this.timeDebt = 0; }
-//       // if (this.timeDebt>200) { this.timeDebt = 0; } // Pay off time debt for stuck objects
-//       let passTrigger = this.passAllTriggers(object,1);
-//       if (this.part<this.anim.data.length&&passTrigger) {
-//         this.to = this.anim.data[this.part];
-//         this.stt = cg.clock;
-//         this.ent = this.stt + (this.anim.data[this.part][this.anim.timeKey]*1000)/this.speed - this.timeDebt;
-//         this.fprog = 0;
-//       }
-//       this.updateValues(object);
-//     }
-//   }
-//   updateValues(object) {
-//     for (let i=0; i<this.anim.keys.length; i++) {
-//       if (this.anim.keys[i]=="time"||this.anim.keys[i]==null) { continue; }
-//       let lerpedValue;
-//       if (typeof this.from[i] == "number") {
-//         lerpedValue = this.from[i] + this.fprog*(this.to[i]-this.from[i]);
-//       } else {
-//         lerpedValue = this.from[i];
-//       }
-//       this.anim.keys[i].reduce((acc, key, index, array) => {
-//         if (index === array.length - 1) {
-//           acc[key] = lerpedValue;
-//         }
-//         return acc[key];
-//       }, object);
-//     }
-//   }
-//   passAllTriggers(object,triggerSequence) {
-//     while (typeof(this.anim.data[this.part][0])!="number") {
-//       let triggerType = this.anim.data[this.part][0].toUpperCase();
-//       let passTrigger = false;
-//       if (triggerType in this.triggerCallbacks) {
-//         passTrigger = this.triggerCallbacks[triggerType](object,this,this.anim.data[this.part]);
-//       } else {
-//         console.warn(`Trigger type: ${triggerType} is not a valid trigger`);
-//         passTrigger = true;
-//       }
-//       if (passTrigger) {
-//         this.part++;
-//       } else {
-//         return false;
-//       }
-//     }
-//     if (triggerSequence==0) { this.part--; }
-//     return true;
-//   }
-//   defaultTriggerCallbacks(object,Animator,trigger) {
-//     let triggerType = trigger[0].toUpperCase();
-//     let triggerValue = trigger[1];
-//     if (triggerType=="S") { // S - Set Speed
-//       Animator.speed = triggerValue;
-//     } else if (triggerType=="E") { // E - Change Ease
-//       Animator.ease = triggerValue;
-//     } else if (triggerType=="C") { // C - Evaluate Code
-//       eval(triggerValue);
-//     } else if (triggerType=="V") { // V - Set Object Value
-//       triggerValue.reduce((acc, key, index, array) => {
-//         if (index === array.length - 1) {
-//           acc[key] = trigger[2];
-//         }
-//         return acc[key];
-//       }, object);
-//     }
-//     return true;
-//   }
-//   reset() {
-//     this.part = 0;
-//     this.stt = 0;
-//     this.ent = 0;
-//     this.timeDebt = 0;
-//     this.to = null;
-//     this.from = null;
-//   }
-//   collapse() {
-//     if (this.deleteAnimationOnCollapse&&this.anim!=undefined) {
-//       ChoreoGraph.releaseId(this.anim.id.replace("anim_",""));
-//       delete this.anim.ChoreoGraph.graphics[this.anim.id];
-//     }
-//   }
-// };
+};

@@ -58,6 +58,9 @@ cg.Input.createAction({keys:["s","down","conleftdown","condpaddown","conrightdow
 cg.Input.createAction({keys:["a","left","conleftleft","condpadleft","conrightleft"]},"left");
 cg.Input.createAction({keys:["d","right","conrightright","condpadright","conleftright"]},"right");
 
+let testAnim = cg.Animation.createAnimation({},"testAnim");
+testAnim.loadRaw([[0,0],[1,1]],[["a"],"time"])
+
 cg.settings.core.callbacks.loopBefore = () => {
   cg.sceneItems.cursorRectangle.transform.x = cg.Input.cursor.x;
   cg.sceneItems.cursorRectangle.transform.y = cg.Input.cursor.y;
@@ -81,7 +84,7 @@ cg.settings.core.callbacks.loopAfter = () => {
   cg.c.strokeStyle = "white";
   cg.c.font = "20px Arial";
   cg.c.fillStyle = "white";
-  cg.c.fillText(cg.Input.lastInputType,10,50);
+  // cg.c.fillText(cg.Input.lastInputType,10,50);
 
   cg.c.fillText(cg.Input.actions.forward.get().toFixed(2),40,80);
   cg.c.fillText(cg.Input.actions.backward.get().toFixed(2),40,120);
