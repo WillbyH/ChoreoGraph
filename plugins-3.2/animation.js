@@ -5,7 +5,7 @@ ChoreoGraph.plugin({
 
   globalPackage : new class cgAnimationPackage {
     instanceObject = class cgAnimationInstancePackage {
-      createAnimation(animationInit,id=ChoreoGraph.id.get()) {
+      createAnimation(animationInit={},id=ChoreoGraph.id.get()) {
         let newAnimation = new ChoreoGraph.Animation.Animation(animationInit);
         newAnimation.id = id;
         newAnimation.cg = this;
@@ -14,13 +14,27 @@ ChoreoGraph.plugin({
         this.cg.keys.animations.push(id);
         return newAnimation;
       };
+      createAnimationFromPacked(packedData,animationInit={}) {
+        let newAnimation = new ChoreoGraph.Animation.Animation(this.cg);
+        newAnimation.cg = this;
+        newAnimation.unpack(packedData);
+        ChoreoGraph.applyAttributes(newAnimation,animationInit);
+        this.animations[newAnimation.id] = newAnimation;
+        this.cg.keys.animations.push(newAnimation.id);
+        return newAnimation;
+      }
 
       animations = {};
+
+      easeFunctions = {
+        linear : function(t) { return t; },
+      }
 
       editor = {
         initInterface : false,
         animation : null,
         track : null,
+        autobake : false,
 
         ui : {
           dropdown : null,
@@ -94,24 +108,77 @@ ChoreoGraph.plugin({
       data = [];
       keys = [];
       tracks = [];
+      duration = null;
+      timeKey = null;
+      ready = false;
 
       loadRaw(data,keys) {
         this.data = data;
         this.keys = keys;
+        this.timeKey = keys.indexOf("time");
+        this.calculateDuration();
+        if (this.data.length<2) {
+          console.warn("Animation:",this.id,"must be at least 2 keyframes long");
+          this.ready = false;
+        } else {
+          this.ready = true;
+        }
       };
 
       createTrack(trackType) {
         let newTrack = new ChoreoGraph.Animation.TrackTypes[trackType](this.cg.cg);
-        newTrack.cg = this.cg.cg;
         newTrack.animation = this;
         this.tracks.push(newTrack);
         return newTrack;
       };
+
       bake() {
-        
+        let trackData = [];
+        for (let i=0;i<this.tracks.length;i++) {
+          let track = this.tracks[i];
+          let data = track.getBakeData(i===0);
+          trackData.push(data);
+        }
+        this.data = [];
+        for (let i=0;i<trackData.length;i++) {
+          for (let j=0;j<trackData[i].length;j++) {
+            this.data.push(trackData[i][j]);
+          }
+        }
+        this.calculateDuration();
+        if (this.data.length<2) {
+          console.warn("Animation:",this.id,"must be at least 2 keyframes long");
+          this.ready = false;
+        } else {
+          this.ready = true;
+        }
+        return this.data;
       };
+
+      calculateDuration() {
+        this.duration = 0;
+        for (let i=0;i<this.data.length;i++) {
+          if (typeof this.data[i][0] === "string") { continue }
+          if (this.data[i][this.timeKey]===undefined) { continue }
+          this.duration += this.data[i][this.timeKey];
+        }
+        return this.duration;
+      };
+
       pack() {
         let output = this.id+"---";
+        this.timeKey = this.keys.indexOf("time");
+        output += this.timeKey+":";
+        for (let i=0;i<this.keys.length;i++) {
+          if (this.keys[i]=="time") { continue; }
+          for (let key of this.keys[i]) {
+            output += key+",";
+          }
+          output = output.slice(0,-1);
+          if (i!=this.keys.length-1) { output += "|"; }
+        }
+        if (output[output.length-1]=="|") { output = output.slice(0,-1); }
+        output += "&";
         let first = true;
         for (let track of this.tracks) {
           if (first) { first = false; } else { output += "&"; }
@@ -120,13 +187,49 @@ ChoreoGraph.plugin({
         }
         return output;
       };
+
+      unpack(data,bake=true) {
+        this.id = data.split("---")[0];
+        let keyData = data.split("---")[1].split("&")[0];
+        this.keys = [];
+        let timeKey = keyData.split(":")[0];
+        this.keys[timeKey] = "time";
+        this.timeKey = parseInt(timeKey);
+        let keys = keyData.split(":")[1].split("|");
+        for (let i=0;i<keys.length;i++) {
+          if (i==timeKey) { continue; }
+          let keyList = keys[i].split(",");
+          this.keys[i] = [];
+          for (let key of keyList) {
+            this.keys[i].push(key);
+          }
+        }
+        let tracksData = data.split("---")[1].split("&");
+        tracksData.shift();
+        for (let trackData of tracksData) {
+          let trackType = trackData.split("-")[0];
+          let track = new ChoreoGraph.Animation.TrackTypes[trackType](this.cg.cg);
+          track.animation = this;
+          track.unpack(trackData.split("-")[1]);
+          this.tracks.push(track);
+        }
+        if (bake) {
+          this.bake();
+        }
+        if (this.cg.cg.Animation.editor.initInterface) {
+          ChoreoGraph.Animation.updateAnimationOverview(this.cg.cg);
+        }
+      };
     };
 
     TrackTypes = {
       path : class cgPathAnimation {
         type = "path";
         segments = [];
-        triggers = {};
+        keys = {
+          x : 0,
+          y : 1
+        }
 
         constructor(cg) {
           this.density = cg.settings.animation.editor.defaultPathDensity;
@@ -135,6 +238,8 @@ ChoreoGraph.plugin({
 
         pack() {
           let output = "";
+          output += this.keys.x+","+this.keys.y;
+          output += ":";
           output += this.density
           output += ":";
           function chop(number,cg) {
@@ -194,8 +299,10 @@ ChoreoGraph.plugin({
         };
 
         unpack(data) {
-          this.density = parseInt(data.split(":")[0]);
-          let segments = data.split(":")[1];
+          this.keys.x = parseInt(data.split(":")[0].split(",")[0]);
+          this.keys.y = parseInt(data.split(":")[0].split(",")[1]);
+          this.density = parseInt(data.split(":")[1]);
+          let segments = data.split(":")[2];
           let pointer = 0;
           let previousSegment = null;
           let numberChars = "0123456789.-";
@@ -263,7 +370,69 @@ ChoreoGraph.plugin({
             this.segments.push(newSegment);
             pointer++;
           }
-        }
+        };
+
+        getJointPath() {
+          let output = "";
+          for (let i=0;i<this.segments.length;i++) {
+            let segment = this.segments[i];
+            output += "["+segment.start[0]+","+segment.start[1]+"],";
+            if (!segment.connected) {
+              output += "["+segment.end[0]+","+segment.end[1]+"],";
+            }
+          }
+          output = output.slice(0,-1);
+          return output;
+        };
+
+        getBakeData(isPrimaryTrack) {
+          if (!isPrimaryTrack) { console.warn("Path track must be primary"); }
+          let data = [];
+          let previousPoint = null;
+          let previousDisconnected = false;
+          let track = this;
+          function append(x,y) {
+            let decimals = cg.settings.animation.editor.decimalRounding;
+            x = Math.floor(x * (10**decimals)) * (1/(10**decimals));
+            y = Math.floor(y * (10**decimals)) * (1/(10**decimals));
+            let time = 0;
+            if (previousPoint!=null) {
+              let distance = Math.sqrt((x-previousPoint[0])**2+(y-previousPoint[1])**2);
+              time = distance;
+            }
+            if (previousDisconnected) {
+              time = 0;
+              previousDisconnected = false;
+            }
+            previousPoint = [x,y];
+            let keyframe = [];
+            keyframe[track.keys.x] = x;
+            keyframe[track.keys.y] = y;
+            keyframe[track.animation.keys.indexOf("time")] = time;
+            data.push(keyframe);
+          }
+          for (let i=0;i<this.segments.length;i++) {
+            let segment = this.segments[i];
+            if (segment.controlAEnabled||segment.controlBEnabled) {
+              let samples = segment.getScaledSampleSize(this.density);
+              for (let i=0;i<samples;i++) {
+                let point = segment.getPoint(i/samples);
+                append(point[0],point[1]);
+              }
+              if (!segment.connected) {
+                append(segment.end[0],segment.end[1]);
+                previousDisconnected = true;
+              }
+            } else {
+              append(segment.start[0],segment.start[1]);
+              if (!segment.connected) {
+                append(segment.end[0],segment.end[1]);
+                previousDisconnected = true;
+              }
+            }
+          }
+          return data;
+        };
 
         info() {
           let info = this.segments.length+" segments ";
@@ -1044,6 +1213,13 @@ ChoreoGraph.plugin({
       }
       section.appendChild(redoButton);
 
+      cg.Animation.editor.ui.autobakeToggle = new ChoreoGraph.Develop.UIToggleButton({
+        activeText : "Autobake On",
+        inactiveText : "Autobake Off",
+        onActive : (cg) => { cg.Animation.editor.autobake = true; },
+        onInactive : (cg) => { cg.Animation.editor.autobake = false; }
+      },cg);
+
       // TRACK CONTEXT BUTTONS
       let trackContext = document.createElement("div");
       trackContext.style.display = "inline-block";
@@ -1131,6 +1307,17 @@ ChoreoGraph.plugin({
           e.target.cg.Animation.editor.path.selectedTangentType = e.target.value;
         }
         dropdown.value = cg.Animation.editor.path.selectedTangentType;
+      
+        let copyJointsButton = document.createElement("button");
+        copyJointsButton.innerHTML = "Copy Joint Path";
+        copyJointsButton.classList.add("develop_button");
+        copyJointsButton.classList.add("btn_action");
+        copyJointsButton.cg = cg;
+        copyJointsButton.onclick = (e) => {
+          let data = e.target.cg.Animation.editor.track.getJointPath();
+          navigator.clipboard.writeText(data);
+        };
+        div.appendChild(copyJointsButton);
       }
     }
 
@@ -1176,16 +1363,48 @@ ChoreoGraph.plugin({
       }
       div.appendChild(document.createElement("hr"));
 
-      let copyButton = document.createElement("button");
-      copyButton.innerHTML = "Copy";
-      copyButton.classList.add("develop_button");
-      copyButton.classList.add("btn_action");
-      copyButton.cg = cg;
-      copyButton.onclick = (e) => {
+      let copyPackedButton = document.createElement("button");
+      copyPackedButton.innerHTML = "Copy Packed Data";
+      copyPackedButton.classList.add("develop_button");
+      copyPackedButton.classList.add("btn_action");
+      copyPackedButton.cg = cg;
+      copyPackedButton.onclick = (e) => {
         let data = e.target.cg.Animation.editor.animation.pack();
         navigator.clipboard.writeText(data);
       };
-      div.appendChild(copyButton);
+      div.appendChild(copyPackedButton);
+
+      let bakeButton = document.createElement("button");
+      bakeButton.innerHTML = "Bake";
+      bakeButton.classList.add("develop_button");
+      bakeButton.classList.add("btn_action");
+      bakeButton.cg = cg;
+      bakeButton.onclick = (e) => {
+        e.target.cg.Animation.editor.animation.bake();
+        for (let objectId in e.target.cg.objects) {
+          let object = e.target.cg.objects[objectId];
+          for (let component of object.objectData.components) {
+            if (component.manifest.type=="Animator"&&component.animation.id==e.target.cg.Animation.editor.animation.id) {
+              component.playFrom(0);
+            }
+          }
+        }
+      };
+      div.appendChild(bakeButton);
+
+      div.appendChild(cg.Animation.editor.ui.autobakeToggle.element);
+
+      if (cg.Animation.editor.ui.autobakeToggle.activated) {
+        cg.Animation.editor.animation.bake();
+        for (let objectId in cg.objects) {
+          let object = cg.objects[objectId];
+          for (let component of object.objectData.components) {
+            if (component.manifest.type=="Animator"&&component.animation.id==cg.Animation.editor.animation.id) {
+              component.playFrom(0);
+            }
+          }
+        }
+      }
 
       let packed = document.createElement("p");
       packed.style.overflowWrap = "break-word";
@@ -1256,6 +1475,7 @@ ChoreoGraph.plugin({
 
 ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
   manifest = {
+    type : "Animator",
     key : "Animator",
     master : true,
     functions : {
@@ -1265,14 +1485,36 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
   }
 
   animation = null;
+  connectionData = {
+    initialisedAnimation : null,
+    keys : []
+  }
   speed = 1;
   playhead = 0;
-  stt = 0;
-  ent = 0;
+  stt = 0; // Start Time
+  ent = 0; // End TIme
+  part = 0;
   from = [];
   to = [];
   ease = "linear";
-  paused = true;
+  nextPlayfromAllowTriggers = false;
+  loop = true;
+  paused = false;
+  playing = false;
+
+  triggerTypes = {
+    "s" : (trigger,object,animator) => { animator.speed = trigger[1]; },
+    "e" : (trigger,object,animator) => { animator.ease = trigger[1]; },
+    "c" : (trigger,object,animator) => { eval(trigger[1]) },
+    "v" : (trigger,object,animator) => {
+      trigger[1].reduce((acc, key, index, array) => {
+        if (index === array.length - 1) {
+          acc[key] = trigger[2];
+        }
+        return acc[key];
+      }, object);
+    }
+  }
 
   deleteAnimationOnDelete = false;
 
@@ -1282,7 +1524,139 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
 
   update(scene) {
     if (this.animation==null) { return; }
-    
+    if (this.animation.ready==false) { return; }
+    if (this.paused) { return; }
+    if (this.connectionData.initialisedAnimation!=this.animation.id) {
+      this.initConnection();
+    }
+
+    if (this.playing==false) {
+      this.playFrom(this.playhead);
+    }
+
+    let cg = scene.cg;
+
+    this.playhead += (cg.timeSinceLastFrame*cg.settings.core.timeScale*this.speed)/1000;
+
+    if (this.playhead>this.animation.duration) {
+      this.setFinalValues();
+      this.playing = false;
+      if (!this.loop) {
+        this.paused = true;
+      } else {
+        this.playhead = this.playhead - this.animation.duration;
+        this.nextPlayfromAllowTriggers = true;
+      }
+    } else if (this.playhead>this.ent) {
+      this.from = this.to;
+      this.findNextKeyframe();
+    }
+
+    if (!this.playing) { return; }
+
+    this.setValues();
+  };
+
+  // Sets object values by keys using FROM and TO
+  setValues() {
+    for (let i=0;i<this.connectionData.keys.length;i++) {
+      let fromVal = this.from[i];
+      let toVal = this.to[i];
+      
+      let t = 1-((this.ent-this.playhead)/(this.ent-this.stt));
+      if (this.ease!=="linear") { t = cg.easeFunctions[this.ease](t); }
+
+      let lerpVal = t * (toVal-fromVal) + fromVal;
+      let keyData = this.connectionData.keys[i];
+
+      keyData.object[keyData.key] = lerpVal;
+    }
+  };
+
+  setFinalValues() {
+    for (let i=0;i<this.connectionData.keys.length;i++) {
+      let keyData = this.connectionData.keys[i];
+      keyData.object[keyData.key] = this.to[i];
+    }
+  }
+
+  // Sets STT ENT FROM AND TO relative to a playhead value
+  playFrom(playhead) {
+    if (this.animation==null) { return; }
+    if (this.animation.ready==false) { return; }
+    if (playhead>this.animation.duration) { playhead = this.animation.duration; }
+    this.playhead = playhead;
+    this.part = 0;
+    this.stt = 0;
+    this.ent = 0;
+    let cumulativeTime = 0;
+    let previousI = 0;
+    let previousCumulativeTime = 0;
+    let data = this.animation.data;
+    for (let i=0;i<data.length;i++) {
+      if (typeof data[i][0] === "string") {
+        if (this.nextPlayfromAllowTriggers&&this.triggerTypes[data[i][0]]!==undefined) {
+          this.triggerTypes[data[i][0]](data[i],this.object,this);
+        }
+      }
+      if (data[i][this.animation.timeKey]===undefined) { cumulativeTime += 0; }
+      else { cumulativeTime += data[i][this.animation.timeKey]; }
+      if (cumulativeTime>=this.playhead) {
+        this.part = Math.max(previousI,0);
+        this.stt = previousCumulativeTime;
+        this.ent = previousCumulativeTime;
+        this.from = data[previousI];
+        break;
+      }
+      previousI = i;
+      previousCumulativeTime = cumulativeTime;
+    }
+    this.findNextKeyframe();
+    this.playing = true;
+    this.nextPlayfromAllowTriggers = false;
+  };
+
+  // Given the current part and playhead, find the next keyframe then set STT ENT FROM AND TO
+  findNextKeyframe() {
+    this.part++;
+    this.passAllTriggers();
+    this.to = this.animation.data[this.part];
+    this.stt = this.ent;
+    this.ent += this.to[this.animation.timeKey];
+
+    if (this.playhead > this.ent) {
+      this.from = this.to;
+      this.findNextKeyframe();
+    }
+  };
+
+  passAllTriggers() {
+    let data = this.animation.data;
+    while (this.part<data.length && typeof data[this.part][0] === "string") {
+      if (this.triggerTypes[data[this.part][0]]!==undefined) {
+        this.triggerTypes[data[this.part][0]](data[this.part],this.object,this);
+      }
+      this.part++;
+    }
+  };
+
+  initConnection() {
+    this.connectionData.initialisedAnimation = this.animation.id;
+    this.connectionData.keys = [];
+
+    for (let key of this.animation.keys) {
+      if (key=="time") { continue; }
+      let keyData = {
+        key : key[key.length-1],
+        object : this.object
+      };
+      if (key.length>1) {
+        for (let i=0;i<key.length-1;i++) {
+          keyData.object = keyData.object[key[i]];
+        }
+      }
+      this.connectionData.keys.push(keyData);
+    }
   };
 
   delete() {

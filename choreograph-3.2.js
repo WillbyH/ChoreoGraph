@@ -743,7 +743,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
 
     update(scene) {
       for (let component of this.objectData.components) {
-        if (component.update!=undefined) { component.update(scene); }
+        if (component.manifest.functions.update) { component.update(scene); }
       }
     };
 
@@ -762,6 +762,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
   ObjectComponents = {
     Graphic : class cgObjectGraphic {
       manifest = {
+        type : "Graphic",
         key : "Graphic",
         master : true,
         functions : {

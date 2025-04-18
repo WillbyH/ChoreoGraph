@@ -53,13 +53,17 @@ cg.Audio.sounds.magneticPlane.play({allowBuffer:true,loop:true});
 //   console.log(key);
 // }
 
+let testAnim = cg.Animation.createAnimationFromPacked("testAnim---2:transform,x|transform,y&path-0,1:15:170,330,118,276,116,202~169,157,222,112,315,91,349,141^424,309,452,363,359,383~296,356,233,329,220,271~255,234,290,197,410,154,498,196")
+
+cg.createObject({},"animatedObject")
+.attach("Animator",{animation:testAnim,speed:300})
+
+cg.scenes.main.addObject(cg.objects.animatedObject);
+
 cg.Input.createAction({keys:["w","up","conleftup","condpadup","conrightup",cg.Input.buttons.dummy]},"forward");
 cg.Input.createAction({keys:["s","down","conleftdown","condpaddown","conrightdown"]},"backward");
 cg.Input.createAction({keys:["a","left","conleftleft","condpadleft","conrightleft"]},"left");
 cg.Input.createAction({keys:["d","right","conrightright","condpadright","conleftright"]},"right");
-
-let testAnim = cg.Animation.createAnimation({},"testAnim");
-testAnim.loadRaw([[0,0],[1,1]],[["a"],"time"])
 
 cg.settings.core.callbacks.loopBefore = () => {
   cg.sceneItems.cursorRectangle.transform.x = cg.Input.cursor.x;
@@ -85,6 +89,12 @@ cg.settings.core.callbacks.loopAfter = () => {
   cg.c.font = "20px Arial";
   cg.c.fillStyle = "white";
   // cg.c.fillText(cg.Input.lastInputType,10,50);
+
+  cg.c.fillText(cg.objects.animatedObject.Animator.playhead.toFixed(3),10,330);
+
+  cg.c.fillStyle = "red";
+  cg.c.fillRect(cg.objects.animatedObject.transform.x-10,cg.objects.animatedObject.transform.y-10,20,20);
+  cg.c.fillStyle = "white";
 
   cg.c.fillText(cg.Input.actions.forward.get().toFixed(2),40,80);
   cg.c.fillText(cg.Input.actions.backward.get().toFixed(2),40,120);
