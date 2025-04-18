@@ -35,6 +35,9 @@ ChoreoGraph.plugin({
         animation : null,
         track : null,
         autobake : false,
+        undoStack : [],
+        redoStack : [],
+        lastPack : null,
 
         ui : {
           dropdown : null,
@@ -152,6 +155,14 @@ ChoreoGraph.plugin({
         } else {
           this.ready = true;
         }
+        for (let objectId in this.cg.cg.objects) {
+          let object = this.cg.cg.objects[objectId];
+          for (let component of object.objectData.components) {
+            if (component.manifest.type=="Animator"&&component.animation.id==this.cg.cg.Animation.editor.animation.id) {
+              component.playFrom(0);
+            }
+          }
+        }
         return this.data;
       };
 
@@ -182,16 +193,17 @@ ChoreoGraph.plugin({
         let first = true;
         for (let track of this.tracks) {
           if (first) { first = false; } else { output += "&"; }
-          output += track.type+"-";
+          output += track.type+"=";
           output += track.pack();
         }
         return output;
       };
 
       unpack(data,bake=true) {
+        this.tracks = [];
+        this.keys = [];
         this.id = data.split("---")[0];
         let keyData = data.split("---")[1].split("&")[0];
-        this.keys = [];
         let timeKey = keyData.split(":")[0];
         this.keys[timeKey] = "time";
         this.timeKey = parseInt(timeKey);
@@ -207,23 +219,23 @@ ChoreoGraph.plugin({
         let tracksData = data.split("---")[1].split("&");
         tracksData.shift();
         for (let trackData of tracksData) {
-          let trackType = trackData.split("-")[0];
+          let trackType = trackData.split("=")[0];
           let track = new ChoreoGraph.Animation.TrackTypes[trackType](this.cg.cg);
           track.animation = this;
-          track.unpack(trackData.split("-")[1]);
+          track.unpack(trackData.split("=")[1]);
           this.tracks.push(track);
         }
         if (bake) {
           this.bake();
         }
         if (this.cg.cg.Animation.editor.initInterface) {
-          ChoreoGraph.Animation.updateAnimationOverview(this.cg.cg);
+          ChoreoGraph.Animation.updateAnimationOverview(this.cg.cg,false);
         }
       };
     };
 
     TrackTypes = {
-      path : class cgPathAnimation {
+      path : class cgPathAnimationTrack {
         type = "path";
         segments = [];
         keys = {
@@ -237,6 +249,15 @@ ChoreoGraph.plugin({
         }
 
         pack() {
+          // xIndex,yIndex:density:trackData
+          // trackData -> startX,startY,controlAX,controlAY,controlBX,controlBY,endX,endY
+
+          // ! means no control point (comes after startY/controlAY)
+          // _ means !!
+          // ^ disconnected (comes after endY)
+          // ~ means connected (comes after controlBY)
+          // + means _~ / !!~ (comes after startY)
+
           let output = "";
           output += this.keys.x+","+this.keys.y;
           output += ":";
@@ -292,7 +313,7 @@ ChoreoGraph.plugin({
 
             if (output[output.length-2]=="_"&&output[output.length-1]=="~") {
               output = output.slice(0,-2);
-              output += "=";
+              output += "+";
             }
           }
           return output;
@@ -356,7 +377,7 @@ ChoreoGraph.plugin({
             }
             previousSegment = newSegment;
 
-            if (segments[pointer]=="=") {
+            if (segments[pointer]=="+") {
               newSegment.connected = true;
             } else if (segments[pointer]=="_") {
               pointer = set("end",newSegment,segments,++pointer);
@@ -449,7 +470,7 @@ ChoreoGraph.plugin({
           return info;
         };
       },
-      sprite : class cgSpriteAnimation {
+      sprite : class cgSpriteAnimationTrack {
         type = "sprite";
         
         pack() {
@@ -460,8 +481,19 @@ ChoreoGraph.plugin({
           return "mmm";
         };
       },
-      value : class cgValueAnimation {
+      value : class cgValueAnimationTrack {
         type = "value";
+        
+        pack() {
+          return "numbersss";
+        };
+
+        info() {
+          return "mmm";
+        };
+      },
+      trigger : class cgTriggerAnimationTrack {
+        type = "trigger";
         
         pack() {
           return "numbersss";
@@ -654,7 +686,7 @@ ChoreoGraph.plugin({
         // CURSOR DOWN
         if (cg.Input.cursor.impulseDown.any) {
           if (editor.animation==null) { return; }
-          if (editor.path.connectedMode==false||track.segments.length==0) {
+          if ((editor.path.connectedMode==false||track.segments.length==0)&&actionType==editor.path.ACTION_ADD) {
             editor.path.downPos = [cg.Input.cursor.x,cg.Input.cursor.y];
 
           // ADD NEW SEGMENT
@@ -820,12 +852,12 @@ ChoreoGraph.plugin({
                     segment.before.connected = false;
                   }
                   track.segments = newSegments;
-                  ChoreoGraph.Animation.updateAnimationOverview(cg);
                 } else if (grabbablePoint.type=="controlA") {
                   segment.controlAEnabled = false;
                 } else if (grabbablePoint.type=="controlB") {
                   segment.controlBEnabled = false;
                 }
+                ChoreoGraph.Animation.updateAnimationOverview(cg);
 
               // INSERT
               } else if (actionType==editor.path.ACTION_INSERT) {
@@ -858,21 +890,20 @@ ChoreoGraph.plugin({
             segment.start = [snapX(editor.path.downPos[0],cg),snapY(editor.path.downPos[1],cg)];
             segment.end = [snapX(cg.Input.cursor.x,cg),snapY(cg.Input.cursor.y,cg)];
             track.segments.push(segment);
+            cg.Animation.editor.ui.connectedToggle.activated = true;
+            editor.path.connectedMode = true;
+            ChoreoGraph.Animation.updateAnimationOverview(cg);
+          } else if (editor.path.grabbing) {
+            editor.path.grabbing = false;
             ChoreoGraph.Animation.updateAnimationOverview(cg);
           }
-          editor.path.grabbing = false;
-          cg.Animation.editor.ui.connectedToggle.activated = true;
-          editor.path.connectedMode = true;
           cg.Animation.editor.ui.connectedToggle.setStylesAndText();
-          ChoreoGraph.Animation.updateAnimationOverview(cg);
         };
         if (ChoreoGraph.Input.lastKeyDownFrame==ChoreoGraph.frame) {
           if (ChoreoGraph.Input.lastKeyDown==hotkeys.undo) {
-            track.segments.pop();
-            // This needs to be replaced because simply popping is not the same as an undo
-            ChoreoGraph.Animation.updateAnimationOverview(cg);
+            ChoreoGraph.Animation.undo(cg);
           } else if (ChoreoGraph.Input.lastKeyDown==hotkeys.redo) {
-            
+            ChoreoGraph.Animation.redo(cg);
           } else if (ChoreoGraph.Input.lastKeyDown==hotkeys.pathAdd) {
             editor.path.actionType = editor.path.ACTION_ADD;
             ChoreoGraph.Animation.updateTrackContext(cg);
@@ -1107,7 +1138,7 @@ ChoreoGraph.plugin({
       } else {
         cg.Animation.editor.track = null;
       }
-      this.updateAnimationOverview(cg);
+      this.updateAnimationOverview(cg,false);
     }
 
     generateInterface(cg) {
@@ -1198,7 +1229,7 @@ ChoreoGraph.plugin({
       undoButton.classList.add("btn_action");
       undoButton.cg = cg;
       undoButton.onclick = (e) => {
-        console.log("undo")
+        ChoreoGraph.Animation.undo(e.target.cg);
       }
       section.appendChild(undoButton);
 
@@ -1209,7 +1240,7 @@ ChoreoGraph.plugin({
       redoButton.classList.add("btn_action");
       redoButton.cg = cg;
       redoButton.onclick = (e) => {
-        console.log("redo")
+        ChoreoGraph.Animation.redo(e.target.cg);
       }
       section.appendChild(redoButton);
 
@@ -1231,7 +1262,7 @@ ChoreoGraph.plugin({
       let animationInformation = document.createElement("div");
       cg.Animation.editor.ui.animationInformation = animationInformation;
       section.appendChild(animationInformation);
-      this.updateAnimationOverview(cg);
+      this.updateAnimationOverview(cg,false);
 
       section.appendChild(document.createElement("hr"));
     };
@@ -1321,7 +1352,10 @@ ChoreoGraph.plugin({
       }
     }
 
-    updateAnimationOverview(cg) {
+    updateAnimationOverview(cg,addToUndoQueue=true) {
+      if (addToUndoQueue) {
+        console.log("update")
+      }
       let anim = cg.Animation.editor.animation;
       if (anim==null) { return; }
       
@@ -1350,7 +1384,7 @@ ChoreoGraph.plugin({
           trackDiv.track = track;
           trackDiv.onclick = (e) => {
             e.target.cg.Animation.editor.track = e.target.track;
-            ChoreoGraph.Animation.updateAnimationOverview(e.target.cg);
+            ChoreoGraph.Animation.updateAnimationOverview(e.target.cg,false);
             ChoreoGraph.Animation.updateTrackContext(e.target.cg);
           }
           trackDiv.innerHTML = track.type + " - " + track.info();
@@ -1381,14 +1415,6 @@ ChoreoGraph.plugin({
       bakeButton.cg = cg;
       bakeButton.onclick = (e) => {
         e.target.cg.Animation.editor.animation.bake();
-        for (let objectId in e.target.cg.objects) {
-          let object = e.target.cg.objects[objectId];
-          for (let component of object.objectData.components) {
-            if (component.manifest.type=="Animator"&&component.animation.id==e.target.cg.Animation.editor.animation.id) {
-              component.playFrom(0);
-            }
-          }
-        }
       };
       div.appendChild(bakeButton);
 
@@ -1396,26 +1422,61 @@ ChoreoGraph.plugin({
 
       if (cg.Animation.editor.ui.autobakeToggle.activated) {
         cg.Animation.editor.animation.bake();
-        for (let objectId in cg.objects) {
-          let object = cg.objects[objectId];
-          for (let component of object.objectData.components) {
-            if (component.manifest.type=="Animator"&&component.animation.id==cg.Animation.editor.animation.id) {
-              component.playFrom(0);
-            }
-          }
-        }
       }
 
       let packed = document.createElement("p");
       packed.style.overflowWrap = "break-word";
-      packed.innerHTML = anim.pack();
+      let packedData = anim.pack();
+      if (addToUndoQueue) {
+        console.log("undoStackUpdate",ChoreoGraph.frame)
+        cg.Animation.editor.redoStack.length = 0;
+        cg.Animation.editor.undoStack.push(cg.Animation.editor.lastPack);
+      }
+      console.log("lastPackUpdate",ChoreoGraph.frame)
+      cg.Animation.editor.lastPack = packedData;
+      packed.innerText = packedData;
       div.appendChild(packed);
     };
 
     removeInterface(cg) {
       cg.Animation.editor.initInterface = false;
       document.getElementById("cg_animation_editor").remove();
-    }
+    };
+
+    selectFirstTrackByType(cg,type) {
+      for (let track of cg.Animation.editor.animation.tracks) {
+        if (track.type==type) {
+          cg.Animation.editor.track = track;
+          break;
+        }
+      }
+    };
+
+    undo(cg) {
+      if (cg.Animation.editor.undoStack.length>0) {
+        let selectedType = cg.Animation.editor.track.type;
+        let packedData = cg.Animation.editor.undoStack.pop();
+        cg.Animation.editor.redoStack.push(cg.Animation.editor.animation.pack());
+        console.log("load",packedData)
+        cg.Animation.editor.animation.unpack(packedData,cg.Animation.editor.autobake);
+
+        this.selectFirstTrackByType(cg,selectedType);
+      }
+      this.updateAnimationOverview(cg,false);
+    };
+
+    redo(cg) {
+      if (cg.Animation.editor.redoStack.length>0) {
+        let selectedType = cg.Animation.editor.track.type;
+        let packedData = cg.Animation.editor.redoStack.shift();
+        cg.Animation.editor.undoStack.push(cg.Animation.editor.animation.pack());
+        console.log("load",packedData)
+        cg.Animation.editor.animation.unpack(packedData,cg.Animation.editor.autobake);
+
+        this.selectFirstTrackByType(cg,selectedType);
+      }
+      this.updateAnimationOverview(cg,false);
+    };
   },
 
   instanceConnect(cg) {
