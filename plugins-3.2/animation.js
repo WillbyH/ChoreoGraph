@@ -1639,7 +1639,7 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
       let keyData = this.connectionData.keys[i];
       keyData.object[keyData.key] = this.to[i];
     }
-  }
+  };
 
   // Sets STT ENT FROM AND TO relative to a playhead value
   playFrom(playhead) {
@@ -1652,7 +1652,6 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
     this.ent = 0;
     let cumulativeTime = 0;
     let previousI = 0;
-    let previousCumulativeTime = 0;
     let data = this.animation.data;
     for (let i=0;i<data.length;i++) {
       if (typeof data[i][0] === "string") {
@@ -1660,17 +1659,18 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
           this.triggerTypes[data[i][0]](data[i],this.object,this);
         }
       }
-      if (data[i][this.animation.timeKey]===undefined) { cumulativeTime += 0; }
-      else { cumulativeTime += data[i][this.animation.timeKey]; }
-      if (cumulativeTime>=this.playhead) {
+      let addition = 0;
+      if (data[i][this.animation.timeKey]!==undefined) { addition = data[i][this.animation.timeKey]; }
+      if (cumulativeTime+addition>=this.playhead) {
         this.part = Math.max(previousI,0);
-        this.stt = previousCumulativeTime;
-        this.ent = previousCumulativeTime;
+        this.stt = cumulativeTime;
+        this.ent = cumulativeTime;
         this.from = data[previousI];
         break;
+      } else {
+        cumulativeTime += addition;
       }
       previousI = i;
-      previousCumulativeTime = cumulativeTime;
     }
     this.findNextKeyframe();
     this.playing = true;

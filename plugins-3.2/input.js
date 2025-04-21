@@ -254,7 +254,11 @@ ChoreoGraph.plugin({
           this.impulseDown[side] = true;
           this.touches[event.pointerId] = {
             x : this.x,
-            y : this.y
+            y : this.y,
+            clientX : event.clientX,
+            clientY : event.clientY,
+            canvasX : this.canvasX,
+            canvasY : this.canvasY
           };
           if (!this.activeTouches.includes(event.pointerId)) {
             this.activeTouches.push(event.pointerId);
@@ -287,6 +291,10 @@ ChoreoGraph.plugin({
           if (this.touches[event.pointerId]!==undefined) {
             this.touches[event.pointerId].x = this.x;
             this.touches[event.pointerId].y = this.y;
+            this.touches[event.pointerId].clientX = event.clientX;
+            this.touches[event.pointerId].clientY = event.clientY;
+            this.touches[event.pointerId].canvasX = this.canvasX;
+            this.touches[event.pointerId].canvasY = this.canvasY;
           }
           if (this.canvas.cg.settings.input.callbacks.cursorMove!==null) {
             this.canvas.cg.settings.input.callbacks.cursorMove(event,this.canvas);
@@ -752,13 +760,13 @@ ChoreoGraph.plugin({
       exit = null;
 
       CGSpace = true;
-      canvasSpaceXAnchor = 0;
-      canvasSpaceYAnchor = 0;
 
       allowUpWithNoPress = false;
 
       get x() { return this.transform.x; }
       get y() { return this.transform.y; }
+      get canvasSpaceXAnchor() { return this.transform.canvasSpaceXAnchor; }
+      get canvasSpaceYAnchor() { return this.transform.canvasSpaceYAnchor; }
 
       transform = null;
 
@@ -775,9 +783,11 @@ ChoreoGraph.plugin({
         }
         if (buttonInit.x!=undefined) { this.transform.x = buttonInit.x; delete buttonInit.x; }
         if (buttonInit.y!=undefined) { this.transform.y = buttonInit.y; delete buttonInit.y; }
-      }
+        if (buttonInit.canvasSpaceXAnchor!=undefined) { this.transform.canvasSpaceXAnchor = buttonInit.canvasSpaceXAnchor; delete buttonInit.canvasSpaceXAnchor; }
+        if (buttonInit.canvasSpaceYAnchor!=undefined) { this.transform.canvasSpaceYAnchor = buttonInit.canvasSpaceYAnchor; delete buttonInit.canvasSpaceYAnchor; }
+      };
 
-      cursorNear(cursor) {
+      cursorInside(cursor,onlyPrimaryTouch=false) {
         if (cursor.canvas.camera==null) { return false; }
         if (this.check!==null) {
           if (this.check in this.cg.Input.buttonChecks) {
@@ -786,55 +796,56 @@ ChoreoGraph.plugin({
             }
           }
         }
+        let foundScene = false;
         for (let scene of cursor.canvas.camera.scenes) {
           if (this.scene==scene) {
-            return true;
+            foundScene = true;
+            break;
           }
         }
-        return false;
-      }
-      drawTitle(canvas) {
-        ChoreoGraph.transformContext(canvas.camera,this.x,this.y,0,1,1,this.CGSpace,false,false,this.canvasSpaceXAnchor,this.canvasSpaceYAnchor);
-        let c = canvas.c;
-        c.globalAlpha = 1;
-        c.textAlign = "center";
-        c.textBaseline = "middle";
-        c.fillStyle = canvas.cg.settings.input.debug.buttons.style.textColour;
-        c.fillText(this.id, 0, 0);
-      }
-    };
-
-    rectangleButton = class cgRectangleButton extends this.Button {
-      type = "rectangle";
-      width = 100;
-      height = 100;
-      cursorInside(cursor,onlyPrimaryTouch=false) {
-        if (!super.cursorNear(cursor)) { return false; }
-        function inside(x,y,button) {
-          if (x>button.x-button.width/2&&x<button.x+button.width/2&&y>button.y-button.height/2&&y<button.y+button.height/2) {
-            return true;
-          }
-        }
+        if (foundScene==false) { return false; }
         let hovered = false;
+
+        function getPositionInSpace(button,cursor,touch=null) {
+          if (button.CGSpace) {
+            if (touch!==null) {
+              return [cursor.touches[touch].x,cursor.touches[touch].y];
+            } else {
+              return [cursor.x,cursor.y];
+            }
+          } else {
+            let x = touch!==null ? cursor.touches[touch].canvasX : cursor.canvasX;
+            let y = touch!==null ? cursor.touches[touch].canvasY : cursor.canvasY;
+            x -= button.canvasSpaceXAnchor*cursor.canvas.width;
+            y -= button.canvasSpaceYAnchor*cursor.canvas.height;
+            x /= cursor.canvas.camera.canvasSpaceScale;
+            y /= cursor.canvas.camera.canvasSpaceScale;
+            return [x,y];
+          }
+        }
+
         if (this.cg.Input.lastInputType==ChoreoGraph.Input.TOUCH) {
           if (onlyPrimaryTouch) {
-            if (inside(cursor.x,cursor.y,this)) {
+            const [x, y] = getPositionInSpace(this,cursor);
+            if (this.inside(x,y)) {
               hovered = true;
             }
           } else {
             for (let touch of cursor.activeTouches) {
-              if (inside(cursor.touches[touch].x,cursor.touches[touch].y,this)) {
+              const [x, y] = getPositionInSpace(this,cursor,touch);
+              if (this.inside(x,y)) {
                 hovered = true;
               }
             }
           }
         } else {
-          hovered = inside(cursor.x,cursor.y,this);
+          const [x, y] = getPositionInSpace(this,cursor);
+          hovered = this.inside(x,y);
         }
         return hovered;
-      }
-      drawShape(canvas) {
-        ChoreoGraph.transformContext(canvas.camera,this.x,this.y,0,1,1,this.CGSpace,false,false,this.canvasSpaceXAnchor,this.canvasSpaceYAnchor);
+      };
+
+      setStyles(canvas) {
         let c = canvas.c;
         c.globalAlpha = canvas.cg.settings.input.debug.buttons.opacity;
         let style = canvas.cg.settings.input.debug.buttons.style;
@@ -846,28 +857,80 @@ ChoreoGraph.plugin({
         if (ChoreoGraph.nowint-this.upTime<fadeOut) {
           c.fillStyle = ChoreoGraph.colourLerp(style.bgClicked,cg.c.fillStyle,(ChoreoGraph.nowint-this.upTime)/fadeOut);
         }
-        c.fillRect(-this.width/2,-this.height/2,this.width,this.height);
       }
+
+      drawTitle(canvas) {
+        ChoreoGraph.transformContext(canvas.camera,this.x,this.y,0,1,1,this.CGSpace,false,false,this.canvasSpaceXAnchor,this.canvasSpaceYAnchor);
+        let c = canvas.c;
+        c.globalAlpha = 1;
+        c.textAlign = "center";
+        c.textBaseline = "middle";
+        c.fillStyle = canvas.cg.settings.input.debug.buttons.style.textColour;
+        c.fillText(this.id, 0, 0);
+      };
+    };
+
+    rectangleButton = class cgRectangleButton extends this.Button {
+      type = "rectangle";
+      width = 100;
+      height = 100;
+
+      inside(x,y) {
+        return (x>this.x-this.width/2&&x<this.x+this.width/2&&y>this.y-this.height/2&&y<this.y+this.height/2);
+      };
+
+      drawShape(canvas) {
+        canvas.c.fillRect(-this.width/2,-this.height/2,this.width,this.height);
+      };
     };
 
     circleButton = class cgCircleButton extends this.Button {
       type = "circle";
-      cursorInside(cursor) {
-        if (!super.cursorNear(cursor)) { return false; }
-      }
-      drawShape(canvas) {
+      radius = 50;
+      
+      inside(x,y) {
+        return Math.sqrt((x-this.x)**2+(y-this.y)**2) < this.radius;
+      };
 
-      }
+      drawShape(canvas) {
+        canvas.c.beginPath();
+        canvas.c.arc(0,0,this.radius,0,Math.PI*2);
+        canvas.c.fill();
+      };
     };
 
     polygonButton = class cgPolygonButton extends this.Button {
       type = "polygon";
-      cursorInside(cursor) {
-        if (!super.cursorNear(cursor)) { return false; }
-      }
-      drawShape(canvas) {
+      path = [];
 
-      }
+      inside(x,y) {
+        let i, j;
+        let inside = false;
+        for (i = 0, j = this.path.length - 1; i < this.path.length; j = i++) {
+          let ip = [this.path[i][0],this.path[i][1]];
+          let jp = [this.path[j][0],this.path[j][1]];
+          ip[0] += this.x;
+          ip[1] += this.y;
+          jp[0] += this.x;
+          jp[1] += this.y;
+          if (((ip[1] > y) != (jp[1] > y))&&(x < (jp[0]-ip[0]) * (y-ip[1]) / (jp[1]-ip[1]) + ip[0])) inside = !inside;
+        }
+        return inside;
+      };
+
+      drawShape(canvas) {
+        canvas.c.beginPath();
+        for (let i=0;i<this.path.length;i++) {
+          let point = this.path[i];
+          if (i==0) {
+            canvas.c.moveTo(point[0],point[1]);
+          } else {
+            canvas.c.lineTo(point[0],point[1]);
+          }
+        }
+        canvas.c.closePath();
+        canvas.c.fill();
+      };
     };
 
     updateButtons(canvas,event,special=false) {
@@ -938,6 +1001,8 @@ ChoreoGraph.plugin({
           canvas.c.save();
           for (let buttonId of cg.keys.buttons) {
             let button = cg.Input.buttons[buttonId];
+            ChoreoGraph.transformContext(canvas.camera,button.x,button.y,0,1,1,button.CGSpace,false,false,button.canvasSpaceXAnchor,button.canvasSpaceYAnchor);
+            button.setStyles(canvas);
             button.drawShape(canvas);
           }
           for (let buttonId of cg.keys.buttons) {

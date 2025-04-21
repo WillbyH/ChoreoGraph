@@ -78,7 +78,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         inactiveTime : 200,
         loadChecks : [],
         waitUntilReady : true,
-        canvasSpaceScale : 1,
+        defaultCanvasSpaceScale : 1,
         frustumCulling : true,
         baseImagePath : "images/",
         defaultCursor : "default",
@@ -374,8 +374,8 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     z = 1; // Zoom
 
     transform = null;
-
     scaleMode = "pixels";
+    canvasSpaceScale;
 
     // pixels - for maintaining pixel ratios
     pixelScale = 1; // Pixels per pixel
@@ -414,6 +414,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
           delete cameraInit.transformId;
         }
       }
+      this.canvasSpaceScale = cg.settings.core.defaultCanvasSpaceScale;
       if (cameraInit.x!=undefined) { this.transform.x = cameraInit.x; delete cameraInit.x; }
       if (cameraInit.y!=undefined) { this.transform.y = cameraInit.y; delete cameraInit.y; }
       ChoreoGraph.applyAttributes(this,cameraInit);
@@ -938,7 +939,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).split(".")[0];
   }
   
-  transformContext(camera,x=0,y=0,r=0,sx=1,sy=1,CGSpace=true,flipX=false,flipY=false,canvasSpaceXAnchor,canvasSpaceYAnchor,ctx=camera.canvas.c,cx=camera.cx,cy=camera.cy,cz=camera.cz,canvasSpaceScale=cg.settings.core.canvasSpaceScale,w=camera.canvas.width,h=camera.canvas.height,manualScaling=false) {
+  transformContext(camera,x=0,y=0,r=0,sx=1,sy=1,CGSpace=true,flipX=false,flipY=false,canvasSpaceXAnchor,canvasSpaceYAnchor,ctx=camera.canvas.c,cx=camera.cx,cy=camera.cy,cz=camera.cz,canvasSpaceScale=camera.canvasSpaceScale,w=camera.canvas.width,h=camera.canvas.height,manualScaling=false) {
     let z = 1;
     if (CGSpace) {
       z = cz;
