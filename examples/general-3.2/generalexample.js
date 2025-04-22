@@ -24,6 +24,29 @@ cg.createCanvas({element:document.getElementsByTagName("canvas")[0],
   width : 600
 });
 
+// const sink = ChoreoGraph.instantiate({
+//   core : {
+//     generateBasicEnvironment : false
+//   }
+// });
+// sink.createCanvas({element:document.getElementsByTagName("canvas")[1],
+//   height : 200,
+//   width : 500,
+//   background:"turquoise"
+// },"theSinkCanvas");
+// sink.createCanvas({element:document.getElementsByTagName("canvas")[2],
+//   height : 150,
+//   width : 600,
+//   background:"mediumpurple"
+// },"theOtherSinkCanvas");
+
+// sink.createGraphic({type:"rectangle",colour:"tomato",width:25,height:25},"sinkCursorRectangle");
+// sink.createScene({},"bathroom");
+// sink.createCamera({},"peeper");
+// sink.cameras.peeper.addScene(sink.scenes.bathroom);
+// sink.canvases.theSinkCanvas.setCamera(sink.cameras.peeper);
+// sink.scenes.bathroom.createItem("graphic",{graphic:sink.graphics.sinkCursorRectangle},"sinkCursorRectangle");
+
 cg.Audio.masterVolume = 0;
 
 cg.scenes.main.createItem("collection",{},"stuff")

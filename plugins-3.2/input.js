@@ -99,8 +99,11 @@ ChoreoGraph.plugin({
         } else if (event.pointerType=="controller") {
           this.cg.Input.lastInteraction.controller = this.cg.clock;
         }
-        const cursor = this.canvasCursors[canvas.id];
-        if (cursor===undefined) { return; }
+        let cursor = this.canvasCursors[canvas.id];
+        if (cursor===undefined) {
+          cursor = new ChoreoGraph.Input.canvasCursorData(canvas);
+          this.canvasCursors[canvas.id] = cursor;
+        }
         cursor.update(event);
       };
 
@@ -255,10 +258,14 @@ ChoreoGraph.plugin({
         }
         this.canvasX = Math.floor(((event.clientX-this.boundBox.left)/this.boundBox.width)*this.canvas.width);
         this.canvasY = Math.floor(((event.clientY-this.boundBox.top)/this.boundBox.height)*this.canvas.height);
-        let cameraXOffset = this.canvas.camera.x-(this.canvas.width/this.canvas.camera.z)/2;
-        let cameraYOffset = this.canvas.camera.y-(this.canvas.height/this.canvas.camera.z)/2;
-        this.x = Math.floor(((event.clientX-this.boundBox.left)/this.boundBox.width)*(this.canvas.width/this.canvas.camera.z))+cameraXOffset;
-        this.y = Math.floor(((event.clientY-this.boundBox.top)/this.boundBox.height)*(this.canvas.height/this.canvas.camera.z))+cameraYOffset;
+        if (this.canvas.camera!==null) {
+          let cameraXOffset = this.canvas.camera.x-(this.canvas.width/this.canvas.camera.z)/2;
+          let cameraYOffset = this.canvas.camera.y-(this.canvas.height/this.canvas.camera.z)/2;
+          this.x = ((event.clientX-this.boundBox.left)/this.boundBox.width)*(this.canvas.width/this.canvas.camera.z);
+          this.x += cameraXOffset;
+          this.y = ((event.clientY-this.boundBox.top)/this.boundBox.height)*(this.canvas.height/this.canvas.camera.z);
+          this.y += cameraYOffset;
+        }
         this.clientX = event.clientX;
         this.clientY = event.clientY;
         if (event.type=="pointerdown") {
@@ -457,6 +464,7 @@ ChoreoGraph.plugin({
       for (let cg of ChoreoGraph.instances) {
         for (let canvasId of cg.keys.canvases) {
           let cursor = cg.Input.canvasCursors[canvasId];
+          if (cursor===undefined) { continue; }
           cursor.impulseDown.left = false;
           cursor.impulseDown.middle = false;
           cursor.impulseDown.right = false;
@@ -810,7 +818,7 @@ ChoreoGraph.plugin({
       };
 
       cursorInside(cursor,onlyPrimaryTouch=false) {
-        if (cursor.canvas.camera==null) { return false; }
+        if (cursor?.canvas.camera==null) { return false; }
         if (this.check!==null) {
           if (this.check in this.cg.Input.buttonChecks) {
             if (this.cg.Input.buttonChecks[this.check]==false) {
@@ -1171,7 +1179,7 @@ ChoreoGraph.plugin({
 
       debug : new class {
         buttons = {
-          active : true,
+          active : false,
           opacity : 0.4,
           fadeOut : 300, // Time in ms that the button fades out for
           style : {
@@ -1215,7 +1223,7 @@ ChoreoGraph.plugin({
       canvas.element.addEventListener("pointerenter", cursor.enter, false);
       canvas.element.addEventListener("pointerleave", cursor.exit, false);
 
-      cg.processLoops.push(ChoreoGraph.Input.cursorImpulseReset);
+      ChoreoGraph.globalAfterLoops.push(ChoreoGraph.Input.cursorImpulseReset);
       cg.processLoops.push(ChoreoGraph.Input.controllerButtonLoop);
       if (cg.settings.input.controller.emulatedCursor.active) {
         cg.processLoops.push(ChoreoGraph.Input.emulatedCursorLoop);

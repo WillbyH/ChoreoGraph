@@ -11,9 +11,10 @@ const ChoreoGraph = new class ChoreoGraphEngine {
   nowint = new Date().getTime();
 
   plugins = {};
-  globalLoops = [];
+  globalBeforeLoops = [];
+  globalAfterLoops = [];
 
-  ChoreoGraphInstance = class ChoreoGraphInstance {
+  Instance = class ChoreoGraphInstance {
     settings = {};
 
     canvases = {};
@@ -172,7 +173,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       if (this.settings.core.defaultCanvas == null) {
         this.settings.core.defaultCanvas = newCanvas;
       }
-      if (this.settings.core.generateBasicEnvironment) {
+      if (this.settings.core.generateBasicEnvironment&&this.canvases.main===undefined) {
         ChoreoGraph.id.release(id);
         newCanvas.id = "main";
         newCanvas.setCamera(this.cameras.main);
@@ -265,10 +266,20 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       let ro = new ResizeObserver(entries => {
         for (let entry of entries) {
           let cr = entry.contentRect;
+          let copyContent = document.createElement("canvas");
+          copyContent.width = cr.width;
+          copyContent.height = cr.height;
+          let ccc = copyContent.getContext("2d");
+          if (this.element.width!=0&&this.element.height!=0) {
+            ccc.drawImage(this.element,0,0,cr.width,cr.height);
+          }
           this.element.width = cr.width;
           this.element.height = cr.height
           this.width = cr.width;
           this.height = cr.height;
+          if (copyContent.width!=0&&copyContent.height!=0) {
+            this.c.drawImage(copyContent,0,0,cr.width,cr.height);
+          }
         }
       });
       ro.observe(parentElement);
@@ -284,7 +295,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       this.c.resetTransform();
       if (this.background === null) {
         this.c.clearRect(0,0,this.width,this.height);
-      } else {
+      } else if (this.background !== false) {
         this.c.fillStyle = this.background;
         this.c.fillRect(0,0,this.width,this.height);
       }
@@ -976,7 +987,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
   };
 
   instantiate(init={}) {
-    let cg = new ChoreoGraph.ChoreoGraphInstance(ChoreoGraph.instances.length);
+    let cg = new ChoreoGraph.Instance(ChoreoGraph.instances.length);
 
     for (let pluginKey in ChoreoGraph.plugins) {
       let plugin = ChoreoGraph.plugins[pluginKey];
@@ -1026,9 +1037,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     ChoreoGraph.now = new Date();
     ChoreoGraph.nowint = ChoreoGraph.now.getTime();
     ChoreoGraph.timeDelta = performance.now() - ChoreoGraph.lastPerformanceTime;
-    for (let loop of ChoreoGraph.globalLoops) {
-      loop(this);
-    }
+    for (let loop of ChoreoGraph.globalBeforeLoops) { loop(this); }
     const skipFrame = ((1000/ChoreoGraph.timeDelta>ChoreoGraph.settings.maxFPS||(!document.hasFocus()&&ChoreoGraph.settings.pauseWhenUnfocused)));
     if (!skipFrame) {
       ChoreoGraph.lastPerformanceTime = performance.now();
@@ -1037,6 +1046,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         cg.loop();
       }
     }
+    for (let loop of ChoreoGraph.globalAfterLoops) { loop(this); }
     ChoreoGraph.frame = requestAnimationFrame(ChoreoGraph.loop);
   };
 };

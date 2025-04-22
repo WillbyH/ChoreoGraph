@@ -4,21 +4,75 @@ ChoreoGraph.plugin({
   version : "2.0",
 
   globalPackage : new class cgDevelop {
-    cg = null;
+    #cg = null;
+    get cg() { return this.#cg; }
+    set cg(cg) {
+      this.#cg = cg;
+      ChoreoGraph.Develop.generateInterface();
+    };
+
+    style = {
+      off : "#ff0000",
+      on : "#008000",
+      action : "#ffc0cb"
+    };
+
+    changedSelectedInstanceHotkey = "ctrl+shift";
 
     instanceObject = class Develop {
+      interfaceItems = [];
+
       constructor(cg) {
         this.cg = cg;
-        document.addEventListener("wheel", this.wheel, {passive: false});
+
+        this.interfaceItems.push({
+          type : "UIToggleButton",
+          activeText : "Disable FreeCam",
+          inactiveText : "Enable FreeCam",
+          activated : this.featureData.freeCam,
+          onActive : (cg) => { cg.Develop.enableFreeCam(); },
+          onInactive : (cg) => { cg.Develop.disableFreeCam(); }
+        });
+        this.interfaceItems.push({
+          type : "UIActionButton",
+          text : "Reset FreeCam",
+          action : (cg) => { cg.Develop.resetFreeCam(); }
+        });
+        if (ChoreoGraph.Input!==undefined) {
+          this.interfaceItems.push({
+            type : "UIToggleButton",
+            activated : this.cg.settings.input.debug.buttons,
+            activeText : "Hide Buttons",
+            inactiveText : "Show Buttons",
+            onActive : (cg) => { cg.settings.input.debug.active = true; cg.settings.input.debug.buttons.active = true; },
+            onInactive : (cg) => { cg.settings.input.debug.buttons.active = false; }
+          });
+        };
+        this.interfaceItems.push({
+          type : "UIToggleButton",
+          activeText : "Hide Cameras",
+          inactiveText : "Show Cameras",
+          activated : this.cg.settings.develop.cameras,
+          onActive : (cg) => { cg.settings.develop.cameras.active = true; },
+          onInactive : (cg) => { cg.settings.develop.cameras.active = false; }
+        });
+        this.interfaceItems.push({
+          type : "UIToggleButton",
+          activeText : "Hide Culling Boxes",
+          inactiveText : "Show Culling Boxes",
+          activated : this.cg.settings.develop.frustumCulling,
+          onActive : (cg) => { cg.settings.develop.frustumCulling.active = true; },
+          onInactive : (cg) => { cg.settings.develop.frustumCulling.active = false; }
+        });
       };
 
       _selectedCanvas = null;
       set selectedCanvas(canvas) {
         if (this._selectedCanvas==null||this._selectedCanvas.id != canvas.id) {
           this._selectedCanvas = canvas;
-          if (ChoreoGraph.Develop.initiated) {
-            this.generateInterface();
-          }
+          // if (ChoreoGraph.Develop.initiated) {
+          //   ChoreoGraph.Develop.generateInterface();
+          // }
         }
       }
       get selectedCanvas() {
@@ -38,14 +92,6 @@ ChoreoGraph.plugin({
         const cursor = this.canvasCursors[canvas.id];
         if (cursor===undefined) { return; }
         cursor.update(event);
-      };
-  
-      generateInterface() {
-        ChoreoGraph.Develop.section.innerHTML = "";
-        for (let item of ChoreoGraph.Develop.interfaceItems) {
-          let newItem = new ChoreoGraph.Develop[item.type](item,this.cg);
-          ChoreoGraph.Develop.section.appendChild(newItem.element);
-        }
       };
 
       featureData = {
@@ -102,22 +148,9 @@ ChoreoGraph.plugin({
         canvasData.freeCamera.z = canvasData.savedCamera.z;
       }
 
-      wheel(event) {
-        let cg = ChoreoGraph.Develop.cg;
-        if (cg.Develop.featureData.freeCam.active&&ChoreoGraph.Input.keyStates.shift) {
-          let canvas = cg.Develop.selectedCanvas;
-          let camera = cg.Develop.featureData.freeCam.canvasData[canvas.id].freeCamera;
-          let scrollSpeed = cg.settings.develop.freeCam.zoomSpeed;
-          let magnitude = 0.1;
-          if (event.deltaY<0) { magnitude = -0.1; }
-          let change = Math.abs(magnitude)/scrollSpeed
-          if (event.deltaY<0) { camera.z*=1+change; } else { camera.z*=1-change; }
-        }
-      }
-
       developProcessLoop(cg) {
         for (let loop of ChoreoGraph.Develop.loops.process) {
-          if (loop.activeCheck.active) {
+          if (loop.activeCheck.active&&loop.cgid===cg.id) {
             loop.func(cg);
           }
         }
@@ -125,6 +158,7 @@ ChoreoGraph.plugin({
 
       processFreecam(cg) {
         let data = cg.Develop.featureData.freeCam;
+        if (!data.active) { return; }
         if (cg.Input===undefined) {
           data.active = false;
           console.warn("FreeCam requires the Input plugin");
@@ -132,7 +166,7 @@ ChoreoGraph.plugin({
         }
         if (ChoreoGraph.Input.keyStates.shift) {
           let canvas = cg.Develop.selectedCanvas;
-          let camera = cg.Develop.featureData.freeCam.canvasData[canvas.id].freeCamera;
+          let camera = data.canvasData[canvas.id].freeCamera;
           if (data.dragging) {
             if (!cg.Input.cursor.hold.any) {
               data.dragging = false;
@@ -160,7 +194,7 @@ ChoreoGraph.plugin({
 
       developOverlayLoop(cg) {
         for (let loop of ChoreoGraph.Develop.loops.overlay) {
-          if (loop.activeCheck.active) {
+          if (loop.activeCheck.active&&loop.cgid===cg.id) {
             loop.func(cg);
           }
         }
@@ -209,6 +243,7 @@ ChoreoGraph.plugin({
           let canvas = cg.canvases[canvasId];
           let c = canvas.c;
           let cullCamera = canvas.camera;
+          if (cullCamera===null) { continue; }
           if (cullCamera.cullOverride!==null) { cullCamera = cullCamera.cullOverride; }
           ChoreoGraph.transformContext(canvas.camera,cullCamera.x,cullCamera.y);
           c.strokeStyle = cg.settings.develop.frustumCulling.frustumColour;
@@ -271,9 +306,37 @@ ChoreoGraph.plugin({
       overlay : []
     };
 
-    initiated = false;
+    wheel(event) {
+      for (let cg of ChoreoGraph.instances) {
+        if (cg.Develop.featureData.freeCam.active&&ChoreoGraph.Input.keyStates.shift) {
+          let canvas = cg.Develop.selectedCanvas;
+          if (event.target.cgCanvas!==canvas) { continue; }
+          let camera = cg.Develop.featureData.freeCam.canvasData[canvas.id].freeCamera;
+          let scrollSpeed = cg.settings.develop.freeCam.zoomSpeed;
+          let magnitude = 0.1;
+          if (event.deltaY<0) { magnitude = -0.1; }
+          let change = Math.abs(magnitude)/scrollSpeed
+          if (event.deltaY<0) { camera.z*=1+change; } else { camera.z*=1-change; }
+        }
+      }
+    }
+
     section = document.createElement("section");
-    interfaceItems = [];
+  
+    generateInterface() {
+      let cg = ChoreoGraph.Develop.cg;
+
+      ChoreoGraph.Develop.section.innerHTML = "";
+      if (ChoreoGraph.instances.length>1) {
+        let selectedInstanceDiv = document.createElement("div");
+        selectedInstanceDiv.innerText = "Selected Instance: "+cg.id;
+        ChoreoGraph.Develop.section.appendChild(selectedInstanceDiv);
+      }
+      for (let item of cg.Develop.interfaceItems) {
+        let newItem = new ChoreoGraph.Develop[item.type](item,this.cg);
+        ChoreoGraph.Develop.section.appendChild(newItem.element);
+      }
+    };
 
     UIToggleButton = class UIToggleButton {
       constructor(init,cg) {
@@ -290,8 +353,13 @@ ChoreoGraph.plugin({
         this.element.type = "button";
         this.element.classList.add("develop_button");
         this.element.onclick = () => {
-          this.activated = !this.activated;
-          if (this.activated) {
+          if (typeof this.activated=="boolean") {
+            this.activated = !this.activated;
+          } else if (typeof this.activated=="object") {
+            this.activated.active = !this.activated.active;
+          }
+          if ((typeof this.activated=="boolean"&&this.activated)||
+            (typeof this.activated=="object"&&this.activated.active)) {
             if (this.onActive!=null) { this.onActive(this.cg); }
           } else {
             if (this.onInactive!=null) { this.onInactive(this.cg); }
@@ -306,7 +374,8 @@ ChoreoGraph.plugin({
         this.setStylesAndText();
       };
       setStylesAndText() {
-        if (this.activated) {
+        if ((typeof this.activated=="boolean"&&this.activated)||
+            (typeof this.activated=="object"&&this.activated.active)) {
           this.element.innerText = this.activeText;
           this.element.classList.add("btn_on");
           this.element.classList.remove("btn_off");
@@ -337,134 +406,6 @@ ChoreoGraph.plugin({
         this.element.innerText = this.text;
       };
     }
-
-    init() {
-      this.interfaceItems.push({
-        type : "UIToggleButton",
-        activeText : "Disable FreeCam",
-        inactiveText : "Enable FreeCam",
-        onActive : (cg) => { cg.Develop.enableFreeCam(); },
-        onInactive : (cg) => { cg.Develop.disableFreeCam(); }
-      });
-      this.interfaceItems.push({
-        type : "UIActionButton",
-        text : "Reset FreeCam",
-        action : (cg) => { cg.Develop.resetFreeCam(); }
-      });
-      if (ChoreoGraph.Input!==undefined) {
-        this.interfaceItems.push({
-          type : "UIToggleButton",
-          activated : this.cg.settings.input.debug.active,
-          activeText : "Hide Buttons",
-          inactiveText : "Show Buttons",
-          onActive : (cg) => { cg.settings.input.debug.active = true; },
-          onInactive : (cg) => { cg.settings.input.debug.active = false; }
-        });
-      };
-      this.interfaceItems.push({
-        type : "UIToggleButton",
-        activeText : "Hide Cameras",
-        inactiveText : "Show Cameras",
-        activated : this.cg.settings.develop.cameras.active,
-        onActive : (cg) => { cg.settings.develop.cameras.active = true; },
-        onInactive : (cg) => { cg.settings.develop.cameras.active = false; }
-      });
-      this.interfaceItems.push({
-        type : "UIToggleButton",
-        activeText : "Hide Culling Boxes",
-        inactiveText : "Show Culling Boxes",
-        activated : this.cg.settings.develop.frustumCulling.active,
-        onActive : (cg) => { cg.settings.develop.frustumCulling.active = true; },
-        onInactive : (cg) => { cg.settings.develop.frustumCulling.active = false; }
-      });
-      document.body.appendChild(this.section);
-      this.section.classList.add("develop_section");
-
-      let colOff = this.cg.settings.develop.style.off;
-      let colOn = this.cg.settings.develop.style.on;
-      let colAction = this.cg.settings.develop.style.action;
-
-      let style = document.createElement("style");
-      style.innerHTML = `
-        .develop_section {
-          color:white;
-          margin-left: 20px;
-          margin-top: 10px;
-        }
-        .develop_button {
-          background: black;
-          color: white;
-          margin:5px;
-          border: 3px solid white;
-          padding:10px;
-          border-radius:10px;
-          cursor: pointer;
-        }
-        .develop_button:hover {
-          background: #111;
-        }
-        .btn_off {
-          border-color: ${colOff};
-        }
-        .btn_on {
-          border-color: ${colOn};
-        }
-        .btn_action {
-          border-color: ${colAction};
-        }
-        .btn_action:active {
-          background: #999999;
-        }
-        .develop_input {
-          margin:5px;
-          border:0;
-          padding:10px;
-        }
-        .single_input {
-          background: black;
-          color: white;
-          padding: 10px;
-          border: 3px solid ${colAction};
-          border-radius: 10px;
-        }
-        .develop_textarea {
-          display: block;
-          margin-left: 20px;
-          width: 50%;
-          overflow: hidden;
-          resize: both;
-          min-height: 40px;
-          padding:10px;
-          background-color: #1f1f1f;
-          font-family: monospace;
-        }
-        .code_keyword {
-          color: #dc98ff;
-        }
-        .code_comment {
-          color: #a3a3a3;
-          font-style: italic;
-        }
-        .code_string {
-          color: #ce9178;
-        }
-        .code_global {
-          color: #ffff00;
-        }
-        .code_number {
-          color: #78ff7f;
-        }
-        .code_function {
-          color: #ff744a;
-        }
-        .live_eval_error {
-          color: red;
-          margin: 10px;
-        }
-      `;
-      document.body.appendChild(style);
-      this.cg.Develop.generateInterface();
-    }
   },
 
   instanceConnect(cg) {
@@ -489,14 +430,15 @@ ChoreoGraph.plugin({
         zoomSpeed : 0.5
       },
       cameras : {
-        active : true,
+        active : false,
         colour : "#76f562"
       },
       frustumCulling : {
-        active : true,
+        active : false,
         unculledBoxColour : "#59eb38",
         culledBoxColour : "#eb3838",
-        frustumColour : "#5c38eb"
+        frustumColour : "#5c38eb",
+        cgid : cg.id
       },
       // objectGizmo : {
       //   active : false,
@@ -507,11 +449,6 @@ ChoreoGraph.plugin({
       // objectPlacer : {
       //   active : false,
       // }
-      style : {
-        off : "#ff0000",
-        on : "#008000",
-        action : "#ffc0cb"
-      }
     });
     cg.Develop = new ChoreoGraph.Develop.instanceObject(cg);
     cg.processLoops.push(cg.Develop.developProcessLoop);
@@ -531,13 +468,123 @@ ChoreoGraph.plugin({
     if (ChoreoGraph.Develop.cg===null) {
       ChoreoGraph.Develop.cg = cg;
     }
-    if (ChoreoGraph.Develop.initiated===false) {
-      ChoreoGraph.Develop.init();
-    }
 
-    ChoreoGraph.Develop.loops.process.push({activeCheck:cg.Develop.featureData.freeCam,func:cg.Develop.processFreecam});
+    ChoreoGraph.Develop.loops.process.push({cgid:cg.id,activeCheck:cg.Develop.featureData.freeCam,func:cg.Develop.processFreecam});
 
-    ChoreoGraph.Develop.loops.overlay.push({activeCheck:cg.settings.develop.cameras,func:cg.Develop.overlayCameras});
-    ChoreoGraph.Develop.loops.overlay.push({activeCheck:cg.settings.develop.frustumCulling,func:cg.Develop.overlayFrustumCulling});
+    ChoreoGraph.Develop.loops.overlay.push({cgid:cg.id,activeCheck:cg.settings.develop.cameras,func:cg.Develop.overlayCameras});
+    ChoreoGraph.Develop.loops.overlay.push({cgid:cg.id,activeCheck:cg.settings.develop.frustumCulling,func:cg.Develop.overlayFrustumCulling});
   }
 });
+
+(()=>{
+  let colOff = ChoreoGraph.Develop.style.off;
+  let colOn = ChoreoGraph.Develop.style.on;
+  let colAction = ChoreoGraph.Develop.style.action;
+
+  let style = document.createElement("style");
+  style.innerHTML = `
+    .develop_section {
+      color:white;
+      margin-left: 20px;
+      margin-top: 10px;
+      margin-bottom: 80px;
+      font-family: Arial;
+    }
+    .develop_button {
+      background: black;
+      color: white;
+      margin:5px;
+      border: 3px solid white;
+      padding:10px;
+      border-radius:10px;
+      cursor: pointer;
+    }
+    .develop_button:hover {
+      background: #111;
+    }
+    .btn_off {
+      border-color: ${colOff};
+    }
+    .btn_on {
+      border-color: ${colOn};
+    }
+    .btn_action {
+      border-color: ${colAction};
+    }
+    .btn_action:active {
+      background: #999999;
+    }
+    .develop_input {
+      margin:5px;
+      border:0;
+      padding:10px;
+    }
+    .single_input {
+      background: black;
+      color: white;
+      padding: 10px;
+      border: 3px solid ${colAction};
+      border-radius: 10px;
+    }
+    .develop_textarea {
+      display: block;
+      margin-left: 20px;
+      width: 50%;
+      overflow: hidden;
+      resize: both;
+      min-height: 40px;
+      padding:10px;
+      background-color: #1f1f1f;
+      font-family: monospace;
+    }
+    .code_keyword {
+      color: #dc98ff;
+    }
+    .code_comment {
+      color: #a3a3a3;
+      font-style: italic;
+    }
+    .code_string {
+      color: #ce9178;
+    }
+    .code_global {
+      color: #ffff00;
+    }
+    .code_number {
+      color: #78ff7f;
+    }
+    .code_function {
+      color: #ff744a;
+    }
+    .live_eval_error {
+      color: red;
+      margin: 10px;
+    }
+  `;
+  document.head.appendChild(style);
+
+  ChoreoGraph.Develop.section.classList.add("develop_section");
+  document.body.appendChild(ChoreoGraph.Develop.section);
+
+  document.addEventListener("wheel", ChoreoGraph.Develop.wheel, {passive: false});
+  document.addEventListener("pointerdown", function(event){
+    if (event.target.cgCanvas===undefined) { return; }
+    let cg = event.target.cgCanvas.cg;
+    if (cg===ChoreoGraph.Develop.cg) { return; }
+    if (ChoreoGraph.Input===undefined) { return; }
+    let canChange = true;
+    for (let key of ChoreoGraph.Develop.changedSelectedInstanceHotkey.split("+")) {
+      if (!ChoreoGraph.Input.keyStates[key]) {
+        if (key=="shift"&&event.shiftKey) { continue; }
+        if (key=="ctrl"&&event.ctrlKey) { continue; }
+        if (key=="alt"&&event.altKey) { continue; }
+        if (key=="meta"&&event.metaKey) { continue; }
+        canChange = false;
+        break;
+      }
+    }
+    if (canChange) {
+      ChoreoGraph.Develop.cg = cg;
+    }
+  }, {passive: false});
+})();

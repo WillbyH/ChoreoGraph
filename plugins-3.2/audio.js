@@ -538,7 +538,7 @@ ChoreoGraph.plugin({
     cg.keys.sounds = [];
     cg.Audio = new ChoreoGraph.Audio.instanceObject(cg);
     cg.Audio.cg = cg;
-    ChoreoGraph.globalLoops.push(ChoreoGraph.Audio.update);
+    ChoreoGraph.globalBeforeLoops.push(ChoreoGraph.Audio.update);
     ChoreoGraph.Audio.instanceLoadBuffer.push(cg.Audio);
   }
 });
