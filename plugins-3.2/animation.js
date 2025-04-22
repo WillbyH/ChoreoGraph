@@ -22,13 +22,13 @@ ChoreoGraph.plugin({
         this.animations[newAnimation.id] = newAnimation;
         this.cg.keys.animations.push(newAnimation.id);
         return newAnimation;
-      }
+      };
 
       animations = {};
 
       easeFunctions = {
         linear : function(t) { return t; },
-      }
+      };
 
       editor = {
         initInterface : false,
@@ -103,6 +103,113 @@ ChoreoGraph.plugin({
           ACTION_GRAB : "grab",
           ACTION_DELETE : "delete",
           ACTION_INSERT : "insert"
+        }
+      };
+
+      hasActivatedDebugLoop = false;
+      animationDebugLoop(cg) {
+        if (!cg.settings.animation.debug.active) { return; }
+        if (cg.settings.animation.debug.showBakedPaths) {
+          for (let canvasId of cg.keys.canvases) {
+            let canvas = cg.canvases[canvasId];
+            canvas.c.save();
+
+            // let markers = [];
+            let paths = [];
+            let keyFrames = [];
+            let lastPosition = [0,0];
+            
+            for (let animationId of cg.keys.animations) {
+              let animation = cg.Animation.animations[animationId];
+              let xKey = -1;
+              let yKey = -1;
+              let rKey = -1;
+              for (let k=0;k<animation.keys.length;k++) {
+                if (JSON.stringify(animation.keys[k])==JSON.stringify(cg.settings.animation.debug.pathXKey)) { xKey = k; }
+                if (JSON.stringify(animation.keys[k])==JSON.stringify(cg.settings.animation.debug.pathYKey)) { yKey = k; }
+                if (JSON.stringify(animation.keys[k])==JSON.stringify(cg.settings.animation.debug.pathRKey)) { rKey = k; }
+              }
+              if (xKey==-1||yKey==-1) { continue; }
+
+              let path = [];
+              for (let f=0;f<animation.data.length;f++) {
+                let frame = animation.data[f];
+                if (frame.length==0) { continue; }
+                if ((typeof(frame[0])=="number")) {
+                  let x = frame[xKey];
+                  let y = frame[yKey];
+                  let r = 0;
+                  if (rKey!=undefined) { r = frame[rKey]; }
+                  keyFrames.push([x,y,r]);
+                  path.push([x,y,r]);
+                  lastPosition = [x,y,r];
+                } else if (typeof(frame[0])=="string") {
+                  // let colour = this.animations.markerColours.unknown;
+                  // if (this.animations.markerColours[frame[0].toUpperCase()]!=undefined) { colour = this.animations.markerColours[frame[0].toUpperCase()]; }
+                  // markers.push({x:lastPosition[0],y:lastPosition[1],c:colour,t:frame[1]});
+                }
+              }
+              paths.push(path);
+            }
+
+            let oddLerps = [];
+            let evenLerps = [];
+        
+            for (let p = 0; p < paths.length; p++) { // Find lerp paths
+              for (let f = 0; f < paths[p].length; f++) {
+                if (f!=0) {
+                  if (f%2) {
+                    oddLerps.push([lastPosition,paths[p][f]]);
+                  } else {
+                    evenLerps.push([lastPosition,paths[p][f]]);
+                  }
+                }
+                lastPosition = paths[p][f];
+              }
+            }
+
+            ChoreoGraph.transformContext(canvas.camera);
+
+            let c = canvas.c;
+
+            let size = cg.settings.animation.debug.width/canvas.camera.z;
+        
+            c.lineWidth = size; // Odd lerps
+            c.strokeStyle = cg.settings.animation.debug.pathColours[0];
+            c.beginPath();
+            for (let p = 0; p < oddLerps.length; p++) {
+              c.moveTo(oddLerps[p][0][0], oddLerps[p][0][1]);
+              c.lineTo(oddLerps[p][1][0], oddLerps[p][1][1]);
+            }
+            c.stroke();
+        
+            c.strokeStyle = cg.settings.animation.debug.pathColours[1]; // Even lerps
+            c.beginPath();
+            for (let p = 0; p < evenLerps.length; p++) {
+              c.moveTo(evenLerps[p][0][0], evenLerps[p][0][1]);
+              c.lineTo(evenLerps[p][1][0], evenLerps[p][1][1]);
+            }
+            c.stroke();
+
+            c.strokeStyle = cg.settings.animation.debug.pathColours[2];
+            c.fillStyle = cg.settings.animation.debug.pathColours[2]; // Keyframe dots
+            for (let k = 0; k < keyFrames.length; k++) {
+              c.fillRect(keyFrames[k][0]-size/2,keyFrames[k][1]-size/2,size,size);
+              if (cg.settings.animation.debug.showDirectionalMarkings) { // Directional markings
+                let rotation = keyFrames[k][2];
+                c.beginPath();
+                let directionalMarkingLength = cg.settings.animation.debug.directionalMarkingLength/canvas.camera.z;
+                c.moveTo(keyFrames[k][0],keyFrames[k][1]);
+                c.lineTo(parseFloat((keyFrames[k][0]+(directionalMarkingLength)*Math.cos(ChoreoGraph.degreeToRadianStandard(rotation))).toFixed(2)), parseFloat((keyFrames[k][1]-(directionalMarkingLength)*Math.sin(ChoreoGraph.degreeToRadianStandard(rotation))).toFixed(2)));
+                c.stroke();
+                c.beginPath();
+                c.arc(parseFloat((keyFrames[k][0]+(directionalMarkingLength)*Math.cos(ChoreoGraph.degreeToRadianStandard(rotation))).toFixed(2)), parseFloat((keyFrames[k][1]-(directionalMarkingLength)*Math.sin(ChoreoGraph.degreeToRadianStandard(rotation))).toFixed(2)),size,0,2*Math.PI);
+                c.fill();
+              }
+            }
+
+            c.restore();
+          }
         }
       };
     };
@@ -246,7 +353,7 @@ ChoreoGraph.plugin({
         constructor(cg) {
           this.density = cg.settings.animation.editor.defaultPathDensity;
           this.cg = cg;
-        }
+        };
 
         pack() {
           // xIndex,yIndex:density:trackData
@@ -412,10 +519,13 @@ ChoreoGraph.plugin({
           let previousPoint = null;
           let previousDisconnected = false;
           let track = this;
+          let cg = this.cg;
           function append(x,y) {
-            let decimals = cg.settings.animation.editor.decimalRounding;
-            x = Math.floor(x * (10**decimals)) * (1/(10**decimals));
-            y = Math.floor(y * (10**decimals)) * (1/(10**decimals));
+            let decimals = cg.settings.animation.editor.genericDecimalRounding;
+            // x = Math.floor(x * (10**decimals)) * (1/(10**decimals));
+            // y = Math.floor(y * (10**decimals)) * (1/(10**decimals));
+            x = Number(x.toFixed(decimals));
+            y = Number(y.toFixed(decimals));
             let time = 0;
             if (previousPoint!=null) {
               let distance = Math.sqrt((x-previousPoint[0])**2+(y-previousPoint[1])**2);
@@ -425,6 +535,7 @@ ChoreoGraph.plugin({
               time = 0;
               previousDisconnected = false;
             }
+            time = Number(time.toFixed(cg.settings.animation.editor.timeDecimalRounding));
             previousPoint = [x,y];
             let keyframe = [];
             keyframe[track.keys.x] = x;
@@ -562,7 +673,7 @@ ChoreoGraph.plugin({
           }
         }
         return length;
-      }
+      };
 
       getScaledSampleSize(density) {
         return Math.floor(this.getLength(30)/density);
@@ -1139,7 +1250,7 @@ ChoreoGraph.plugin({
         cg.Animation.editor.track = null;
       }
       this.updateAnimationOverview(cg,false);
-    }
+    };
 
     generateInterface(cg) {
       let section = document.createElement("section");
@@ -1271,7 +1382,7 @@ ChoreoGraph.plugin({
       let editor = cg.Animation.editor;
       editor.path.actionType = type;
       ChoreoGraph.Animation.updateTrackContext(cg);
-    }
+    };
 
     updateTrackContext(cg) {
       let div = cg.Animation.editor.ui.trackContext;
@@ -1350,7 +1461,7 @@ ChoreoGraph.plugin({
         };
         div.appendChild(copyJointsButton);
       }
-    }
+    };
 
     updateAnimationOverview(cg,addToUndoQueue=true) {
       if (addToUndoQueue) {
@@ -1407,6 +1518,21 @@ ChoreoGraph.plugin({
         navigator.clipboard.writeText(data);
       };
       div.appendChild(copyPackedButton);
+
+      let copyBakedButton = document.createElement("button");
+      copyBakedButton.innerHTML = "Copy Baked Data";
+      copyBakedButton.classList.add("develop_button");
+      copyBakedButton.classList.add("btn_action");
+      copyBakedButton.cg = cg;
+      copyBakedButton.onclick = (e) => {
+        let data = e.target.cg.Animation.editor.animation.bake();
+        let output = "";
+        for (var i in data) {
+          output += "[" + data[i].join(",") + "],";
+        }
+        navigator.clipboard.writeText(output.slice(0, -1));
+      };
+      div.appendChild(copyBakedButton);
 
       let bakeButton = document.createElement("button");
       bakeButton.innerHTML = "Bake";
@@ -1492,7 +1618,8 @@ ChoreoGraph.plugin({
         snapGridSize : 1,
         snapGridOffsetX : 0,
         snapGridOffsetY : 0,
-        decimalRounding : 3,
+        genericDecimalRounding : 3,
+        timeDecimalRounding : 4,
         hotkeys : {
           undo : "z",
           redo : "y",
@@ -1509,13 +1636,37 @@ ChoreoGraph.plugin({
           control : "#00ffff",
           curve : "#00ff00",
         }
+      },
+      debug : new class {
+        showBakedPaths = true;
+        showDirectionalMarkings = true;
+        directionalMarkingLength = 6;
+        pathXKey = ["transform","x"];
+        pathYKey = ["transform","y"];
+        pathRKey = ["transform","r"];
+        pathColours = ["#0000ff","#ff0000","#00ff00"]; // Odd Lerps, Even Lerps, Keyframes
+
+        markers = true; // Symbols relating to triggers
+        markerColours = {S:"#ff00ff",E:"#00ff00",C:"#0000ff",B:"#ff0000",V:"#00ffff",unknown:"#00ff00"}; // Colours for each type of trigger
+        markerStyle = {size:20,fontSize:25,font:"Arial",offset:[0,0],opacity:0.7};
+        width = 2;
+        #cg = cg;
+        #active = false;
+        set active(value) {
+          this.#active = value;
+          if (value&&!this.#cg.Animation.hasActivatedDebugLoop) {
+            this.#cg.Animation.hasActivatedDebugLoop = true;
+            this.#cg.overlayLoops.push(this.#cg.Animation.animationDebugLoop);
+          }
+        }
+        get active() { return this.#active; }
       }
     });
 
     if (ChoreoGraph.Develop!==undefined) {
       ChoreoGraph.Develop.loops.process.push({activeCheck:cg.settings.animation.editor,func:ChoreoGraph.Animation.processEditor});
       ChoreoGraph.Develop.loops.overlay.push({activeCheck:cg.settings.animation.editor,func:ChoreoGraph.Animation.overlayEditor});
-      
+
       ChoreoGraph.Develop.interfaceItems.push({
         type : "UIToggleButton",
         activeText : "Animation Editor",
@@ -1587,6 +1738,7 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
     if (this.animation==null) { return; }
     if (this.animation.ready==false) { return; }
     if (this.paused) { return; }
+    if (scene.cg.timeSinceLastFrame > scene.cg.settings.core.inactiveTime) { return; }
     if (this.connectionData.initialisedAnimation!=this.animation.id) {
       this.initConnection();
     }

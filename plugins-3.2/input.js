@@ -154,6 +154,28 @@ ChoreoGraph.plugin({
         };
         return [x,y];
       };
+
+      hasActivatedDebugLoop = false;
+      inputDebugLoop(cg) {
+        if (!cg.settings.input.debug.active) { return; }
+        if (cg.settings.input.debug.buttons.active) {
+          for (let canvasId of cg.keys.canvases) {
+            let canvas = cg.canvases[canvasId];
+            canvas.c.save();
+            for (let buttonId of cg.keys.buttons) {
+              let button = cg.Input.buttons[buttonId];
+              ChoreoGraph.transformContext(canvas.camera,button.x,button.y,0,1,1,button.CGSpace,false,false,button.canvasSpaceXAnchor,button.canvasSpaceYAnchor);
+              button.setStyles(canvas);
+              button.drawShape(canvas);
+            }
+            for (let buttonId of cg.keys.buttons) {
+              let button = cg.Input.buttons[buttonId];
+              button.drawTitle(canvas);
+            }
+            canvas.c.restore();
+          }
+        }
+      };
     };
 
     // CURSORS
@@ -993,27 +1015,6 @@ ChoreoGraph.plugin({
       }
     };
 
-    debugLoop(cg) {
-      if (!cg.settings.input.debug.active) { return; }
-      if (cg.settings.input.debug.buttons.active) {
-        for (let canvasId of cg.keys.canvases) {
-          let canvas = cg.canvases[canvasId];
-          canvas.c.save();
-          for (let buttonId of cg.keys.buttons) {
-            let button = cg.Input.buttons[buttonId];
-            ChoreoGraph.transformContext(canvas.camera,button.x,button.y,0,1,1,button.CGSpace,false,false,button.canvasSpaceXAnchor,button.canvasSpaceYAnchor);
-            button.setStyles(canvas);
-            button.drawShape(canvas);
-          }
-          for (let buttonId of cg.keys.buttons) {
-            let button = cg.Input.buttons[buttonId];
-            button.drawTitle(canvas);
-          }
-          canvas.c.restore();
-        }
-      }
-    };
-
     // ACTIONS
 
     ActionKey = class cgActionKey {
@@ -1168,9 +1169,8 @@ ChoreoGraph.plugin({
         updateButtonChecks : null // updateButtonChecks(cg) for ChoreoGraph to request button checks
       },
 
-      debug : {
-        active : false,
-        buttons : {
+      debug : new class {
+        buttons = {
           active : true,
           opacity : 0.4,
           fadeOut : 300, // Time in ms that the button fades out for
@@ -1183,6 +1183,16 @@ ChoreoGraph.plugin({
             bgClicked : "#000000"
           }
         }
+        #cg = cg;
+        #active = false;
+        set active(value) {
+          this.#active = value;
+          if (value&&!this.#cg.Input.hasActivatedDebugLoop) {
+            this.#cg.Input.hasActivatedDebugLoop = true;
+            this.#cg.overlayLoops.push(this.#cg.Input.inputDebugLoop);
+          }
+        }
+        get active() { return this.#active; }
       }
     });
   },
@@ -1210,7 +1220,6 @@ ChoreoGraph.plugin({
       if (cg.settings.input.controller.emulatedCursor.active) {
         cg.processLoops.push(ChoreoGraph.Input.emulatedCursorLoop);
       }
-      cg.overlayLoops.push(ChoreoGraph.Input.debugLoop);
     }
   }
 });

@@ -66,6 +66,8 @@ ChoreoGraph.plugin({
           let freeCamera = this.cg.createCamera({
             transform : transform,
             z : canvas.camera.z,
+            canvasSpaceScale : canvas.camera.canvasSpaceScale,
+            canvas : canvas,
             scaleMode : canvas.camera.scaleMode,
             WHRatio : canvas.camera.WHRatio,
             maximumSize : canvas.camera.maximumSize,
@@ -113,7 +115,7 @@ ChoreoGraph.plugin({
         }
       }
 
-      processLoop(cg) {
+      developProcessLoop(cg) {
         for (let loop of ChoreoGraph.Develop.loops.process) {
           if (loop.activeCheck.active) {
             loop.func(cg);
@@ -156,7 +158,7 @@ ChoreoGraph.plugin({
         }
       };
 
-      overlayLoop(cg) {
+      developOverlayLoop(cg) {
         for (let loop of ChoreoGraph.Develop.loops.overlay) {
           if (loop.activeCheck.active) {
             loop.func(cg);
@@ -512,8 +514,8 @@ ChoreoGraph.plugin({
       }
     });
     cg.Develop = new ChoreoGraph.Develop.instanceObject(cg);
-    cg.processLoops.push(cg.Develop.processLoop);
-    cg.overlayLoops.push(cg.Develop.overlayLoop);
+    cg.processLoops.push(cg.Develop.developProcessLoop);
+    cg.overlayLoops.push(cg.Develop.developOverlayLoop);
   },
 
   instanceStart(cg) {

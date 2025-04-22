@@ -350,8 +350,6 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         let cy = camera.y;
         let cw = this.width/camera.z;
         let ch = this.height/camera.z;
-
-        ChoreoGraph.transformContext(this.camera,bx,by);
         
         if (bx+bw*0.5<cx-cw*0.5||bx-bw*0.5>cx+cw*0.5||by+bh*0.5<cy-ch*0.5||by-bh*0.5>cy+ch*0.5) { return; }
       }
@@ -937,7 +935,15 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     let b = colourTo[2] * amount + colourFrom[2] * (1 - amount);
 
     return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).split(".")[0];
-  }
+  };
+
+  degreeToRadianStandard(degree) {
+    if (degree>270) {
+      return (-(degree-450)*Math.PI)/180;
+    } else {
+      return (-(degree-90)*Math.PI)/180;
+    }
+  };
   
   transformContext(camera,x=0,y=0,r=0,sx=1,sy=1,CGSpace=true,flipX=false,flipY=false,canvasSpaceXAnchor,canvasSpaceYAnchor,ctx=camera.canvas.c,cx=camera.cx,cy=camera.cy,cz=camera.cz,canvasSpaceScale=camera.canvasSpaceScale,w=camera.canvas.width,h=camera.canvas.height,manualScaling=false) {
     let z = 1;

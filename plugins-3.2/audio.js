@@ -23,6 +23,8 @@ ChoreoGraph.plugin({
 
     cache = {};
 
+    warnAboutHTMLAudio = true;
+
     WEBAUDIO = "WebAudio";
     HTMLAUDIO = "HTMLAudio";
 
@@ -131,7 +133,6 @@ ChoreoGraph.plugin({
           return newSoundInstance;
         } else if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.HTMLAUDIO) {
           let source = sound.audio.cloneNode();
-          let savedVolume = options.volume;
           source.play();
           source.loop = options.loop; // Looping
           source.volume = options.volume; // Volume
@@ -144,7 +145,10 @@ ChoreoGraph.plugin({
           newSoundInstance.fadeTo = options.volume;
           newSoundInstance.fadeStart = ChoreoGraph.nowint;
           newSoundInstance.fadeEnd = ChoreoGraph.nowint+options.fadeIn*1000;
-          if (this.#masterVolume==0) { newSoundInstance.savedVolume = savedVolume; }
+          if (this.#masterVolume==0) {
+            newSoundInstance.savedVolume = options.volume;
+            source.volume = 0;
+          }
           source.id = newSoundInstance.id;
           source.cgAudio = this;
 
@@ -465,7 +469,9 @@ ChoreoGraph.plugin({
         this.ctx = new AudioContext();
         this.mode = this.WEBAUDIO;
       } else {
-        console.warn("Using HTMLAudio")
+        if (ChoreoGraph.Audio.warnAboutHTMLAudio) {
+          console.warn("Using HTMLAudio");
+        }
         this.mode = this.HTMLAUDIO;
       }
     };
