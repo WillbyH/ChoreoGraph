@@ -167,12 +167,14 @@ ChoreoGraph.plugin({
             canvas.c.save();
             for (let buttonId of cg.keys.buttons) {
               let button = cg.Input.buttons[buttonId];
+              if (!canvas.camera.scenes.includes(button.scene)) { continue; }
               ChoreoGraph.transformContext(canvas.camera,button.x,button.y,0,1,1,button.CGSpace,false,false,button.canvasSpaceXAnchor,button.canvasSpaceYAnchor);
               button.setStyles(canvas);
               button.drawShape(canvas);
             }
             for (let buttonId of cg.keys.buttons) {
               let button = cg.Input.buttons[buttonId];
+              if (!canvas.camera.scenes.includes(button.scene)) { continue; }
               button.drawTitle(canvas);
             }
             canvas.c.restore();

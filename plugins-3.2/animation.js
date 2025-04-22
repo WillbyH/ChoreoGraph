@@ -253,7 +253,7 @@ ChoreoGraph.plugin({
           this.bake();
         }
         if (this.cg.cg.AnimationEditor!==undefined&&this.cg.cg.AnimationEditor.initInterface) {
-          ChoreoGraph.Animation.updateAnimationOverview(this.cg.cg,false);
+          ChoreoGraph.AnimationEditor.updateAnimationOverview(this.cg.cg,false);
         }
       };
     };
