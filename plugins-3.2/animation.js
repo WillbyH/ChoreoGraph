@@ -14,8 +14,9 @@ ChoreoGraph.plugin({
         this.cg.keys.animations.push(id);
         return newAnimation;
       };
-      createAnimationFromPacked(packedData,animationInit={}) {
+      createAnimationFromPacked(packedData,animationInit={},id=ChoreoGraph.id.get()) {
         let newAnimation = new ChoreoGraph.Animation.Animation(this.cg);
+        newAnimation.id = id;
         newAnimation.cg = this;
         newAnimation.unpack(packedData);
         ChoreoGraph.applyAttributes(newAnimation,animationInit);
@@ -201,11 +202,12 @@ ChoreoGraph.plugin({
       };
 
       pack() {
-        let output = this.id+"---";
+        let output = "";
         this.timeKey = this.keys.indexOf("time");
+        if (this.timeKey==-1) { this.timeKey = "!"; }
         output += this.timeKey+":";
         for (let i=0;i<this.keys.length;i++) {
-          if (this.keys[i]=="time") { continue; }
+          if (this.keys[i]==="time") { continue; }
           for (let key of this.keys[i]) {
             output += key+",";
           }
@@ -226,23 +228,28 @@ ChoreoGraph.plugin({
       unpack(data,bake=true) {
         this.tracks = [];
         this.keys = [];
-        this.id = data.split("---")[0];
-        let keyData = data.split("---")[1].split("&")[0];
+        let keyData = data.split("&")[0];
         let timeKey = keyData.split(":")[0];
         this.keys[timeKey] = "time";
         this.timeKey = parseInt(timeKey);
         let keys = keyData.split(":")[1].split("|");
+        let keySetIndex = 0;
         for (let i=0;i<keys.length;i++) {
-          if (i==timeKey) { continue; }
-          let keyList = keys[i].split(",");
-          this.keys[i] = [];
-          for (let key of keyList) {
-            this.keys[i].push(key);
+          if (keySetIndex==timeKey) {
+            this.keys[keySetIndex] = "time";
+            keySetIndex++;
           }
+          let keyList = keys[i].split(",");
+          this.keys[keySetIndex] = [];
+          for (let key of keyList) {
+            this.keys[keySetIndex].push(key);
+          }
+          keySetIndex++;
         }
-        let tracksData = data.split("---")[1].split("&");
+        let tracksData = data.split("&");
         tracksData.shift();
         for (let trackData of tracksData) {
+          if (trackData=="") { continue; }
           let trackType = trackData.split("=")[0];
           let track = new ChoreoGraph.Animation.TrackTypes[trackType](this.cg.cg);
           track.animation = this;
@@ -266,8 +273,9 @@ ChoreoGraph.plugin({
 
         segments = [];
         keys = {
-          x : 0,
-          y : 1
+          x : -1,
+          y : -1,
+          r : -1
         }
 
         constructor(cg) {
@@ -286,7 +294,7 @@ ChoreoGraph.plugin({
           // + means _~ / !!~ (comes after startY)
 
           let output = "";
-          output += this.keys.x+","+this.keys.y;
+          output += this.keys.x+","+this.keys.y+","+this.keys.r;
           output += ":";
           output += this.density
           output += ":";
@@ -688,6 +696,7 @@ ChoreoGraph.plugin({
       defaultPathDensity : 15,
       genericDecimalRounding : 3,
       timeDecimalRounding : 4,
+      
       debug : new class {
         showBakedPaths = true;
         showDirectionalMarkings = true;

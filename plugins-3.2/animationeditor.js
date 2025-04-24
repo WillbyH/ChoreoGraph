@@ -13,18 +13,20 @@ ChoreoGraph.plugin({
       undoStack = [];
       redoStack = [];
       lastPack = null;
+      template = "2:transform,x|transform,y&";
 
       ui = {
         section : null,
         dropdown : null,
         trackTypeDropdown : null,
         animationInformation : null,
-        addPathTrackButton : null,
+        addTrackButton : null,
         trackContext : null,
         pathActionButtons : {},
         connectedToggle : null,
         tangentDropdown : null,
-        dopeSheetCanvasContainer : null
+        dopeSheetCanvasContainer : null,
+        keyEditing : null
       };
 
       path = {
@@ -80,128 +82,6 @@ ChoreoGraph.plugin({
       ACTION_GRAB = "grab";
       ACTION_DELETE = "delete";
       ACTION_INSERT = "insert";
-
-      createDopeSheet() {
-        let cg = this.cg;
-        if (cg.AnimationEditor.ui.dopeSheetCanvasContainer!=null) { return cg.AnimationEditor.ui.dopeSheetCanvasContainer; }
-        let canvasElement = document.createElement("canvas");
-        canvasElement.style.borderRadius = "12px";
-        canvasElement.oncontextmenu = function(e) { e.preventDefault(); };
-        canvasElement.onpointerdown = function(e) { if (e.button==1) { e.preventDefault(); } };
-        let canvasParent = document.createElement("div");
-        canvasParent.style.width = "90%";
-        canvasParent.style.height = "150px";
-        canvasParent.style.marginTop = "10px";
-        canvasParent.appendChild(canvasElement);
-        cg.AnimationEditor.ui.dopeSheetCanvasContainer = canvasParent;
-        let canvas = cg.createCanvas({element:canvasElement,
-          background:"#121212"
-        },"animation_editor_dopesheet");
-        canvas.setupParentElement(canvasParent);
-        
-        cg.graphicTypes.animation_editor_dopesheet = new class AnimationEditorDopeSheet {
-          setup(init,cg) {
-            this.dragging = false;
-            this.dragDown = 0;
-            this.dragSavedX = 0;
-            this.dragSavedSpacing
-            this.dragMode = null; // move resize
-
-            this.hasSetInitalPosition = false;
-
-            this.partSpacing = 20;
-          };
-          draw(c,ax,ay) {
-            let animation = this.cg.AnimationEditor.animation;
-            if (animation==null||animation.tracks.length==0) { return; }
-            let primaryTrack = animation.tracks[0];
-            let partCount = primaryTrack.getPartCount();
-
-            c.fillStyle = "#bbb";
-            c.font = "10px Arial";
-            c.textAlign = "center";
-            c.beginPath();
-            for (let part=0;part<partCount;part++) {
-              c.moveTo(part*this.partSpacing,-canvas.height/2+20);
-              c.lineTo(part*this.partSpacing,canvas.height/2);
-              c.fillText(part,part*this.partSpacing,-canvas.height/2+12);
-            }
-            c.strokeStyle = "#444";
-            c.lineWidth = 1.4;
-            c.setLineDash([5,5]);
-            c.stroke();
-            c.setLineDash([]);
-
-            let animators = [];
-            for (let objectId of this.cg.keys.objects) {
-              let object = this.cg.objects[objectId];
-              for (let component of object.objectData.components) {
-                if (component.manifest.type=="Animator"&&component.animation.id==animation.id) {
-                  animators.push(component);
-                }
-              }
-            }
-
-            for (let i=0;i<animators.length;i++) {
-              let animator = animators[i];
-              c.beginPath();
-              let t = 1-((animator.ent-animator.playhead)/(animator.ent-animator.stt));
-              c.moveTo((animator.part+t)*this.partSpacing,-canvas.height/2);
-              c.lineTo((animator.part+t)*this.partSpacing,canvas.height/2);
-              c.strokeStyle = "white";
-              c.lineWidth = 2;
-              c.stroke();
-            }
-          };
-        };
-        cg.createGraphic({type:"animation_editor_dopesheet"},"animation_editor_dopesheet");
-
-        cg.createScene({},"animation_editor_dopesheet");
-        cg.createCamera({},"animation_editor_dopesheet");
-        cg.cameras.animation_editor_dopesheet.addScene(cg.scenes.animation_editor_dopesheet);
-        cg.canvases.animation_editor_dopesheet.setCamera(cg.cameras.animation_editor_dopesheet);
-        cg.scenes.animation_editor_dopesheet.createItem("graphic",{graphic:cg.graphics.animation_editor_dopesheet,transform:cg.createTransform({},"animation_editor_dopesheet")},"animation_editor_dopesheet");
-        
-        cg.processLoops.push(function dopeSheetProcessLoop(cg){
-          let cursor = cg.Input.canvasCursors.animation_editor_dopesheet;
-          if (cursor===undefined) { return; }
-          let graphic = cg.graphics.animation_editor_dopesheet;
-          let transform = cg.transforms.animation_editor_dopesheet;
-          let canvas = cg.canvases.animation_editor_dopesheet;
-          if (graphic.dragging==false&&(cursor.impulseDown.middle||cursor.impulseDown.right)) {
-            graphic.dragging = true;
-            graphic.dragDown = cursor.x;
-            graphic.dragSavedX = transform.x;
-            graphic.dragSavedSpacing = graphic.partSpacing;
-            canvas.element.style.cursor = "grabbing";
-
-            if (ChoreoGraph.Input.keyStates.ctrl) {
-              graphic.dragMode = "resize";
-            } else {
-              graphic.dragMode = "move";
-            }
-          }
-          if (graphic.dragging&&!(cursor.hold.middle||cursor.hold.right)) {
-            graphic.dragging = false;
-            canvas.element.style.cursor = "default";
-          }
-          if (graphic.dragging) {
-            let dx = cursor.x-graphic.dragDown;
-            if (graphic.dragMode=="resize") {
-              graphic.partSpacing = graphic.dragSavedSpacing+dx*0.01;
-              transform.x = graphic.dragSavedX-dx*0.5;
-            } else if (graphic.dragMode=="move") {
-              transform.x = graphic.dragSavedX+dx;
-            }
-          }
-          if (graphic.hasSetInitalPosition==false) {
-            graphic.hasSetInitalPosition = true;
-            transform.x = -canvas.width/2;
-          }
-        })
-
-        return cg.AnimationEditor.ui.dopeSheetCanvasContainer;
-      };
     };
 
     processEditor(cg) {
@@ -767,7 +647,7 @@ ChoreoGraph.plugin({
       }
     };
 
-    editorSelectAnimation(cg,animId) {
+    editorSelectAnimation(cg,animId,updateKeys=true) {
       let anim = cg.Animation.animations[animId];
       cg.AnimationEditor.animation = anim;
       if (anim.tracks.length>0) {
@@ -775,6 +655,7 @@ ChoreoGraph.plugin({
       } else {
         cg.AnimationEditor.track = null;
       }
+      if (updateKeys) { this.updateKeyEditing(cg); }
       this.updateAnimationOverview(cg,false);
     };
 
@@ -807,7 +688,7 @@ ChoreoGraph.plugin({
       }
 
       if (dropdown.value!="") {
-        ChoreoGraph.AnimationEditor.editorSelectAnimation(cg,dropdown.value);
+        ChoreoGraph.AnimationEditor.editorSelectAnimation(cg,dropdown.value,false);
       }
 
       // CREATE NEW ANIMATION BUTTON
@@ -823,10 +704,16 @@ ChoreoGraph.plugin({
         option.text = newAnim.id;
         e.target.cg.AnimationEditor.ui.dropdown.add(option);
         e.target.cg.AnimationEditor.ui.dropdown.value = newAnim.id;
-        ChoreoGraph.AnimationEditor.updateAnimationOverview(cg);
+
+        if (cg.AnimationEditor.template!=null) {
+          newAnim.unpack(cg.AnimationEditor.template,false);
+        }
+
+        ChoreoGraph.AnimationEditor.updateKeyEditing(e.target.cg);
+        ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
       }
       section.appendChild(createNewButton);
-      
+
       // SELECTED ANIMATION DROPDOWN
       let trackTypeDropdown = document.createElement("select");
       trackTypeDropdown.cg = cg;
@@ -840,24 +727,25 @@ ChoreoGraph.plugin({
         trackTypeDropdown.add(option);
       }
       trackTypeDropdown.onchange = (e) => {
-        e.target.cg.AnimationEditor.ui.addPathTrackButton.innerHTML = "Add "+e.target.value+" Track";
+        e.target.cg.AnimationEditor.ui.addTrackButton.innerHTML = "Add "+e.target.value+" Track";
       }
 
       // ADD TRACK BUTTON
-      let addPathTrackButton = document.createElement("button");
-      cg.AnimationEditor.ui.addPathTrackButton = addPathTrackButton;
-      addPathTrackButton.innerHTML = "Add "+trackTypeDropdown.value+" Track";;
-      addPathTrackButton.classList.add("develop_button");
-      addPathTrackButton.classList.add("btn_action");
-      addPathTrackButton.cg = cg;
-      addPathTrackButton.onclick = (e) => {
+      let addTrackButton = document.createElement("button");
+      cg.AnimationEditor.ui.addTrackButton = addTrackButton;
+      addTrackButton.innerHTML = "Add "+trackTypeDropdown.value+" Track";;
+      addTrackButton.classList.add("develop_button");
+      addTrackButton.classList.add("btn_action");
+      addTrackButton.cg = cg;
+      addTrackButton.onclick = (e) => {
         let trackType = e.target.cg.AnimationEditor.ui.trackTypeDropdown.value;
         let newTrack = e.target.cg.AnimationEditor.animation.createTrack(trackType);
         if (e.target.cg.AnimationEditor.track==null) { e.target.cg.AnimationEditor.track = newTrack; }
+        ChoreoGraph.AnimationEditor.updateKeyEditing(e.target.cg);
         ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
         ChoreoGraph.AnimationEditor.updateTrackContext(e.target.cg);
       }
-      section.appendChild(addPathTrackButton);
+      section.appendChild(addTrackButton);
 
       // UNDO BUTTON
       let undoButton = document.createElement("button");
@@ -895,8 +783,14 @@ ChoreoGraph.plugin({
       section.appendChild(trackContext);
       ChoreoGraph.AnimationEditor.updateTrackContext(cg);
 
-      let dopesheet = cg.AnimationEditor.createDopeSheet();
+      let dopesheet = ChoreoGraph.AnimationEditor.createDopeSheet(cg);
       section.appendChild(dopesheet);
+
+      // KEY EDITITNG
+      let keys = document.createElement("div");
+      cg.AnimationEditor.ui.keyEditing = keys;
+      section.appendChild(keys);
+      ChoreoGraph.AnimationEditor.updateKeyEditing(cg);
 
       // ANIMATION INFORMATION
       let animationInformation = document.createElement("div");
@@ -905,6 +799,129 @@ ChoreoGraph.plugin({
       this.updateAnimationOverview(cg,false);
 
       section.appendChild(document.createElement("hr"));
+    };
+
+    createDopeSheet(cg) {
+      if (cg.AnimationEditor.ui.dopeSheetCanvasContainer!=null) { return cg.AnimationEditor.ui.dopeSheetCanvasContainer; }
+      let canvasElement = document.createElement("canvas");
+      canvasElement.style.borderRadius = "12px";
+      canvasElement.oncontextmenu = function(e) { e.preventDefault(); };
+      canvasElement.onpointerdown = function(e) { if (e.button==1) { e.preventDefault(); } };
+      let canvasParent = document.createElement("div");
+      canvasParent.style.width = "90%";
+      canvasParent.style.height = "150px";
+      canvasParent.style.marginTop = "10px";
+      canvasParent.appendChild(canvasElement);
+      cg.AnimationEditor.ui.dopeSheetCanvasContainer = canvasParent;
+      let canvas = cg.createCanvas({element:canvasElement,
+        background:"#121212"
+      },"animation_editor_dopesheet");
+      canvas.setupParentElement(canvasParent);
+      
+      cg.graphicTypes.animation_editor_dopesheet = new class AnimationEditorDopeSheet {
+        setup(init,cg) {
+          this.dragging = false;
+          this.dragDown = 0;
+          this.dragSavedX = 0;
+          this.dragSavedSpacing
+          this.dragMode = null; // move resize
+
+          this.hasSetInitalPosition = false;
+
+          this.partSpacing = 20;
+        };
+        draw(c,ax,ay) {
+          let animation = this.cg.AnimationEditor.animation;
+          if (animation==null||animation.tracks.length==0) { return; }
+          let primaryTrack = animation.tracks[0];
+          let partCount = primaryTrack.getPartCount();
+
+          c.fillStyle = "#bbb";
+          c.font = "10px Arial";
+          c.textAlign = "center";
+          c.beginPath();
+          for (let part=0;part<partCount;part++) {
+            c.moveTo(part*this.partSpacing,-canvas.height/2+20);
+            c.lineTo(part*this.partSpacing,canvas.height/2);
+            c.fillText(part,part*this.partSpacing,-canvas.height/2+12);
+          }
+          c.strokeStyle = "#444";
+          c.lineWidth = 1.4;
+          c.setLineDash([5,5]);
+          c.stroke();
+          c.setLineDash([]);
+
+          let animators = [];
+          for (let objectId of this.cg.keys.objects) {
+            let object = this.cg.objects[objectId];
+            for (let component of object.objectData.components) {
+              if (component.manifest.type=="Animator"&&component.animation.id==animation.id) {
+                animators.push(component);
+              }
+            }
+          }
+
+          for (let i=0;i<animators.length;i++) {
+            let animator = animators[i];
+            c.beginPath();
+            let t = 1-((animator.ent-animator.playhead)/(animator.ent-animator.stt));
+            c.moveTo((animator.part+t)*this.partSpacing,-canvas.height/2);
+            c.lineTo((animator.part+t)*this.partSpacing,canvas.height/2);
+            c.strokeStyle = "white";
+            c.lineWidth = 2;
+            c.stroke();
+          }
+        };
+      };
+      cg.createGraphic({type:"animation_editor_dopesheet"},"animation_editor_dopesheet");
+
+      cg.createScene({},"animation_editor_dopesheet");
+      cg.createCamera({},"animation_editor_dopesheet");
+      cg.cameras.animation_editor_dopesheet.addScene(cg.scenes.animation_editor_dopesheet);
+      cg.canvases.animation_editor_dopesheet.setCamera(cg.cameras.animation_editor_dopesheet);
+      cg.scenes.animation_editor_dopesheet.createItem("graphic",{graphic:cg.graphics.animation_editor_dopesheet,transform:cg.createTransform({},"animation_editor_dopesheet")},"animation_editor_dopesheet");
+      
+      cg.processLoops.push(function dopeSheetProcessLoop(cg){
+        let cursor = cg.Input.canvasCursors.animation_editor_dopesheet;
+        if (cursor===undefined) { return; }
+        let graphic = cg.graphics.animation_editor_dopesheet;
+        let transform = cg.transforms.animation_editor_dopesheet;
+        let canvas = cg.canvases.animation_editor_dopesheet;
+        if (graphic.dragging==false&&(cursor.impulseDown.middle||cursor.impulseDown.right)) {
+          graphic.dragging = true;
+          graphic.dragDown = cursor.x;
+          graphic.dragSavedX = transform.x;
+          graphic.dragSavedSpacing = graphic.partSpacing;
+          canvas.element.style.cursor = "grabbing";
+
+          if (ChoreoGraph.Input.keyStates.ctrl) {
+            graphic.dragMode = "resize";
+          } else {
+            graphic.dragMode = "move";
+          }
+        }
+        if (graphic.dragging&&!(cursor.hold.middle||cursor.hold.right)) {
+          graphic.dragging = false;
+          canvas.element.style.cursor = "default";
+        }
+        if (graphic.dragging) {
+          let dx = cursor.x-graphic.dragDown;
+          if (graphic.dragMode=="resize") {
+            graphic.partSpacing = Math.max(graphic.dragSavedSpacing+dx*0.01,1);
+            if (graphic.dragSavedSpacing+dx*0.01>1) {
+              transform.x = graphic.dragSavedX-dx*0.5;
+            }
+          } else if (graphic.dragMode=="move") {
+            transform.x = graphic.dragSavedX+dx;
+          }
+        }
+        if (graphic.hasSetInitalPosition==false) {
+          graphic.hasSetInitalPosition = true;
+          transform.x = -canvas.width/2;
+        }
+      })
+
+      return cg.AnimationEditor.ui.dopeSheetCanvasContainer;
     };
 
     setPathActionType(cg,type) {
@@ -917,79 +934,396 @@ ChoreoGraph.plugin({
       let div = cg.AnimationEditor.ui.trackContext;
       div.innerHTML = "";
       if (cg.AnimationEditor.track==null) { return; }
+      // Separator
+      let separator = document.createElement("div");
+      separator.style.borderLeft = "1px solid white";
+      separator.style.height = "10px";
+      separator.style.display = "inline-block";
+      separator.style.margin = "0px 2px";
+      div.appendChild(separator);
+
       if (cg.AnimationEditor.track.type=="path") {
-        // Separator
-        let separator = document.createElement("div");
-        separator.style.borderLeft = "1px solid white";
-        separator.style.height = "10px";
-        separator.style.display = "inline-block";
-        separator.style.margin = "0px 2px";
-        div.appendChild(separator);
-
-        let actionType = cg.AnimationEditor.path.actionType;
-
-        function createPathTrackActionButton(name) {
-          function makeTitleCase(str) {
-            return str.replace(/\w\S*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
-          }
-          let titleName = makeTitleCase(name);
-          let lowerName = name.toLowerCase();
-          let button = document.createElement("button");
-          button.innerHTML = titleName;
-          button.classList.add("develop_button");
-          button.classList.add("btn_action");
-          button.cg = cg;
-          button.lowerName = lowerName;
-          button.style.borderRadius = "50px";
-          button.onclick = (e) => { ChoreoGraph.AnimationEditor.setPathActionType(e.target.cg,e.target.lowerName); };
-          if (actionType==lowerName) { button.style.borderColor = "cyan"; } else { button.style.borderColor = ""; }
-          div.appendChild(button);
-          cg.AnimationEditor.ui.pathActionButtons[lowerName] = button;
-        }
-
-        createPathTrackActionButton(cg.AnimationEditor.ACTION_ADD);
-        createPathTrackActionButton(cg.AnimationEditor.ACTION_GRAB);
-        createPathTrackActionButton(cg.AnimationEditor.ACTION_DELETE);
-        createPathTrackActionButton(cg.AnimationEditor.ACTION_INSERT);
-
-        let connectedToggle = new ChoreoGraph.Develop.UIToggleButton({
-          activeText : "Connected Mode On",
-          inactiveText : "Connected Mode Off",
-          onActive : (cg) => { cg.AnimationEditor.path.connectedMode = true; },
-          onInactive : (cg) => { cg.AnimationEditor.path.connectedMode = false; }
-        },cg);
-        div.appendChild(connectedToggle.element);
-        cg.AnimationEditor.ui.connectedToggle = connectedToggle;
-
-        // SELECTED TANGENT TYPE DROPDOWN
-        let dropdown = document.createElement("select");
-        dropdown.cg = cg;
-        cg.AnimationEditor.ui.tangentDropdown = dropdown;
-        dropdown.className = "develop_button";
-        div.appendChild(dropdown);
-  
-        for (let type of [cg.AnimationEditor.TANGENT_ALIGNED,cg.AnimationEditor.TANGENT_MIRRORED,cg.AnimationEditor.TANGENT_BROKEN]) {
-          let option = document.createElement("option");
-          option.text = type;
-          option.cg = cg;
-          dropdown.add(option);
-        }
-        dropdown.onchange = (e) => {
-          e.target.cg.AnimationEditor.path.selectedTangentType = e.target.value;
-        }
-        dropdown.value = cg.AnimationEditor.path.selectedTangentType;
-      
-        let copyJointsButton = document.createElement("button");
-        copyJointsButton.innerHTML = "Copy Joint Path";
-        copyJointsButton.classList.add("develop_button");
-        copyJointsButton.classList.add("btn_action");
-        copyJointsButton.cg = cg;
-        copyJointsButton.onclick = (e) => {
-          let data = e.target.cg.AnimationEditor.track.getJointPath();
-          navigator.clipboard.writeText(data);
-        };
-        div.appendChild(copyJointsButton);
+        ChoreoGraph.AnimationEditor.createPathTrackContext(cg,div);
+      } else if (cg.AnimationEditor.track.type=="value") {
+        ChoreoGraph.AnimationEditor.createValueTrackContext(cg,div);
       }
+    };
+
+    createPathTrackContext(cg,div) {
+      let actionType = cg.AnimationEditor.path.actionType;
+
+      function createPathTrackActionButton(name) {
+        function makeTitleCase(str) {
+          return str.replace(/\w\S*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
+        }
+        let titleName = makeTitleCase(name);
+        let lowerName = name.toLowerCase();
+        let button = document.createElement("button");
+        button.innerHTML = titleName;
+        button.classList.add("develop_button");
+        button.classList.add("btn_action");
+        button.cg = cg;
+        button.lowerName = lowerName;
+        button.style.borderRadius = "50px";
+        button.onclick = (e) => { ChoreoGraph.AnimationEditor.setPathActionType(e.target.cg,e.target.lowerName); };
+        if (actionType==lowerName) { button.style.borderColor = "cyan"; } else { button.style.borderColor = ""; }
+        div.appendChild(button);
+        cg.AnimationEditor.ui.pathActionButtons[lowerName] = button;
+      }
+
+      createPathTrackActionButton(cg.AnimationEditor.ACTION_ADD);
+      createPathTrackActionButton(cg.AnimationEditor.ACTION_GRAB);
+      createPathTrackActionButton(cg.AnimationEditor.ACTION_DELETE);
+      createPathTrackActionButton(cg.AnimationEditor.ACTION_INSERT);
+
+      let connectedToggle = new ChoreoGraph.Develop.UIToggleButton({
+        activeText : "Connected Mode On",
+        inactiveText : "Connected Mode Off",
+        onActive : (cg) => { cg.AnimationEditor.path.connectedMode = true; },
+        onInactive : (cg) => { cg.AnimationEditor.path.connectedMode = false; }
+      },cg);
+      div.appendChild(connectedToggle.element);
+      cg.AnimationEditor.ui.connectedToggle = connectedToggle;
+
+      // SELECTED TANGENT TYPE DROPDOWN
+      let dropdown = document.createElement("select");
+      dropdown.cg = cg;
+      cg.AnimationEditor.ui.tangentDropdown = dropdown;
+      dropdown.className = "develop_button";
+      div.appendChild(dropdown);
+
+      for (let type of [cg.AnimationEditor.TANGENT_ALIGNED,cg.AnimationEditor.TANGENT_MIRRORED,cg.AnimationEditor.TANGENT_BROKEN]) {
+        let option = document.createElement("option");
+        option.text = type;
+        option.cg = cg;
+        dropdown.add(option);
+      }
+      dropdown.onchange = (e) => {
+        e.target.cg.AnimationEditor.path.selectedTangentType = e.target.value;
+      }
+      dropdown.value = cg.AnimationEditor.path.selectedTangentType;
+    
+      let copyJointsButton = document.createElement("button");
+      copyJointsButton.innerHTML = "Copy Joint Path";
+      copyJointsButton.classList.add("develop_button");
+      copyJointsButton.classList.add("btn_action");
+      copyJointsButton.cg = cg;
+      copyJointsButton.onclick = (e) => {
+        let data = e.target.cg.AnimationEditor.track.getJointPath();
+        navigator.clipboard.writeText(data);
+      };
+      div.appendChild(copyJointsButton);
+    };
+
+    createValueTrackContext(cg,div) {
+      
+    };
+
+    updateKeyEditing(cg) {
+      let div = cg.AnimationEditor.ui.keyEditing;
+      div.innerHTML = "";
+      div.style.marginTop = "20px";
+
+      let countTrackTypes = {};
+      for (let track of cg.AnimationEditor.animation.tracks) {
+        if (countTrackTypes[track.type]==undefined) { countTrackTypes[track.type] = 0; }
+        countTrackTypes[track.type]++;
+      }
+
+      let trackLinks = [];
+      for (let trackIndex=0;trackIndex<cg.AnimationEditor.animation.tracks.length;trackIndex++) {
+        let track = cg.AnimationEditor.animation.tracks[trackIndex];
+        for (let trackKey in track.keys) {
+          let keyIndex = track.keys[trackKey];
+          let name;
+          if (countTrackTypes[track.type]>1) {
+            name = track.type + trackIndex + " " + trackKey;
+          } else {
+            name = track.type + " " + trackKey;
+          }
+          let isUsedMoreThanOnce = false;
+          for (let otherLinkIndex=0;otherLinkIndex<trackLinks.length;otherLinkIndex++) {
+            let otherLink = trackLinks[otherLinkIndex];
+            if (otherLink.name==name) { continue; }
+            if (otherLink.keyIndex==keyIndex) {
+              isUsedMoreThanOnce = true;
+              otherLink.isUsedMoreThanOnce = true;
+              break;
+            }
+          }
+          let link = {
+            name : name,
+            keyIndex : keyIndex,
+            trackIndex : trackIndex,
+            trackKey : trackKey,
+            isUsedMoreThanOnce : isUsedMoreThanOnce
+          }
+          trackLinks.push(link);
+        }
+      }
+
+      function styleButton(button,unsetWidth=false) {
+        button.classList.add("develop_button");
+        button.classList.add("btn_action");
+        button.style.margin = "0px 1px";
+        button.style.padding = "5px";
+        button.style.border = "2px solid grey";
+        button.style.borderRadius = "500px";
+        button.style.color = "white";
+        button.style.fontWeight = "900";
+        button.style.fontFamily = "consolas";
+        if (!unsetWidth) { button.style.width = "29px"; }
+        button.style.height = "29px";
+      }
+
+      let keyIndex = 0;
+      for (let keySet of cg.AnimationEditor.animation.keys) {
+        let set = document.createElement("ul");
+        div.appendChild(set);
+        set.style.listStyleType = "none";
+        set.style.padding = "0px";
+        set.style.margin = "10px 0px";
+        set.style.height = "29px";
+        let makeTimeKeyButton = document.createElement("button");
+        makeTimeKeyButton.innerHTML = "Set as Time";
+        makeTimeKeyButton.cg = cg;
+        makeTimeKeyButton.keyIndex = keyIndex;
+        makeTimeKeyButton.onclick = (e) => {
+          let animation = e.target.cg.AnimationEditor.animation;
+          let prevIndex = animation.keys.indexOf("time");
+          if (prevIndex>=0) {
+            animation.keys[prevIndex] = animation.keys[e.target.keyIndex];
+          }
+          animation.keys[e.target.keyIndex] = "time";
+          ChoreoGraph.AnimationEditor.updateKeyEditing(e.target.cg);
+        }
+        styleButton(makeTimeKeyButton,true);
+        makeTimeKeyButton.style.marginRight = "5px";
+        set.appendChild(makeTimeKeyButton);
+
+        let deleteKeySetButton = document.createElement("button");
+        deleteKeySetButton.innerHTML = "X";
+        deleteKeySetButton.cg = cg;
+        deleteKeySetButton.keyIndex = keyIndex;
+        deleteKeySetButton.onclick = (e) => {
+          let animation = e.target.cg.AnimationEditor.animation;
+          animation.keys.splice(e.target.keyIndex,1);
+          ChoreoGraph.AnimationEditor.updateKeyEditing(e.target.cg);
+          ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+        }
+        styleButton(deleteKeySetButton);
+        set.appendChild(deleteKeySetButton);
+
+        let moveKeyUpButton = document.createElement("button");
+        set.appendChild(moveKeyUpButton);
+        moveKeyUpButton.innerHTML = "V";
+        moveKeyUpButton.style.transform = "scale(-1)";
+        moveKeyUpButton.cg = cg;
+        moveKeyUpButton.keyIndex = keyIndex;
+        styleButton(moveKeyUpButton);
+        if (keyIndex==0) {
+          moveKeyUpButton.style.color = "#333";
+          moveKeyUpButton.style.borderColor = "#333";
+        } else {
+          moveKeyUpButton.onclick = (e) => {
+            let keySet = e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex];
+            let prevKeySet = e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex-1];
+            e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex] = prevKeySet;
+            e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex-1] = keySet;
+            ChoreoGraph.AnimationEditor.updateKeyEditing(e.target.cg);
+            ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+          }
+        }
+        
+        let moveKeyDownButton = document.createElement("button");
+        set.appendChild(moveKeyDownButton);
+        moveKeyDownButton.innerHTML = "V";
+        moveKeyDownButton.cg = cg;
+        moveKeyDownButton.keyIndex = keyIndex;
+        styleButton(moveKeyDownButton);
+        if (keyIndex==cg.AnimationEditor.animation.keys.length-1) {
+          moveKeyDownButton.style.color = "#333";
+          moveKeyDownButton.style.borderColor = "#333";
+        } else {
+          moveKeyDownButton.onclick = (e) => {
+            let keySet = e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex];
+            let nextKeySet = e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex+1];
+            e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex] = nextKeySet;
+            e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex+1] = keySet;
+            ChoreoGraph.AnimationEditor.updateKeyEditing(e.target.cg);
+            ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+          }
+        }
+
+        let removeKeyButton = document.createElement("button");
+        set.appendChild(removeKeyButton);
+        removeKeyButton.innerHTML = "-";
+        removeKeyButton.cg = cg;
+        removeKeyButton.keyIndex = keyIndex;
+        removeKeyButton.onclick = (e) => {
+          let keySet = e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex];
+          keySet.pop();
+          ChoreoGraph.AnimationEditor.updateKeyEditing(e.target.cg);
+          ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+        };
+        styleButton(removeKeyButton);
+        let addKeyButton = document.createElement("button");
+        set.appendChild(addKeyButton);
+        addKeyButton.innerHTML = "+";
+        addKeyButton.cg = cg;
+        addKeyButton.keyIndex = keyIndex;
+        addKeyButton.onclick = (e) => {
+          let keySet = e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex];
+          keySet.push("");
+          ChoreoGraph.AnimationEditor.updateKeyEditing(e.target.cg);
+          ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+        };
+        styleButton(addKeyButton);
+        addKeyButton.style.marginRight = "5px";
+        
+        if (keySet === "time") {
+          let timeLi = document.createElement("li");
+          timeLi.style.display = "inline-block";
+          set.appendChild(timeLi);
+          let timeSpan = document.createElement("span");
+          timeLi.appendChild(timeSpan);
+          timeSpan.innerText = "time";
+          timeSpan.style.padding = "5px";
+          timeSpan.style.border = "2px solid #649ed1";
+          timeSpan.style.borderRadius = "5px";
+          timeSpan.style.background = "black";
+          timeSpan.style.color = "#649ed1";
+          timeSpan.style.fontFamily = "consolas";
+          makeTimeKeyButton.style.color = "#333";
+          makeTimeKeyButton.style.borderColor = "#333";
+          removeKeyButton.style.color = "#333";
+          removeKeyButton.style.borderColor = "#333";
+          removeKeyButton.onclick = null;
+          addKeyButton.style.color = "#333";
+          addKeyButton.style.borderColor = "#333";
+          addKeyButton.onclick = null;
+        } else {
+          let keySetIndex = 0;
+          for (let key of keySet) {
+            let keyLi = document.createElement("li");
+            set.appendChild(keyLi);
+            keyLi.style.display = "inline-block";
+            keyLi.style.width = "auto";
+            keyLi.style.margin = "0px 5px 0px 0px";
+
+            let keyValue = document.createElement("input");
+            keyLi.appendChild(keyValue);
+            keyValue.value = key;
+            keyValue.style.padding = "5px";
+            keyValue.style.border = "2px solid white";
+            keyValue.style.borderRadius = "5px";
+            keyValue.style.background = "black";
+            keyValue.style.color = "white";
+            keyValue.style.fontFamily = "consolas";
+            keyValue.style.width = "auto";
+            keyValue.style.fieldSizing = "content";
+            keyValue.keyIndex = keyIndex;
+            keyValue.keySetIndex = keySetIndex;
+            keyValue.cg = cg;
+            keyValue.onclick = (e) => { e.target.select(); }
+            keyValue.onblur = (e) => {
+              let illegalChars = ":,&|";
+              let hasIllegal = false;
+              for (let char of illegalChars) {
+                if (e.target.value.indexOf(char)>-1) {
+                  hasIllegal = true;
+                }
+              }
+              if (hasIllegal) {
+                e.target.value = e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex][e.target.keySetIndex];
+                alert("You can not use: " + illegalChars);
+              } else {
+                e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex][e.target.keySetIndex] = e.target.value;
+              }
+              ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+            };
+            keySetIndex++;
+          }
+
+          let trackLinkDropdown = document.createElement("select");
+          set.appendChild(trackLinkDropdown);
+          trackLinkDropdown.cg = cg;
+          trackLinkDropdown.keyIndex = keyIndex;
+          styleButton(trackLinkDropdown,true);
+          trackLinkDropdown.onchange = (e) => {
+            let animation = e.target.cg.AnimationEditor.animation;
+            let option = e.target.options[e.target.options.selectedIndex];
+            let trackIndex = option.trackIndex;
+            let keyIndex = e.target.keyIndex;
+            let trackKey = option.trackKey;
+            if (option.text=="") {
+              animation.tracks[trackIndex].keys[trackKey] = -1;
+            } else {
+              for (let track of animation.tracks) {
+                for (let key in track.keys) {
+                  let trackKeyIndex = track.keys[key];
+                  if (trackKeyIndex==keyIndex) {
+                    track.keys[key] = -1;
+                  }
+                }
+              }
+              animation.tracks[trackIndex].keys[trackKey] = keyIndex;
+            }
+            ChoreoGraph.AnimationEditor.updateKeyEditing(e.target.cg);
+            ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+          }
+  
+          let hasFoundCorrectLink = false;
+          let unlinkOption;
+          for (let link of trackLinks) {
+            let option = document.createElement("option");
+            option.text = link.name;
+            option.keyIndex = keyIndex;
+            option.trackIndex = link.trackIndex;
+            option.trackKey = link.trackKey;
+            if (link.keyIndex===-1) {
+              option.style.color = "red";
+            } else if (link.isUsedMoreThanOnce) {
+              option.style.color = "orange";
+            }
+            trackLinkDropdown.add(option);
+            if (link.keyIndex==keyIndex) {
+              hasFoundCorrectLink = true;
+              trackLinkDropdown.value = link.name;
+              unlinkOption = document.createElement("option");
+              unlinkOption.text = "";
+              unlinkOption.trackIndex = link.trackIndex;
+              unlinkOption.trackKey = link.trackKey;
+              if (link.isUsedMoreThanOnce) {
+                trackLinkDropdown.style.color = "orange";
+              }
+            }
+          }
+          if (!hasFoundCorrectLink) {
+            trackLinkDropdown.value = "";
+          } else {
+            trackLinkDropdown.add(unlinkOption);
+          }
+        }
+        keyIndex++;
+      }
+      let addKeySetButton = document.createElement("button");
+      div.appendChild(addKeySetButton);
+      addKeySetButton.innerHTML = "Add New Key Set +";
+      addKeySetButton.cg = cg;
+      addKeySetButton.style.fontStyle = "italic";
+      addKeySetButton.onclick = (e) => {
+        let animation = e.target.cg.AnimationEditor.animation;
+        if (animation.keys.indexOf("time")===-1) {
+          animation.keys.push("time");
+        } else {
+          animation.keys.push([""]);
+        }
+        ChoreoGraph.AnimationEditor.updateKeyEditing(e.target.cg);
+        ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+      };
+      styleButton(addKeySetButton);
+      addKeySetButton.style.width = "auto";
     };
 
     updateAnimationOverview(cg,addToUndoQueue=true) {
@@ -1100,7 +1434,7 @@ ChoreoGraph.plugin({
           }
         }
       }
-    }
+    };
 
     removeInterface(cg) {
       cg.AnimationEditor.initInterface = false;
@@ -1125,6 +1459,7 @@ ChoreoGraph.plugin({
 
         this.selectFirstTrackByType(cg,selectedType);
       }
+      this.updateKeyEditing(cg);
       this.updateAnimationOverview(cg,false);
     };
 
@@ -1137,12 +1472,12 @@ ChoreoGraph.plugin({
 
         this.selectFirstTrackByType(cg,selectedType);
       }
+      this.updateKeyEditing(cg);
       this.updateAnimationOverview(cg,false);
     };
   },
 
   instanceConnect(cg) {
-    if (ChoreoGraph.Animation===undefined) { console.warn("Animation Editor requires Animation plugin"); return; }
     cg.AnimationEditor = new ChoreoGraph.AnimationEditor.instanceObject();
     cg.AnimationEditor.cg = cg;
 
@@ -1188,7 +1523,7 @@ ChoreoGraph.plugin({
   },
 
   instanceStart(cg) {
-    if (ChoreoGraph.Animation===undefined) { return; }
+    if (ChoreoGraph.Animation===undefined) { console.warn("Animation Editor requires Animation plugin"); return; }
     if (ChoreoGraph.AnimationEditor.initiated===false) {
       ChoreoGraph.AnimationEditor.init();
     }
