@@ -251,6 +251,9 @@ ChoreoGraph.plugin({
         for (let trackData of tracksData) {
           if (trackData=="") { continue; }
           let trackType = trackData.split("=")[0];
+          if (ChoreoGraph.Animation.TrackTypes[trackType]===undefined) {
+            continue;
+          }
           let track = new ChoreoGraph.Animation.TrackTypes[trackType](this.cg.cg);
           track.animation = this;
           track.unpack(trackData.split("=")[1]);
@@ -559,19 +562,74 @@ ChoreoGraph.plugin({
         canBeSupplementary = true;
         type = "value";
 
-        values = [];
+        keys = {
+          v : -1
+        }
+
+        values = [10,,,,50];
 
         constructor(cg,isPrimaryTrack) {
           this.primary = isPrimaryTrack;
           this.cg = cg;
         }
-        
+
         pack() {
-          return "valueeessss";
+          let output = "";
+          output += this.keys.v+",";
+          output += this.primary ? "p" : "s";
+          output += ":";
+          let valuesData = "";
+          if (this.primary) {
+
+          } else {
+            let empties = 0;
+            for (let i=0;i<this.values.length;i++) {
+              if (this.values[i]===undefined) { empties++; continue; }
+              if (empties>0) {
+                valuesData += "+" + empties;
+                empties = 0;
+              }
+              valuesData += "," + this.values[i];
+            }
+          }
+          output += valuesData;
+          return output;
         };
 
         unpack(data) {
+          let numberChars = "0123456789.-";
+          function getNumber(data,pointer) {
+            let number = "";
+            while (numberChars.includes(data[pointer])) {
+              number += data[pointer];
+              pointer++;
+            }
+            number = Number(number);
+            return [number,pointer]
+          }
+          this.keys.v = parseInt(data.split(":")[0].split(",")[0]);
+          this.primary = data.split(":")[0].split(",")[1]=="p";
+          this.values = [];
+          let valuesData = data.split(":")[1];
+          if (this.primary) {
 
+          } else {
+            let pointer = 0;
+            while (pointer<valuesData.length) {
+              let value = 0;
+              if (valuesData[pointer]=="+") {
+                pointer++;
+                [value, pointer] = getNumber(valuesData,pointer);
+                for (let i=0;i<value;i++) {
+                  this.values.push(undefined);
+                }
+              } else if (valuesData[pointer]==",") {
+                pointer++;
+                [value, pointer] = getNumber(valuesData,pointer);
+                this.values.push(value);
+              }
+            }
+          }
         };
 
         getBakeData(isPrimaryTrack) {
