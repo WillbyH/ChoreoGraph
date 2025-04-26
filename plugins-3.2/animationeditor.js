@@ -26,7 +26,8 @@ ChoreoGraph.plugin({
         connectedToggle : null,
         tangentDropdown : null,
         dopeSheetCanvasContainer : null,
-        keyEditing : null
+        keyEditing : null,
+        dopeSheetUI : null
       };
 
       path = {
@@ -783,6 +784,12 @@ ChoreoGraph.plugin({
       section.appendChild(trackContext);
       ChoreoGraph.AnimationEditor.updateTrackContext(cg);
 
+      // DOPESHEET UI
+      let dopeSheetUI = document.createElement("div");
+      section.appendChild(dopeSheetUI);
+      cg.AnimationEditor.ui.dopeSheetUI = dopeSheetUI;
+
+      // DOPESHEET
       let dopesheet = ChoreoGraph.AnimationEditor.createDopeSheet(cg);
       section.appendChild(dopesheet);
 
@@ -801,27 +808,39 @@ ChoreoGraph.plugin({
       section.appendChild(document.createElement("hr"));
     };
 
-    getTrackDopeSheetData(track) {
+    getTrackDopeSheetData(cg,trackIndex) {
+      let track = cg.AnimationEditor.animation.tracks[trackIndex];
       let data = {
         type : track.type,
         keyFrames : [],
-        editable : true
+        modifiable : true,
+        moveable : true,
+        deleteable : true,
+        addable : true
       };
       if (track.type==="path") {
-        data.editable = false;
+        function modify(cg,keyFrame,dataIndex,value) {
+          keyFrame.data[dataIndex] = value;
+        }
+        data.modifiable = true;
+        data.moveable = false;
+        data.deleteable = false;
+        data.addable = false;
         let part = 0;
         for (let i=0;i<track.segments.length;i++) {
           let segment = track.segments[i];
           data.keyFrames.push({
             data : segment.start,
-            part : part
+            part : part,
+            modify : modify
           })
           let empties = segment.getScaledSampleSize(track.density);
           part += empties;
           if (!segment.connected) {
             data.keyFrames.push({
               data : segment.end,
-              part : part
+              part : part,
+              modify : modify
             })
             part++;
           }
@@ -831,14 +850,139 @@ ChoreoGraph.plugin({
           let value = track.values[i];
           if (value!==undefined) {
             data.keyFrames.push({
-              data : value,
-              part : i
+              values : track.values,
+              data : [value],
+              part : i,
+              value : value,
+              trackIndex : trackIndex,
+              modify : function(cg,keyFrame,dataIndex,value) {
+                keyFrame.values[keyFrame.part] = value;
+              },
+              delete : function(cg,keyFrame) {
+                keyFrame.values[keyFrame.part] = undefined;
+                let graphic = cg.graphics.animation_editor_dopesheet;
+                graphic.selectedKeyFrame = -1;
+                ChoreoGraph.AnimationEditor.updateDopeSheetUI(cg);
+              },
+              add : function(cg,keyFrame,part) {
+                if (keyFrame.values[part]!==undefined) { return; }
+                if (part>keyFrame.values.length) {
+                  let i = keyFrame.values.length;
+                  while (i<part) {
+                    i++;
+                    keyFrame.values.push(undefined);
+                  }
+                  keyFrame.values.push(0);
+                } else {
+                  keyFrame.values[part] = 0;
+                }
+                let graphic = cg.graphics.animation_editor_dopesheet;
+                graphic.selectedDopeSheetTrackData = ChoreoGraph.AnimationEditor.getTrackDopeSheetData(cg,keyFrame.trackIndex);
+                let selectedIndex = 0;
+                for (let keyIndex=0;keyIndex<keyFrame.values.length&&keyIndex<part;keyIndex++) {
+                  let value = keyFrame.values[keyIndex];
+                  if (value!==undefined) {
+                    selectedIndex++;
+                  }
+                }
+                graphic.selectedKeyFrame = selectedIndex;
+                graphic.selectedTrack = keyFrame.trackIndex;
+                graphic.selectedKeyFrameData = graphic.selectedDopeSheetTrackData.keyFrames[selectedIndex];
+
+                ChoreoGraph.AnimationEditor.updateDopeSheetUI(cg);
+                ChoreoGraph.AnimationEditor.updateAnimationOverview(cg);
+              },
+              move : function(cg,keyFrame,part) {
+                keyFrame.values[keyFrame.part] = undefined;
+                keyFrame.values[part] = keyFrame.value;
+                keyFrame.part = part;
+                ChoreoGraph.AnimationEditor.updateDopeSheetUI(cg);
+                ChoreoGraph.AnimationEditor.updateAnimationOverview(cg);
+              }
             })
           }
         }
       }
       return data;
-    }
+    };
+
+    updateDopeSheetUI(cg,selectModify=true) {
+      let div = cg.AnimationEditor.ui.dopeSheetUI;
+      div.innerHTML = "";
+      div.style.marginTop = "10px";
+      let graphic = cg.graphics.animation_editor_dopesheet;
+
+      let trackData = graphic.selectedDopeSheetTrackData;
+
+      if (graphic.selectedKeyFrame==-1||graphic.selectedTrack==-1) {
+        let noneSelectedSpan = document.createElement("span");
+        noneSelectedSpan.innerHTML = "No Keyframe Selected";
+        noneSelectedSpan.style.color = "white";
+        noneSelectedSpan.style.fontSize = "15px";
+        div.appendChild(noneSelectedSpan);
+        div.style.marginTop = "27px";
+        return;
+      }
+
+      let keyFrame = graphic.selectedKeyFrameData;
+      if (keyFrame==undefined) { return; }
+
+      // DELETE KEYFRAME BUTTON
+      if (trackData.deleteable) {
+        let deleteButton = document.createElement("button");
+        deleteButton.classList.add("develop_button");
+        deleteButton.classList.add("btn_action");
+        deleteButton.style.margin = "0px";
+        deleteButton.style.marginRight = "5px";
+        deleteButton.style.padding = "6px";
+        deleteButton.innerHTML = "Delete";
+        deleteButton.cg = cg;
+        deleteButton.keyFrame = keyFrame;
+        deleteButton.onclick = (e) => {
+          e.target.keyFrame.delete(e.target.cg,e.target.keyFrame);
+          ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+          ChoreoGraph.AnimationEditor.updateDopeSheetUI(e.target.cg);
+        }
+        div.appendChild(deleteButton);
+      }
+
+      // MODIFY VALUES BUTTON
+      if (trackData.modifiable) {
+        for (let dataIndex=0;dataIndex<keyFrame.data.length;dataIndex++) {
+          let value = keyFrame.data[dataIndex];
+          let input = document.createElement("input");
+          input.type = "text";
+          input.value = value;
+          input.style.fontSize = "15px";
+          input.style.padding = "6px";
+          input.style.border = "2px solid white";
+          input.style.borderRadius = "5px";
+          input.style.background = "black";
+          input.style.color = "white";
+          input.style.fontFamily = "consolas";
+          input.style.width = "auto";
+          input.style.fieldSizing = "content";
+          input.style.marginRight = "5px";
+          input.cg = cg;
+          input.keyFrame = keyFrame;
+          input.dataIndex = dataIndex;
+          input.oninput = (e) => {
+            let value = parseFloat(e.target.value);
+            if (!isNaN(value)) {
+              e.target.keyFrame.modify(e.target.cg,e.target.keyFrame,e.target.dataIndex,value);
+            }
+          }
+          input.onblur = (e) => {
+            ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+          }
+          div.appendChild(input);
+          if (selectModify&&keyFrame.data.length==1) {
+            input.focus();
+            input.select();
+          }
+        }
+      }
+    };
 
     createDopeSheet(cg) {
       if (cg.AnimationEditor.ui.dopeSheetCanvasContainer!=null) { return cg.AnimationEditor.ui.dopeSheetCanvasContainer; }
@@ -859,20 +1003,27 @@ ChoreoGraph.plugin({
       
       cg.graphicTypes.animation_editor_dopesheet = new class AnimationEditorDopeSheet {
         setup(init,cg) {
+          this.cg = cg;
           this.dragging = false;
           this.dragDown = 0;
           this.dragSavedX = 0;
           this.dragSavedSpacing
           this.dragMode = null; // move resize
 
+          this.moving = false;
+
           this.hasSetInitalPosition = false;
 
           this.partSpacing = 20;
 
-          this.selectedTrack = 0;
-          this.selectedKeyFrame = 3;
+          this.selectedTrack = -1;
+          this.selectedKeyFrame = -1;
+          this.selectedKeyFrameData = null;
+          this.selectedDopeSheetTrackData = null;
         };
         draw(c,ax,ay) {
+          let cg = this.cg;
+          let cursor = cg.Input.canvasCursors.animation_editor_dopesheet;
           let transform = cg.transforms.animation_editor_dopesheet;
           let canvas = cg.canvases.animation_editor_dopesheet;
           let leftX = -transform.x-canvas.width/2;
@@ -902,16 +1053,26 @@ ChoreoGraph.plugin({
             countTrackTypes[track.type]++;
           }
 
+          let grabbablePoints = [];
+
           c.save();
           for (let trackIndex=0;trackIndex<animation.tracks.length;trackIndex++) {
             let trackY = trackIndex*20-(10*animation.tracks.length)+15;
             let track = animation.tracks[trackIndex];
-            let data = ChoreoGraph.AnimationEditor.getTrackDopeSheetData(track);
+            let data = ChoreoGraph.AnimationEditor.getTrackDopeSheetData(cg,trackIndex);
             for (let keyFrameIndex=0;keyFrameIndex<data.keyFrames.length;keyFrameIndex++) {
               let keyFrame = data.keyFrames[keyFrameIndex];
               c.strokeStyle = "white";
               c.beginPath();
               c.arc(keyFrame.part*this.partSpacing,trackY,5,0,2*Math.PI);
+              grabbablePoints.push({
+                x : keyFrame.part*this.partSpacing,
+                y : trackY,
+                keyFrame : keyFrame,
+                trackData : data,
+                trackIndex : trackIndex,
+                keyFrameIndex : keyFrameIndex
+              });
               if (keyFrameIndex==this.selectedKeyFrame&&trackIndex==this.selectedTrack) {
                 c.fillStyle = "#ff00ff";
                 c.lineWidth = 5;
@@ -921,6 +1082,25 @@ ChoreoGraph.plugin({
               }
               c.stroke();
               c.fill();
+              if (data.addable) {
+                for (let i=0;i<partCount;i++) {
+                  let x = i*this.partSpacing;
+                  let y = trackY;
+                  let distance = Math.sqrt((cursor.x-transform.x-x)**2+(cursor.y-y)**2);
+                  if (distance>10*(this.partSpacing/20)) { continue; }
+                  c.beginPath();
+                  c.arc(i*this.partSpacing,trackY,5,0,2*Math.PI);
+                  c.strokeStyle = "#00a233";
+                  if (this.moving) {
+                    c.strokeStyle = "#ff00ff";
+                  }
+                  c.lineWidth = 1.4;
+                  c.stroke();
+                  if (cursor.impulseDown.left) {
+                    keyFrame.add(cg,keyFrame,i);
+                  }
+                }
+              }
             }
             c.font = "12px Arial";
             c.fillStyle = "#bbb";
@@ -941,6 +1121,39 @@ ChoreoGraph.plugin({
             c.fillText(name,leftX+10,trackY+1);
           }
           c.restore();
+
+          if (cursor!==undefined) {
+            if (cursor.impulseDown.left) {
+              let grabbableDistance = 12*(this.partSpacing/20);
+              for (let i=0;i<grabbablePoints.length;i++) {
+                let point = grabbablePoints[i];
+                let distance = Math.sqrt((cursor.x-transform.x-point.x)**2+(cursor.y-point.y)**2);
+                if (distance<grabbableDistance) {
+                  this.selectedKeyFrame = point.keyFrameIndex;
+                  this.selectedTrack = point.trackIndex;
+                  this.selectedKeyFrameData = point.keyFrame;
+                  this.selectedDopeSheetTrackData = point.trackData;
+                  ChoreoGraph.AnimationEditor.updateDopeSheetUI(cg);
+                  if (point.trackData.moveable) {
+                    this.moving = true;
+                  }
+                  break;
+                }
+              }
+            }
+            if (cursor.impulseUp.left) {
+              if (this.moving) {
+                this.moving = false;
+                for (let i=0;i<partCount;i++) {
+                  let x = i*this.partSpacing;
+                  let y = this.selectedTrack*20-(10*animation.tracks.length)+15;
+                  let distance = Math.sqrt((cursor.x-transform.x-x)**2+(cursor.y-y)**2);
+                  if (distance>10*(this.partSpacing/20)||i==this.selectedKeyFrameData.part) { continue; }
+                  this.selectedKeyFrameData.move(cg,this.selectedKeyFrameData,i);
+                }
+              }
+            }
+          }
 
           let animators = [];
           for (let objectId of this.cg.keys.objects) {
@@ -1014,7 +1227,9 @@ ChoreoGraph.plugin({
         if (cg.AnimationEditor.ui.dopeSheetCanvasContainer.style.height!==height+"px") {
           cg.AnimationEditor.ui.dopeSheetCanvasContainer.style.height = height+"px";
         }
-      })
+      });
+
+      ChoreoGraph.AnimationEditor.updateDopeSheetUI(cg);
 
       return cg.AnimationEditor.ui.dopeSheetCanvasContainer;
     };
@@ -1525,10 +1740,12 @@ ChoreoGraph.plugin({
         let isUnique = false;
         isUnique = packedData!==cg.AnimationEditor.lastPack;
         if (packedData.length>0&&isUnique) {
+          let selectedType = cg.AnimationEditor.track.type;
           cg.AnimationEditor.undoStack.push(cg.AnimationEditor.lastPack);
           cg.AnimationEditor.animation.unpack(packedData,cg.AnimationEditor.autobake);
           ChoreoGraph.AnimationEditor.restartAllAnimators(cg);
           ChoreoGraph.AnimationEditor.updateKeyEditing(cg);
+          ChoreoGraph.AnimationEditor.selectFirstTrackByType(cg,selectedType);
           ChoreoGraph.AnimationEditor.updateAnimationOverview(cg);
         }
       }
