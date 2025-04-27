@@ -834,8 +834,12 @@ ChoreoGraph.plugin({
             part : part,
             modify : modify
           })
-          let empties = segment.getScaledSampleSize(track.density);
-          part += empties;
+          if (segment.controlAEnabled==false&&segment.controlBEnabled==false) {
+            part++;
+          } else {
+            let empties = segment.getScaledSampleSize(track.density);
+            part += empties;
+          }
           if (!segment.connected) {
             data.keyFrames.push({
               data : segment.end,
@@ -976,7 +980,7 @@ ChoreoGraph.plugin({
             ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
           }
           div.appendChild(input);
-          if (selectModify&&keyFrame.data.length==1) {
+          if (selectModify&&dataIndex==0) {
             input.focus();
             input.select();
           }
@@ -1082,7 +1086,7 @@ ChoreoGraph.plugin({
               }
               c.stroke();
               c.fill();
-              if (data.addable) {
+              if (data.addable&&cursor!==undefined) {
                 for (let i=0;i<partCount;i++) {
                   let x = i*this.partSpacing;
                   let y = trackY;
@@ -1765,6 +1769,7 @@ ChoreoGraph.plugin({
         for (let component of object.objectData.components) {
           if (component.manifest.type=="Animator"&&component.animation.id==cg.AnimationEditor.animation.id) {
             component.playFrom(0);
+            component.connectionData.initialisedAnimation = null;
           }
         }
       }
@@ -1795,6 +1800,7 @@ ChoreoGraph.plugin({
       }
       this.updateKeyEditing(cg);
       this.updateAnimationOverview(cg,false);
+      this.updateDopeSheetUI(cg);
     };
 
     redo(cg) {
@@ -1808,6 +1814,7 @@ ChoreoGraph.plugin({
       }
       this.updateKeyEditing(cg);
       this.updateAnimationOverview(cg,false);
+      this.updateDopeSheetUI(cg);
     };
   },
 

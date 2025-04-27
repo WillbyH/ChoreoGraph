@@ -178,7 +178,11 @@ ChoreoGraph.plugin({
         this.data = [];
         for (let i=0;i<trackData.length;i++) {
           for (let j=0;j<trackData[i].length;j++) {
-            this.data.push(trackData[i][j]);
+            if (this.data[j]===undefined) { this.data[j] = []; }
+            for (let k=0;k<trackData[i][j].length;k++) {
+              if (trackData[i][j][k]===undefined) { continue; }
+              this.data[j][k] = trackData[i][j][k];
+            }
           }
         }
         this.calculateDuration();
@@ -360,6 +364,7 @@ ChoreoGraph.plugin({
         unpack(data) {
           this.keys.x = parseInt(data.split(":")[0].split(",")[0]);
           this.keys.y = parseInt(data.split(":")[0].split(",")[1]);
+          this.keys.r = parseInt(data.split(":")[0].split(",")[2]);
           this.density = parseInt(data.split(":")[1]);
           let segments = data.split(":")[2];
           let pointer = 0;
@@ -451,6 +456,23 @@ ChoreoGraph.plugin({
           let previousDisconnected = false;
           let track = this;
           let cg = this.cg;
+          let applyRotationNext = false;
+          let previousRotation = 0;
+          let overrotationOffset = 0;
+          function twoPointsToAngle(p1=[0,0], p2=[1,1]) {
+            let deltaY = (p1[1] - p2[1]);
+            let deltaX = (p2[0] - p1[0]);
+            let baseangle = Math.atan2(deltaY,deltaX)*180/Math.PI
+            // P1 IS FROM WHICH IS THE POINT THAT THE PATH STARTS ON
+            // P2 IS TO WHICH IS THE POINT THAT THE PATH ENDS ON
+            if (p1[1]<p2[1]) { // Top
+              return -baseangle+90;
+            } else if (p1[1]>p2[1]) { // Bottom
+              return 90-baseangle;
+            } else if (p1[1]==p2[1]) { // Intercept
+              return baseangle+90;
+            }
+          }
           function append(x,y) {
             let decimals = cg.settings.animation.genericDecimalRounding;
             x = Number(x.toFixed(decimals));
@@ -465,10 +487,34 @@ ChoreoGraph.plugin({
               previousDisconnected = false;
             }
             time = Number(time.toFixed(cg.settings.animation.timeDecimalRounding));
+
+            let r = 0;
+            if (previousPoint!=null) {
+              r = twoPointsToAngle(previousPoint,[x,y]);
+              let rawChange = Math.abs(previousRotation-r);
+              let positiveChange = Math.abs(previousRotation-(r+360));
+              let negativeChange = Math.abs(previousRotation-(r-360));
+              previousRotation = r;
+              if (positiveChange<rawChange) {
+                overrotationOffset += 360;
+              } else if (negativeChange<rawChange) {
+                overrotationOffset -= 360;
+              }
+              r = r + overrotationOffset;
+
+              if (applyRotationNext&&track.keys.r!==-1) {
+                data[data.length-1][track.keys.r] = r;
+              }
+              applyRotationNext = false;
+            } else {
+              applyRotationNext = true;
+            }
+
             previousPoint = [x,y];
             let keyframe = [];
-            keyframe[track.keys.x] = x;
-            keyframe[track.keys.y] = y;
+            if (track.keys.x!==-1) { keyframe[track.keys.x] = x; }
+            if (track.keys.y!==-1) { keyframe[track.keys.y] = y; }
+            if (track.keys.r!==-1) { keyframe[track.keys.r] = r; }
             keyframe[track.animation.keys.indexOf("time")] = time;
             data.push(keyframe);
           }
@@ -574,6 +620,10 @@ ChoreoGraph.plugin({
         }
 
         pack() {
+          // index,primary/secondary:values
+          // primary (p) secondary (s)
+          // values -> + empties , value
+
           let output = "";
           output += this.keys.v+",";
           output += this.primary ? "p" : "s";
@@ -633,8 +683,27 @@ ChoreoGraph.plugin({
         };
 
         getBakeData(isPrimaryTrack) {
-          let data = [];
-          return data;
+          if (this.primary) {
+
+          } else {
+            if (this.keys.v==-1) { return [];}
+            let data = [];
+            let lastValue = 0;
+            let partCount = this.animation.tracks[0].getPartCount();
+            for (let i=0;i<partCount;i++) {
+              if (this.values[i]===undefined) {
+                let keyframe = [];
+                keyframe[this.keys.v] = lastValue;
+                data.push(keyframe);
+              } else {
+                let keyframe = [];
+                keyframe[this.keys.v] = this.values[i];
+                lastValue = this.values[i];
+                data.push(keyframe);
+              }
+            }
+            return data;
+          }
         };
 
         getPartCount() {
@@ -758,7 +827,7 @@ ChoreoGraph.plugin({
       debug : new class {
         showBakedPaths = true;
         showDirectionalMarkings = true;
-        directionalMarkingLength = 6;
+        directionalMarkingLength = 10;
         pathXKey = ["transform","x"];
         pathYKey = ["transform","y"];
         pathRKey = ["transform","r"];

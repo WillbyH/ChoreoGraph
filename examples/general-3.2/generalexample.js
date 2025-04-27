@@ -78,10 +78,11 @@ cg.Audio.sounds.magneticPlane.play({allowBuffer:true,loop:true});
 //   console.log(key);
 // }
 
-let testAnim = cg.Animation.createAnimationFromPacked("2:transform,x|transform,y&path=0,1:15:170,330,118,276,116,202~169,157,222,112,315,91,349,141^424,309,452,363,359,383~296,356,233,329,220,271~255,234,290,197,410,154,498,196",{},"testAnim");
+let testAnim = cg.Animation.createAnimationFromPacked("4:transform,x|transform,y|transform,r|Graphic,graphic,width&path=0,1,2:15:154,369,102,315,116,202~169,157,222,112,315,91,349,141^424,309,452,363,359,383~296,356,233,329,220,271~255,234,290,197,410,154,498,196&value=3,s:,5+4,10,15,20+7,15,10,5+14,10,20,30,40,50+16,60,70,80,90,100",{},"testAnim");
 
 cg.createObject({},"animatedObject")
 .attach("Animator",{animation:testAnim,speed:300})
+.attach("Graphic",{graphic:cg.createGraphic({type:"rectangle",colour:"red",height:20,width:20},"testAnimRect")})
 
 cg.scenes.main.addObject(cg.objects.animatedObject);
 
@@ -117,10 +118,7 @@ cg.settings.core.callbacks.loopAfter = () => {
 
   cg.c.fillText(cg.objects.animatedObject.Animator.playhead.toFixed(3),10,330);
 
-  cg.c.fillStyle = "red";
-  cg.c.fillRect(cg.objects.animatedObject.transform.x-10,cg.objects.animatedObject.transform.y-10,20,20);
   cg.c.fillStyle = "white";
-
   cg.c.fillText(cg.Input.actions.forward.get().toFixed(2),40,80);
   cg.c.fillText(cg.Input.actions.backward.get().toFixed(2),40,120);
   cg.c.fillText(cg.Input.actions.left.get().toFixed(2),15,100);

@@ -969,6 +969,14 @@ ChoreoGraph.plugin({
       let cg = canvas.cg;
       for (let buttonId of cg.keys.buttons) {
         let button = cg.Input.buttons[buttonId];
+        let isRelevant = false;
+        for (let camera of button.scene.cameras) {
+          if (camera.canvas==canvas) {
+            isRelevant = true;
+            break;
+          }
+        }
+        if (!isRelevant) { continue; }
         if (button.cursorInside(cg.Input.canvasCursors[canvas.id],special=="down")) {
           if (!button.hovered) {
             button.hovered = true;
