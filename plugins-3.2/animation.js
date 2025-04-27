@@ -509,6 +509,7 @@ ChoreoGraph.plugin({
             } else {
               applyRotationNext = true;
             }
+            r = Number(r.toFixed(decimals));
 
             previousPoint = [x,y];
             let keyframe = [];
@@ -612,7 +613,7 @@ ChoreoGraph.plugin({
           v : -1
         }
 
-        values = [10,,,,50];
+        values = [];
 
         constructor(cg,isPrimaryTrack) {
           this.primary = isPrimaryTrack;
@@ -620,9 +621,10 @@ ChoreoGraph.plugin({
         }
 
         pack() {
-          // index,primary/secondary:values
-          // primary (p) secondary (s)
-          // values -> + empties , value
+          // index,primary/supplementary:values
+          // primary (p) supplementary (s)
+          // values -> value;time, (primary)
+          // values -> + empties , value (supplementary)
 
           let output = "";
           output += this.keys.v+",";
@@ -630,7 +632,11 @@ ChoreoGraph.plugin({
           output += ":";
           let valuesData = "";
           if (this.primary) {
-
+            for (let i=0;i<this.values.length;i++) {
+              if (this.values[i]===undefined) { continue; }
+              if (valuesData!="") { valuesData += ","; }
+              valuesData += this.values[i].v+";"+this.values[i].t;
+            }
           } else {
             let empties = 0;
             for (let i=0;i<this.values.length;i++) {
@@ -639,7 +645,7 @@ ChoreoGraph.plugin({
                 valuesData += "+" + empties;
                 empties = 0;
               }
-              valuesData += "," + this.values[i];
+              valuesData += "," + this.values[i].v;
             }
           }
           output += valuesData;
@@ -661,10 +667,15 @@ ChoreoGraph.plugin({
           this.primary = data.split(":")[0].split(",")[1]=="p";
           this.values = [];
           let valuesData = data.split(":")[1];
+          let pointer = 0;
           if (this.primary) {
-
+            let values = valuesData.split(",");
+            for (let i=0;i<values.length;i++) {
+              let value = values[i].split(";")[0];
+              let time = values[i].split(";")[1];
+              this.values.push({v:Number(value),t:Number(time)});
+            }
           } else {
-            let pointer = 0;
             while (pointer<valuesData.length) {
               let value = 0;
               if (valuesData[pointer]=="+") {
@@ -676,15 +687,23 @@ ChoreoGraph.plugin({
               } else if (valuesData[pointer]==",") {
                 pointer++;
                 [value, pointer] = getNumber(valuesData,pointer);
-                this.values.push(value);
+                this.values.push({v:value});
               }
             }
           }
         };
 
         getBakeData(isPrimaryTrack) {
-          if (this.primary) {
-
+          if (isPrimaryTrack||this.primary) {
+            let data = [];
+            let partCount = this.getPartCount();
+            for (let i=0;i<partCount;i++) {
+              let keyframe = [];
+              if (this.keys.v!==-1) { keyframe[this.keys.v] = this.values[i].v; }
+              keyframe[this.animation.keys.indexOf("time")] = this.values[i].t;
+              data.push(keyframe);
+            }
+            return data;
           } else {
             if (this.keys.v==-1) { return [];}
             let data = [];
@@ -697,8 +716,8 @@ ChoreoGraph.plugin({
                 data.push(keyframe);
               } else {
                 let keyframe = [];
-                keyframe[this.keys.v] = this.values[i];
-                lastValue = this.values[i];
+                keyframe[this.keys.v] = this.values[i].v;
+                lastValue = this.values[i].v;
                 data.push(keyframe);
               }
             }
@@ -707,12 +726,11 @@ ChoreoGraph.plugin({
         };
 
         getPartCount() {
-          let count = 0;
-          return count;
+          return this.values.length;
         };
 
         info() {
-          return "mmm";
+          return this.values.length + " parts";
         };
       },
       trigger : class cgTriggerAnimationTrack {
