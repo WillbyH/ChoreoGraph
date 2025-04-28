@@ -866,8 +866,8 @@ ChoreoGraph.plugin({
           }
         }
         for (let i=0;i<track.values.length;i++) {
-          let value = track.values[i]?.v;
-          let keyframeData = [value];
+          let value = track.values[i];
+          let keyframeData = [value?.v];
           if (track.primary) {
             keyframeData.push(track.values[i].t);
           }
@@ -901,7 +901,7 @@ ChoreoGraph.plugin({
                   }
                   keyFrame.values.push({v:0});
                 } else {
-                  keyFrame.values[part].v = 0;
+                  keyFrame.values[part] = {v:0};
                 }
                 let graphic = cg.graphics.animation_editor_dopesheet;
                 graphic.selectedDopeSheetTrackData = ChoreoGraph.AnimationEditor.getTrackDopeSheetData(cg,keyFrame.trackIndex);
@@ -1747,7 +1747,22 @@ ChoreoGraph.plugin({
         ChoreoGraph.AnimationEditor.restartAllAnimators(e.target.cg);
         let output = "";
         for (var i in data) {
-          output += "[" + data[i].join(",") + "],";
+          output += "[";
+          for (let value of data[i]) {
+            if (typeof value=="number") {
+              output += value + ",";
+            } else if (typeof value=="string") {
+              output += '"'+value+'",';
+            } else if (typeof value=="object") {
+              output += 'OBJECT,';
+            } else if (typeof value=="boolean") {
+              output += value + ",";
+            } else {
+              output += value + ",";
+            }
+          }
+          output = output.slice(0, -1);
+          output += "],";
         }
         navigator.clipboard.writeText(output.slice(0, -1));
       };

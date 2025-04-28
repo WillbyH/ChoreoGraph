@@ -176,13 +176,34 @@ ChoreoGraph.plugin({
           trackData.push(data);
         }
         this.data = [];
+        let inserts = [];
         for (let i=0;i<trackData.length;i++) {
-          for (let j=0;j<trackData[i].length;j++) {
-            if (this.data[j]===undefined) { this.data[j] = []; }
-            for (let k=0;k<trackData[i][j].length;k++) {
-              if (trackData[i][j][k]===undefined) { continue; }
-              this.data[j][k] = trackData[i][j][k];
+          if (trackData[i].values!==undefined) {
+            for (let j=0;j<trackData[i].values.length;j++) {
+              if (this.data[j]===undefined) { this.data[j] = []; }
+              for (let k=0;k<trackData[i].values[j].length;k++) {
+                if (trackData[i].values[j][k]===undefined) { continue; }
+                this.data[j][k] = trackData[i].values[j][k];
+              }
             }
+          }
+          if (trackData[i].inserts!==undefined) {
+            for (let j=0;j<trackData[i].inserts.length;j++) {
+              let insert = trackData[i].inserts[j];
+              let part = Math.floor(insert.part);
+              if (inserts[part]===undefined) { inserts[part] = []; }
+              inserts[part].push({data:insert.data,sort:insert.part-part});
+            }
+          }
+        }
+        for (let part in inserts) {
+          inserts[part].sort((a,b) => { return a.sort-b.sort; });
+        }
+        let insertOffset = 1;
+        for (let part in inserts) {
+          for (let i=0;i<inserts[part].length;i++) {
+            this.data.splice(parseInt(part)+insertOffset,0,inserts[part][i].data);
+            insertOffset++;
           }
         }
         this.calculateDuration();
@@ -539,7 +560,7 @@ ChoreoGraph.plugin({
               }
             }
           }
-          return data;
+          return {values:data};
         };
 
         getPartCount() {
@@ -703,7 +724,7 @@ ChoreoGraph.plugin({
               keyframe[this.animation.keys.indexOf("time")] = this.values[i].t;
               data.push(keyframe);
             }
-            return data;
+            return {values:data};
           } else {
             if (this.keys.v==-1) { return [];}
             let data = [];
@@ -721,7 +742,7 @@ ChoreoGraph.plugin({
                 data.push(keyframe);
               }
             }
-            return data;
+            return {values:data};
           }
         };
 
@@ -738,31 +759,131 @@ ChoreoGraph.plugin({
         canBeSupplementary = true;
         type = "trigger";
 
+        triggers = [];
+
         constructor(cg) {
           this.cg = cg;
-        }
+        };
+
+        encode(string) {
+          let encodeCharacters = [" ","!",'"',"'","`","#","$","%","&","(",")","[","]","{","}","<",">","/","\\","|","~","^","*","+","-","=","_",".",",",";",":","?","@"];
+          let rawEncode = {
+            "-" : "%2D",
+            "_" : "%5F",
+            "." : "%2E",
+            "!" : "%21",
+            "~" : "%7E",
+            "*" : "%2A",
+            "'" : "%27",
+            "(" : "%28",
+            ")" : "%29",
+            "#" : "%23"
+          }
+          let output = "";
+          for (let char of string) {
+            if (encodeCharacters.includes(char)) {
+              if (encodeURIComponent(char)==char) {
+                if (rawEncode[char]===undefined) {
+                  output += char;
+                } else {
+                  output += rawEncode[char];
+                }
+              } else {
+                output += encodeURIComponent(char);
+              }
+            } else {
+              output += char;
+            }
+          }
+          return output;
+        };
         
         pack() {
-          return "triggerrrrs";
+          let typeIdentifiers = {
+            "string" : "s",
+            "number" : "n",
+            "boolean" : "b",
+            "undefined" : "u"
+          }
+          this.triggers.sort((a,b) => { return a.part-b.part; });
+          let output = "";
+          for (let i=0;i<this.triggers.length;i++) {
+            if (i!=0) { output += "|"; }
+            let trigger = this.triggers[i];
+            output += trigger.part+":"+trigger.type+":";
+            for (let j=0;j<trigger.data.length;j++) {
+              if (j!=0) { output += ","; }
+              let type = typeof trigger.data[j].value;
+              if (typeIdentifiers[type]==undefined||trigger.data[j].evaluate) {
+                output += "e"; // Evaluate
+              } else {
+                output += typeIdentifiers[type];
+              }
+              if (type==="boolean") {
+                output += trigger.data[j].value ? "1" : "0";
+              } else if (type==="number") {
+                output += trigger.data[j].value;
+              } else {
+                output += this.encode(trigger.data[j].value);
+              }
+            }
+          }
+          return output;
         };
 
         unpack(data) {
-
+          this.triggers = [];
+          let triggers = data.split("|");
+          for (let trigger of triggers) {
+            let part = parseFloat(trigger.split(":")[0]);
+            let type = trigger.split(":")[1];
+            let rawData = trigger.split(":")[2].split(",");
+            let evaluate = false;
+            let data = [];
+            for (let value of rawData) {
+              let valueType = value[0];
+              let valueData = value.slice(1);
+              if (valueType==="s") {
+                valueData = decodeURIComponent(valueData);
+              } else if (valueType==="n") {
+                valueData = parseFloat(valueData);
+              } else if (valueType==="b") {
+                valueData = valueData==="1" ? true : false;
+              } else if (valueType==="u") {
+                valueData = undefined;
+              } else if (valueType==="e") {
+                evaluate = true;
+                valueData = decodeURIComponent(valueData);
+              }
+              data.push({evaluate:evaluate,value:valueData});
+            }
+            this.triggers.push({part:part,type:type,data:data});
+          }
         };
 
         getBakeData(isPrimaryTrack) {
           if (isPrimaryTrack) { console.warn("Trigger track must NOT be primary"); }
           let data = [];
-          return data;
-        };
-
-        getPartCount() {
-          let count = 0;
-          return count;
+          for (let trigger of this.triggers) {
+            let outputTrigger = {part:trigger.part,data:[trigger.type]};
+            for (let value of trigger.data) {
+              if (value.evaluate) {
+                outputTrigger.data.push(eval(value.value));
+              } else {
+                outputTrigger.data.push(value.value);
+              }
+            }
+            data.push(outputTrigger);
+          }
+          return {inserts:data};
         };
 
         info() {
-          return "mmm";
+          let output = this.triggers.length + " triggers ";
+          for (let trigger of this.triggers) {
+            output += trigger.type+" ";
+          }
+          return output;
         };
       }
     };
