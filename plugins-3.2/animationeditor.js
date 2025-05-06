@@ -658,6 +658,9 @@ ChoreoGraph.plugin({
       }
       if (updateKeys) { this.updateKeyEditing(cg); }
       this.updateAnimationOverview(cg,false);
+      this.updateTrackTypeAdding(cg);
+      this.deselectDopeSheet(cg);
+      this.updateDopeSheetUI(cg);
     };
 
     generateInterface(cg) {
@@ -710,43 +713,21 @@ ChoreoGraph.plugin({
           newAnim.unpack(cg.AnimationEditor.template,false);
         }
 
+        ChoreoGraph.AnimationEditor.updateTrackTypeAdding(e.target.cg);
         ChoreoGraph.AnimationEditor.updateKeyEditing(e.target.cg);
         ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+        ChoreoGraph.AnimationEditor.updateDopeSheetUI(e.target.cg);
       }
       section.appendChild(createNewButton);
 
-      // SELECTED ANIMATION DROPDOWN
-      let trackTypeDropdown = document.createElement("select");
-      trackTypeDropdown.cg = cg;
-      cg.AnimationEditor.ui.trackTypeDropdown = trackTypeDropdown;
-      trackTypeDropdown.className = "develop_button";
-      section.appendChild(trackTypeDropdown);
+      let trackTypeAdding = document.createElement("div");
+      trackTypeAdding.style.display = "inline-block";
+      cg.AnimationEditor.ui.trackTypeAdding = trackTypeAdding;
+      section.appendChild(trackTypeAdding);
 
-      for (let type in ChoreoGraph.Animation.TrackTypes) {
-        let option = document.createElement("option");
-        option.text = type;
-        trackTypeDropdown.add(option);
+      if (cg.AnimationEditor.animation!==null) {
+        ChoreoGraph.AnimationEditor.updateTrackTypeAdding(cg);
       }
-      trackTypeDropdown.onchange = (e) => {
-        e.target.cg.AnimationEditor.ui.addTrackButton.innerHTML = "Add "+e.target.value+" Track";
-      }
-
-      // ADD TRACK BUTTON
-      let addTrackButton = document.createElement("button");
-      cg.AnimationEditor.ui.addTrackButton = addTrackButton;
-      addTrackButton.innerHTML = "Add "+trackTypeDropdown.value+" Track";;
-      addTrackButton.classList.add("develop_button");
-      addTrackButton.classList.add("btn_action");
-      addTrackButton.cg = cg;
-      addTrackButton.onclick = (e) => {
-        let trackType = e.target.cg.AnimationEditor.ui.trackTypeDropdown.value;
-        let newTrack = e.target.cg.AnimationEditor.animation.createTrack(trackType);
-        if (e.target.cg.AnimationEditor.track==null) { e.target.cg.AnimationEditor.track = newTrack; }
-        ChoreoGraph.AnimationEditor.updateKeyEditing(e.target.cg);
-        ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
-        ChoreoGraph.AnimationEditor.updateTrackContext(e.target.cg);
-      }
-      section.appendChild(addTrackButton);
 
       // UNDO BUTTON
       let undoButton = document.createElement("button");
@@ -808,6 +789,48 @@ ChoreoGraph.plugin({
       section.appendChild(document.createElement("hr"));
     };
 
+    updateTrackTypeAdding(cg) {
+      if (cg.AnimationEditor.ui.trackTypeAdding==undefined) { return; }
+      let div = cg.AnimationEditor.ui.trackTypeAdding;
+      div.innerHTML = "";
+
+      // TRACK TYPE DROPDOWN
+      let trackTypeDropdown = document.createElement("select");
+      trackTypeDropdown.cg = cg;
+      cg.AnimationEditor.ui.trackTypeDropdown = trackTypeDropdown;
+      trackTypeDropdown.className = "develop_button";
+      div.appendChild(trackTypeDropdown);
+
+      let trackTypes = ChoreoGraph.Animation.PrimaryTrackTypes;
+      if (cg.AnimationEditor.animation.tracks.length>0) { trackTypes = ChoreoGraph.Animation.SupplementaryTrackTypes; }
+      for (let type in trackTypes) {
+        let option = document.createElement("option");
+        option.text = type;
+        trackTypeDropdown.add(option);
+      }
+      trackTypeDropdown.onchange = (e) => {
+        e.target.cg.AnimationEditor.ui.addTrackButton.innerHTML = "Add "+e.target.value+" Track";
+      }
+
+      // ADD TRACK BUTTON
+      let addTrackButton = document.createElement("button");
+      cg.AnimationEditor.ui.addTrackButton = addTrackButton;
+      addTrackButton.innerHTML = "Add "+trackTypeDropdown.value+" Track";;
+      addTrackButton.classList.add("develop_button");
+      addTrackButton.classList.add("btn_action");
+      addTrackButton.cg = cg;
+      addTrackButton.onclick = (e) => {
+        let trackType = e.target.cg.AnimationEditor.ui.trackTypeDropdown.value;
+        let newTrack = e.target.cg.AnimationEditor.animation.createTrack(trackType);
+        if (e.target.cg.AnimationEditor.track==null) { e.target.cg.AnimationEditor.track = newTrack; }
+        ChoreoGraph.AnimationEditor.updateKeyEditing(e.target.cg);
+        ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+        ChoreoGraph.AnimationEditor.updateTrackContext(e.target.cg);
+        ChoreoGraph.AnimationEditor.updateTrackTypeAdding(e.target.cg);
+      }
+      div.appendChild(addTrackButton);
+    }
+
     getTrackDopeSheetData(cg,trackIndex) {
       let track = cg.AnimationEditor.animation.tracks[trackIndex];
       let data = {
@@ -851,26 +874,43 @@ ChoreoGraph.plugin({
           }
         }
       } else if (track.type==="value") {
-        if (trackIndex===0) {
-          data.moveable = false;
-          data.deleteable = false;
-          data.addable = false;
-          data.extendable = true;
-          data.values = track.values;
-          data.trackIndex = trackIndex;
-          data.extend = function(cg,trackData) {
-            trackData.values.push({v:0,t:0});
-            let graphic = cg.graphics.animation_editor_dopesheet;
-            graphic.selectedKeyFrame = trackData.values.length-1;
-            graphic.selectedTrack = trackData.trackIndex;
+        data.moveable = true;
+        data.deleteable = true;
+        data.addable = true;
+        data.extendable = false;
+        data.values = track.values;
+        data.trackIndex = trackIndex;
+        data.add = function(cg,trackData,part) {
+          if (trackData.values[part]!==undefined) { return; }
+          if (part>trackData.values.length) {
+            let i = trackData.values.length;
+            while (i<part) {
+              i++;
+              trackData.values.push(undefined);
+            }
+            trackData.values.push({v:0});
+          } else {
+            trackData.values[part] = {v:0};
           }
+          let graphic = cg.graphics.animation_editor_dopesheet;
+          graphic.selectedDopeSheetTrackData = ChoreoGraph.AnimationEditor.getTrackDopeSheetData(cg,trackData.trackIndex);
+          let selectedIndex = 0;
+          for (let keyIndex=0;keyIndex<trackData.values.length&&keyIndex<part;keyIndex++) {
+            let value = trackData.values[keyIndex]?.v;
+            if (value!==undefined) {
+              selectedIndex++;
+            }
+          }
+          graphic.selectedKeyFrame = selectedIndex;
+          graphic.selectedTrack = trackData.trackIndex;
+          graphic.selectedKeyFrameData = graphic.selectedDopeSheetTrackData.keyFrames[selectedIndex];
+
+          ChoreoGraph.AnimationEditor.updateDopeSheetUI(cg);
+          ChoreoGraph.AnimationEditor.updateAnimationOverview(cg);
         }
         for (let i=0;i<track.values.length;i++) {
           let value = track.values[i];
           let keyframeData = [value?.v];
-          if (track.primary) {
-            keyframeData.push(track.values[i].t);
-          }
           if (value!==undefined) {
             data.keyFrames.push({
               values : track.values,
@@ -891,34 +931,6 @@ ChoreoGraph.plugin({
                 graphic.selectedKeyFrame = -1;
                 ChoreoGraph.AnimationEditor.updateDopeSheetUI(cg);
               },
-              add : function(cg,keyFrame,part) {
-                if (keyFrame.values[part]!==undefined) { return; }
-                if (part>keyFrame.values.length) {
-                  let i = keyFrame.values.length;
-                  while (i<part) {
-                    i++;
-                    keyFrame.values.push(undefined);
-                  }
-                  keyFrame.values.push({v:0});
-                } else {
-                  keyFrame.values[part] = {v:0};
-                }
-                let graphic = cg.graphics.animation_editor_dopesheet;
-                graphic.selectedDopeSheetTrackData = ChoreoGraph.AnimationEditor.getTrackDopeSheetData(cg,keyFrame.trackIndex);
-                let selectedIndex = 0;
-                for (let keyIndex=0;keyIndex<keyFrame.values.length&&keyIndex<part;keyIndex++) {
-                  let value = keyFrame.values[keyIndex]?.v;
-                  if (value!==undefined) {
-                    selectedIndex++;
-                  }
-                }
-                graphic.selectedKeyFrame = selectedIndex;
-                graphic.selectedTrack = keyFrame.trackIndex;
-                graphic.selectedKeyFrameData = graphic.selectedDopeSheetTrackData.keyFrames[selectedIndex];
-
-                ChoreoGraph.AnimationEditor.updateDopeSheetUI(cg);
-                ChoreoGraph.AnimationEditor.updateAnimationOverview(cg);
-              },
               move : function(cg,keyFrame,part) {
                 keyFrame.values[keyFrame.part] = undefined;
                 keyFrame.values[part] = keyFrame.value;
@@ -929,12 +941,45 @@ ChoreoGraph.plugin({
             })
           }
         }
+      } else if (track.type==="fixedtime") {
+        data.modifiable = false;
+        data.moveable = false;
+        data.deleteable = false;
+        data.addable = false;
+        data.extendable = false;
+      } else if (track.type==="variabletime") {
+        data.modifiable = true;
+        data.moveable = false;
+        data.deleteable = false;
+        data.addable = false;
+        data.extendable = true;
+
+        data.times = track.times;
+
+        data.extend = function(cg,trackData) {
+          trackData.times.push(1);
+          let graphic = cg.graphics.animation_editor_dopesheet;
+          graphic.selectedKeyFrame = trackData.times.length-1;
+          graphic.selectedTrack = trackData.trackIndex;
+        }
+
+        for (let i=0;i<track.times.length;i++) {
+          let time = track.times[i];
+          data.keyFrames.push({
+            values : [time],
+            part : i,
+            modify : function(cg,keyFrame,dataIndex,value) {
+              keyFrame.values[keyFrame.part] = value;
+            }
+          })
+        }
       }
       return data;
     };
 
     updateDopeSheetUI(cg,selectModify=true) {
       let div = cg.AnimationEditor.ui.dopeSheetUI;
+      if (div==undefined) { return; }
       div.innerHTML = "";
       div.style.marginTop = "10px";
       let graphic = cg.graphics.animation_editor_dopesheet;
@@ -993,14 +1038,26 @@ ChoreoGraph.plugin({
           input.cg = cg;
           input.keyFrame = keyFrame;
           input.dataIndex = dataIndex;
+          input.originalValue = value;
+          input.previousValue = value;
           input.oninput = (e) => {
+            if (!(["0","1","2","3","4","5","6","7","8","9","."].includes(e.data))) {
+              e.target.value = e.target.previousValue;
+              e.target.blur();
+              return;
+            }
             let value = parseFloat(e.target.value);
             if (!isNaN(value)) {
               e.target.keyFrame.modify(e.target.cg,e.target.keyFrame,e.target.dataIndex,value);
             }
+            e.target.previousValue = e.target.value;
           }
           input.onblur = (e) => {
-            ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+            let original = parseFloat(e.target.originalValue);
+            let value = parseFloat(e.target.value);
+            if (original!==value) {
+              ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+            }
           }
           div.appendChild(input);
           if (selectModify&&dataIndex==0) {
@@ -1009,6 +1066,13 @@ ChoreoGraph.plugin({
           }
         }
       }
+    };
+
+    deselectDopeSheet(cg) {
+      let graphic = cg.graphics.animation_editor_dopesheet;
+      if (graphic==undefined) { return; }
+      graphic.selectedKeyFrame = -1;
+      graphic.selectedTrack = -1;
     };
 
     createDopeSheet(cg) {
@@ -1109,23 +1173,24 @@ ChoreoGraph.plugin({
               }
               c.stroke();
               c.fill();
-              if (data.addable&&cursor!==undefined) {
-                for (let i=0;i<partCount;i++) {
-                  let x = i*this.partSpacing;
-                  let y = trackY;
-                  let distance = Math.sqrt((cursor.x-transform.x-x)**2+(cursor.y-y)**2);
-                  if (distance>10*(this.partSpacing/20)) { continue; }
-                  c.beginPath();
-                  c.arc(i*this.partSpacing,trackY,5,0,2*Math.PI);
-                  c.strokeStyle = "#00a233";
-                  if (this.moving) {
-                    c.strokeStyle = "#ff00ff";
-                  }
-                  c.lineWidth = 1.4;
-                  c.stroke();
-                  if (cursor.impulseDown.left) {
-                    keyFrame.add(cg,keyFrame,i);
-                  }
+            }
+            if (data.addable&&cursor!==undefined) {
+              for (let i=0;i<partCount;i++) {
+                let x = i*this.partSpacing;
+                let y = trackY;
+                let distance = Math.sqrt((cursor.x-transform.x-x)**2+(cursor.y-y)**2);
+                if (distance>10*(this.partSpacing/20)) { continue; }
+                c.beginPath();
+                c.arc(i*this.partSpacing,trackY,5,0,2*Math.PI);
+                c.strokeStyle = "#00a233";
+                if (this.moving) {
+                  c.strokeStyle = "#ff00ff";
+                }
+                c.lineWidth = 1.4;
+                c.stroke();
+                if (cursor.impulseDown.left) {
+                  console.log(data)
+                  data.add(cg,data,i);
                 }
               }
             }
@@ -1135,7 +1200,7 @@ ChoreoGraph.plugin({
             c.textBaseline = "middle";
             let name = animation.tracks[trackIndex].type;
             if (countTrackTypes[name]>1) {
-              name += " "+(trackIndex+1);
+              name += " "+(trackIndex);
             }
             if (track.type=="value"&&track.keys.v!==-1) {
               name += " ("+animation.keys[track.keys.v]+")";
@@ -1281,8 +1346,10 @@ ChoreoGraph.plugin({
 
       if (cg.AnimationEditor.track.type=="path") {
         ChoreoGraph.AnimationEditor.createPathTrackContext(cg,div);
-      } else if (cg.AnimationEditor.track.type=="value") {
-        ChoreoGraph.AnimationEditor.createValueTrackContext(cg,div);
+      } else if (cg.AnimationEditor.track.type=="variabletime") {
+        ChoreoGraph.AnimationEditor.createVariableTimeTrackContext(cg,div);
+      } else if (cg.AnimationEditor.track.type=="fixedtime") {
+        ChoreoGraph.AnimationEditor.createFixedTimeTrackContext(cg,div);
       }
     };
 
@@ -1352,7 +1419,7 @@ ChoreoGraph.plugin({
       div.appendChild(copyJointsButton);
     };
 
-    createValueTrackContext(cg,div) {
+    createVariableTimeTrackContext(cg,div) {
       let trackData = ChoreoGraph.AnimationEditor.getTrackDopeSheetData(cg,cg.AnimationEditor.animation.tracks.indexOf(cg.AnimationEditor.track));
       
       // EXTEND BUTTON
@@ -1370,6 +1437,129 @@ ChoreoGraph.plugin({
         }
         div.appendChild(extendButton);
       }
+    };
+
+    createFixedTimeTrackContext(cg,div) {
+      // MODE DROPDOWN
+      let modeDropdown = document.createElement("select");
+      modeDropdown.cg = cg;
+      modeDropdown.style.marginRight = "10px";
+      modeDropdown.className = "develop_button";
+      div.appendChild(modeDropdown);
+
+      let framerateOption = document.createElement("option");
+      framerateOption.text = "framerate";
+      modeDropdown.add(framerateOption);
+      let timeOption = document.createElement("option");
+      timeOption.text = "time";
+      modeDropdown.add(timeOption);
+      
+      modeDropdown.value = cg.AnimationEditor.track.mode;
+
+      modeDropdown.onchange = (e) => {
+        let track = e.target.cg.AnimationEditor.track;
+        track.mode = e.target.value;
+        ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+        ChoreoGraph.AnimationEditor.updateTrackContext(e.target.cg);
+      }
+
+      function styleInput(input) {
+        input.style.fontSize = "15px";
+        input.style.padding = "6px";
+        input.style.border = "2px solid white";
+        input.style.borderRadius = "5px";
+        input.style.background = "black";
+        input.style.color = "white";
+        input.style.fontFamily = "consolas";
+        input.style.width = "auto";
+        input.style.fieldSizing = "content";
+      }
+
+      if (cg.AnimationEditor.track.mode=="framerate") {
+        // FRAMERATE INPUT
+        let framerateInput = document.createElement("input");
+        framerateInput.type = "text";
+        framerateInput.value = cg.AnimationEditor.track.fps;
+        styleInput(framerateInput);
+        framerateInput.cg = cg;
+        div.appendChild(framerateInput);
+
+        framerateInput.oninput = (e) => {
+          let fps = parseFloat(e.target.value);
+          if (isNaN(fps)) { return; }
+          e.target.cg.AnimationEditor.track.fps = fps;
+          ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg,false);
+        }
+
+        framerateInput.onblur = (e) => {
+          let fps = parseFloat(e.target.value);
+          console.log(fps)
+          if (isNaN(fps)) {
+            e.target.value = e.target.cg.AnimationEditor.track.fps;
+          } else {
+            e.target.cg.AnimationEditor.track.fps = fps;
+          }
+        }
+
+        // FPS TEXT
+        let fpsText = document.createElement("span");
+        fpsText.innerHTML = " fps";
+        fpsText.style.color = "white";
+        fpsText.style.fontSize = "15px";
+        div.appendChild(fpsText);
+      } else if (cg.AnimationEditor.track.mode=="time") {
+        // TIME INPUT
+        let timeInput = document.createElement("input");
+        timeInput.type = "text";
+        timeInput.value = cg.AnimationEditor.track.time;
+        styleInput(timeInput);
+        timeInput.cg = cg;
+        div.appendChild(timeInput);
+
+        timeInput.oninput = (e) => {
+          e.target.cg.AnimationEditor.track.time = e.target.value;
+          ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg,false);
+        }
+
+        // SECONDS TEXT
+        let secondsText = document.createElement("span");
+        secondsText.innerHTML = " seconds";
+        secondsText.style.color = "white";
+        secondsText.style.fontSize = "15px";
+        div.appendChild(secondsText);
+      }
+
+      // FRAMES INPUT
+      let framesInput = document.createElement("input");
+      framesInput.type = "text";
+      framesInput.value = cg.AnimationEditor.track.frames;
+      styleInput(framesInput);
+      framesInput.style.marginLeft = "10px";
+      framesInput.cg = cg;
+      div.appendChild(framesInput);
+
+      framesInput.oninput = (e) => {
+        let frames = parseInt(e.target.value);
+        if (isNaN(frames)) { return; }
+        e.target.cg.AnimationEditor.track.frames = frames;
+        ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg,false);
+      }
+
+      framesInput.onblur = (e) => {
+        let frames = parseInt(e.target.value);
+        if (isNaN(frames)) {
+          e.target.value = e.target.cg.AnimationEditor.track.frames;
+        } else {
+          e.target.cg.AnimationEditor.track.frames = frames;
+        }
+      }
+
+      // FRAMES TEXT
+      let framesText = document.createElement("span");
+      framesText.innerHTML = " frame(s)";
+      framesText.style.color = "white";
+      framesText.style.fontSize = "15px";
+      div.appendChild(framesText);
     };
 
     updateKeyEditing(cg) {
@@ -1854,7 +2044,7 @@ ChoreoGraph.plugin({
       }
       this.updateKeyEditing(cg);
       this.updateAnimationOverview(cg,false);
-      this.updateDopeSheetUI(cg);
+      this.updateDopeSheetUI(cg,false);
     };
 
     redo(cg) {
@@ -1868,7 +2058,7 @@ ChoreoGraph.plugin({
       }
       this.updateKeyEditing(cg);
       this.updateAnimationOverview(cg,false);
-      this.updateDopeSheetUI(cg);
+      this.updateDopeSheetUI(cg,false);
     };
   },
 

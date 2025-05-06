@@ -162,7 +162,9 @@ ChoreoGraph.plugin({
       };
 
       createTrack(trackType) {
-        let newTrack = new ChoreoGraph.Animation.TrackTypes[trackType](this.cg.cg,this.tracks.length==0);
+        let trackTypes = ChoreoGraph.Animation.PrimaryTrackTypes;
+        if (this.tracks.length>0) { trackTypes = ChoreoGraph.Animation.SupplementaryTrackTypes; }
+        let newTrack = new trackTypes[trackType](this.cg.cg,this.tracks.length==0);
         newTrack.animation = this;
         this.tracks.push(newTrack);
         return newTrack;
@@ -172,7 +174,9 @@ ChoreoGraph.plugin({
         let trackData = [];
         for (let i=0;i<this.tracks.length;i++) {
           let track = this.tracks[i];
-          let data = track.getBakeData(i===0);
+          let data
+          if (trackData.length>0) { data = track.getBakeData(trackData[0]); }
+          else { data = track.getBakeData(); }
           trackData.push(data);
         }
         this.data = [];
@@ -276,10 +280,12 @@ ChoreoGraph.plugin({
         for (let trackData of tracksData) {
           if (trackData=="") { continue; }
           let trackType = trackData.split("=")[0];
-          if (ChoreoGraph.Animation.TrackTypes[trackType]===undefined) {
+          let trackTypes = ChoreoGraph.Animation.PrimaryTrackTypes;
+          if (this.tracks.length>0) { trackTypes = ChoreoGraph.Animation.SupplementaryTrackTypes; }
+          if (trackTypes[trackType]===undefined) {
             continue;
           }
-          let track = new ChoreoGraph.Animation.TrackTypes[trackType](this.cg.cg);
+          let track = new trackTypes[trackType](this.cg.cg);
           track.animation = this;
           track.unpack(trackData.split("=")[1]);
           this.tracks.push(track);
@@ -293,10 +299,8 @@ ChoreoGraph.plugin({
       };
     };
 
-    TrackTypes = {
+    PrimaryTrackTypes = {
       path : class cgPathAnimationTrack {
-        canBePrimary = true;
-        canBeSupplementary = false;
         type = "path";
 
         segments = [];
@@ -470,8 +474,7 @@ ChoreoGraph.plugin({
           return output;
         };
 
-        getBakeData(isPrimaryTrack) {
-          if (!isPrimaryTrack) { console.warn("Path track must be primary"); }
+        getBakeData() {
           let data = [];
           let previousPoint = null;
           let previousDisconnected = false;
@@ -594,8 +597,6 @@ ChoreoGraph.plugin({
         };
       },
       sprite : class cgSpriteAnimationTrack {
-        canBePrimary = true;
-        canBeSupplementary = false;
         type = "sprite";
 
         constructor(cg) {
@@ -610,8 +611,7 @@ ChoreoGraph.plugin({
 
         };
 
-        getBakeData(isPrimaryTrack) {
-          if (!isPrimaryTrack) { console.warn("Sprite track must be primary"); }
+        getBakeData() {
           let data = [];
           return data;
         };
@@ -625,9 +625,121 @@ ChoreoGraph.plugin({
           return "mmm";
         };
       },
+      fixedtime : class cgFixedTimeAnimationTrack {
+        type = "fixedtime";
+
+        mode = "framerate"; // framerate or time
+        fps = 60;
+        time = "1/60";
+        frames = 1;
+
+        constructor(cg) {
+          this.density = cg.settings.animation.defaultPathDensity;
+          this.cg = cg;
+        };
+
+        pack() {
+          // mode:frames:duration
+          // mode = f (framerate) or t (time)
+          // duration = fps (framerate) or time (time)
+
+          let output = this.mode=="framerate" ? "f" : "t";
+          output += ":"+this.frames+":";
+          if (this.mode=="framerate") {
+            output += this.fps;
+          } else {
+            output += this.time;
+          }
+          
+          return output;
+        };
+
+        unpack(data) {
+          this.mode = data.split(":")[0]=="f" ? "framerate" : "time";
+          this.frames = parseInt(data.split(":")[1]);
+          if (this.mode=="framerate") {
+            this.fps = Number(data.split(":")[2]);
+          } else {
+            this.time = data.split(":")[2];
+          }
+        };
+
+        getBakeData() {
+          let data = [];
+          let timeKey = this.animation.keys.indexOf("time");
+          for (let frameNumber=0;frameNumber<this.frames;frameNumber++) {
+            let frame = [];
+            if (this.mode=="framerate") {
+              frame[timeKey] = 1/this.fps;
+            } else if (this.mode=="time") {
+              if (this.time.includes("/")) {
+                let split = this.time.split("/");
+                let numerator = parseInt(split[0]);
+                let denominator = parseInt(split[1]);
+                frame[timeKey] = numerator/denominator;
+              } else {
+                frame[timeKey] = Number(this.time);
+              }
+            }
+            data.push(frame);
+          }
+          return data;
+        };
+
+        getPartCount() {
+          return this.frames;
+        };
+
+        info() {
+          let output = this.frames;
+          if (this.frames>1) { output += " frames "; } else { output += " frame "; }
+          if (this.mode=="framerate") {
+            output += this.fps + " fps";
+          } else {
+            output += this.time + " seconds";
+          }
+          return output;
+        };
+      },
+      variabletime : class cgVariableTimeAnimationTrack {
+        type = "variabletime";
+        
+        times = [];
+
+        pack() {
+          let output = "";
+
+          return output;
+        };
+
+        unpack(data) {
+          
+        };
+
+        getBakeData() {
+          let data = [];
+          
+          return data;
+        };
+
+        getPartCount() {
+          return this.times.length;
+        };
+
+        info() {
+          let output = this.frames;
+          if (this.frames>1) { output += " frames "; } else { output += " frame "; }
+          if (this.mode=="framerate") {
+            output += this.fps + " fps";
+          } else {
+            output += this.time + " seconds";
+          }
+          return output;
+        };
+      }
+    };
+    SupplementaryTrackTypes = {
       value : class cgValueAnimationTrack {
-        canBePrimary = true;
-        canBeSupplementary = true;
         type = "value";
 
         keys = {
@@ -636,38 +748,26 @@ ChoreoGraph.plugin({
 
         values = [];
 
-        constructor(cg,isPrimaryTrack) {
-          this.primary = isPrimaryTrack;
+        constructor(cg) {
           this.cg = cg;
         }
 
         pack() {
-          // index,primary/supplementary:values
-          // primary (p) supplementary (s)
-          // values -> value;time, (primary)
-          // values -> + empties , value (supplementary)
+          // index,values
+          // values -> + empties , disconnected value ! connected value
 
           let output = "";
           output += this.keys.v+",";
-          output += this.primary ? "p" : "s";
           output += ":";
           let valuesData = "";
-          if (this.primary) {
-            for (let i=0;i<this.values.length;i++) {
-              if (this.values[i]===undefined) { continue; }
-              if (valuesData!="") { valuesData += ","; }
-              valuesData += this.values[i].v+";"+this.values[i].t;
+          let empties = 0;
+          for (let i=0;i<this.values.length;i++) {
+            if (this.values[i]===undefined) { empties++; continue; }
+            if (empties>0) {
+              valuesData += "+" + empties;
+              empties = 0;
             }
-          } else {
-            let empties = 0;
-            for (let i=0;i<this.values.length;i++) {
-              if (this.values[i]===undefined) { empties++; continue; }
-              if (empties>0) {
-                valuesData += "+" + empties;
-                empties = 0;
-              }
-              valuesData += "," + this.values[i].v;
-            }
+            valuesData += "," + this.values[i].v;
           }
           output += valuesData;
           return output;
@@ -685,78 +785,58 @@ ChoreoGraph.plugin({
             return [number,pointer]
           }
           this.keys.v = parseInt(data.split(":")[0].split(",")[0]);
-          this.primary = data.split(":")[0].split(",")[1]=="p";
           this.values = [];
           let valuesData = data.split(":")[1];
           let pointer = 0;
-          if (this.primary) {
-            let values = valuesData.split(",");
-            for (let i=0;i<values.length;i++) {
-              let value = values[i].split(";")[0];
-              let time = values[i].split(";")[1];
-              this.values.push({v:Number(value),t:Number(time)});
-            }
-          } else {
-            while (pointer<valuesData.length) {
-              let value = 0;
-              if (valuesData[pointer]=="+") {
-                pointer++;
-                [value, pointer] = getNumber(valuesData,pointer);
-                for (let i=0;i<value;i++) {
-                  this.values.push(undefined);
-                }
-              } else if (valuesData[pointer]==",") {
-                pointer++;
-                [value, pointer] = getNumber(valuesData,pointer);
-                this.values.push({v:value});
+          while (pointer<valuesData.length) {
+            let value = 0;
+            if (valuesData[pointer]=="+") {
+              pointer++;
+              [value, pointer] = getNumber(valuesData,pointer);
+              for (let i=0;i<value;i++) {
+                this.values.push(undefined);
               }
+            } else if (valuesData[pointer]==",") {
+              pointer++;
+              [value, pointer] = getNumber(valuesData,pointer);
+              this.values.push({v:value,connect:false});
+            } else if (valuesData[pointer]=="!") {
+              pointer++;
+              [value, pointer] = getNumber(valuesData,pointer);
+              this.values.push({v:value,connect:true});
             }
           }
         };
 
-        getBakeData(isPrimaryTrack) {
-          if (isPrimaryTrack||this.primary) {
-            let data = [];
-            let partCount = this.getPartCount();
-            for (let i=0;i<partCount;i++) {
+        getBakeData(primaryBake) {
+          if (this.keys.v==-1) { return [];}
+          let data = [];
+          let lastValue = 0;
+          let partCount = this.animation.tracks[0].getPartCount();
+          for (let i=0;i<partCount;i++) {
+            if (this.values[i]===undefined) {
               let keyframe = [];
-              if (this.keys.v!==-1) { keyframe[this.keys.v] = this.values[i].v; }
-              keyframe[this.animation.keys.indexOf("time")] = this.values[i].t;
+              keyframe[this.keys.v] = lastValue;
+              data.push(keyframe);
+            } else {
+              let keyframe = [];
+              keyframe[this.keys.v] = this.values[i].v;
+              lastValue = this.values[i].v;
               data.push(keyframe);
             }
-            return {values:data};
-          } else {
-            if (this.keys.v==-1) { return [];}
-            let data = [];
-            let lastValue = 0;
-            let partCount = this.animation.tracks[0].getPartCount();
-            for (let i=0;i<partCount;i++) {
-              if (this.values[i]===undefined) {
-                let keyframe = [];
-                keyframe[this.keys.v] = lastValue;
-                data.push(keyframe);
-              } else {
-                let keyframe = [];
-                keyframe[this.keys.v] = this.values[i].v;
-                lastValue = this.values[i].v;
-                data.push(keyframe);
-              }
-            }
-            return {values:data};
           }
-        };
-
-        getPartCount() {
-          return this.values.length;
+          return {values:data};
         };
 
         info() {
-          return this.values.length + " parts";
+          let count = 0;
+          for (let i=0;i<this.values.length;i++) {
+            if (this.values[i]!==undefined) { count++; }
+          }
+          return count + " keyframes";
         };
       },
       trigger : class cgTriggerAnimationTrack {
-        canBePrimary = false;
-        canBeSupplementary = true;
         type = "trigger";
 
         triggers = [];
