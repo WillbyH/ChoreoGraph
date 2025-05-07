@@ -263,9 +263,9 @@ ChoreoGraph.plugin({
                 if (item.transform.r!==0) {
                   let r = -item.transform.r+90;
                   let rad = r*Math.PI/180;
-                  let savedbw = bw;
-                  bw = Math.abs(bw*Math.cos(rad))+Math.abs(bh*Math.sin(rad));
-                  bh = Math.abs(savedbw*Math.sin(rad))+Math.abs(bh*Math.cos(rad));
+                  let savedbh = bh;
+                  bh = Math.abs(bw*Math.cos(rad))+Math.abs(bh*Math.sin(rad));
+                  bw = Math.abs(bw*Math.sin(rad))+Math.abs(savedbh*Math.cos(rad));
 
                   let rox = Math.sin(rad)*gax-Math.cos(rad)*gay;
                   let roy = Math.cos(rad)*gax+Math.sin(rad)*gay;

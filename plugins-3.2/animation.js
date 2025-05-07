@@ -186,8 +186,9 @@ ChoreoGraph.plugin({
             for (let j=0;j<trackData[i].values.length;j++) {
               if (this.data[j]===undefined) { this.data[j] = []; }
               for (let k=0;k<trackData[i].values[j].length;k++) {
-                if (trackData[i].values[j][k]===undefined) { continue; }
-                this.data[j][k] = trackData[i].values[j][k];
+                let value = trackData[i].values[j][k];
+                if (value===undefined) { continue; }
+                this.data[j][k] = value;
               }
             }
           }
