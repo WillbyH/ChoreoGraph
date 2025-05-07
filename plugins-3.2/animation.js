@@ -171,14 +171,17 @@ ChoreoGraph.plugin({
       };
 
       bake() {
+        // GET BAKE DATA FOR EACH TRACK
         let trackData = [];
         for (let i=0;i<this.tracks.length;i++) {
           let track = this.tracks[i];
-          let data
+          let data;
           if (trackData.length>0) { data = track.getBakeData(trackData[0]); }
           else { data = track.getBakeData(); }
           trackData.push(data);
         }
+
+        // COMBINE VALUES AND COLLECT INSERTS
         this.data = [];
         let inserts = [];
         for (let i=0;i<trackData.length;i++) {
@@ -201,6 +204,19 @@ ChoreoGraph.plugin({
             }
           }
         }
+
+        // SET PERSISTENT VALUES
+        let previousKeyFrame = null;
+        for (let i=0;i<this.data.length;i++) {
+          let frame = this.data[i];
+          if (typeof frame[0] === "string") { continue; }
+          for (let j=0;j<this.keys.length;j++) {
+            if (frame[j]===undefined) { frame[j] = previousKeyFrame[j]; }
+          }
+          previousKeyFrame = frame;
+        }
+
+        // INSERT INSERTS
         for (let part in inserts) {
           inserts[part].sort((a,b) => { return a.sort-b.sort; });
         }
@@ -211,6 +227,7 @@ ChoreoGraph.plugin({
             insertOffset++;
           }
         }
+
         this.calculateDuration();
         if (this.data.length<2) {
           console.warn("Animation:",this.id,"must be at least 2 keyframes long");
@@ -614,7 +631,7 @@ ChoreoGraph.plugin({
 
         getBakeData() {
           let data = [];
-          return data;
+          return {values:data};
         };
 
         getPartCount() {
@@ -684,7 +701,7 @@ ChoreoGraph.plugin({
             }
             data.push(frame);
           }
-          return data;
+          return {values:data};
         };
 
         getPartCount() {
@@ -720,7 +737,7 @@ ChoreoGraph.plugin({
         getBakeData() {
           let data = [];
           
-          return data;
+          return {values:data};
         };
 
         getPartCount() {
@@ -768,7 +785,12 @@ ChoreoGraph.plugin({
               valuesData += "+" + empties;
               empties = 0;
             }
-            valuesData += "," + this.values[i].v;
+            if (this.values[i].interpolate) {
+              valuesData += "!";
+            } else {
+              valuesData += ",";
+            }
+            valuesData += this.values[i].v;
           }
           output += valuesData;
           return output;
@@ -800,29 +822,53 @@ ChoreoGraph.plugin({
             } else if (valuesData[pointer]==",") {
               pointer++;
               [value, pointer] = getNumber(valuesData,pointer);
-              this.values.push({v:value,connect:false});
+              this.values.push({v:value,interpolate:false});
             } else if (valuesData[pointer]=="!") {
               pointer++;
               [value, pointer] = getNumber(valuesData,pointer);
-              this.values.push({v:value,connect:true});
+              this.values.push({v:value,interpolate:true});
             }
           }
         };
 
         getBakeData(primaryBake) {
+          let timeKey = this.animation.keys.indexOf("time");
           if (this.keys.v==-1) { return [];}
           let data = [];
           let lastValue = 0;
+          let interpolationBuffer = [];
+          let interpolate = false;
+          let interpolationBufferTime = 0;
           let partCount = this.animation.tracks[0].getPartCount();
           for (let i=0;i<partCount;i++) {
             if (this.values[i]===undefined) {
               let keyframe = [];
-              keyframe[this.keys.v] = lastValue;
+              if (interpolate) {
+                interpolationBufferTime += primaryBake.values[i][timeKey];
+                interpolationBuffer.push({from:lastValue,time:interpolationBufferTime,keyframe:keyframe});
+              } else {
+                keyframe[this.keys.v] = undefined;
+              }
               data.push(keyframe);
             } else {
+              if (interpolate) {
+                for (let j=0;j<interpolationBuffer.length;j++) {
+                  let bufferItem = interpolationBuffer[j];
+                  let to = this.values[i].v;
+                  let from = bufferItem.from;
+                  let time = bufferItem.time;
+                  let keyframe = bufferItem.keyframe;
+                  let totalTime = interpolationBufferTime+primaryBake.values[i][timeKey];
+                  keyframe[this.keys.v] = from + (to-from)*(time/totalTime);
+                }
+                interpolate = false;
+                interpolationBufferTime = 0;
+                interpolationBuffer = [];
+              }
               let keyframe = [];
               keyframe[this.keys.v] = this.values[i].v;
               lastValue = this.values[i].v;
+              interpolate = this.values[i].interpolate;
               data.push(keyframe);
             }
           }

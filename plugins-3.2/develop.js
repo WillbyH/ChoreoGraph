@@ -360,9 +360,9 @@ ChoreoGraph.plugin({
           }
           if ((typeof this.activated=="boolean"&&this.activated)||
             (typeof this.activated=="object"&&this.activated.active)) {
-            if (this.onActive!=null) { this.onActive(this.cg); }
+            if (this.onActive!=null) { this.onActive(this.cg,this); }
           } else {
-            if (this.onInactive!=null) { this.onInactive(this.cg); }
+            if (this.onInactive!=null) { this.onInactive(this.cg,this); }
           }
           this.setStylesAndText();
         };
