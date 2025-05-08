@@ -211,7 +211,9 @@ ChoreoGraph.plugin({
           let frame = this.data[i];
           if (typeof frame[0] === "string") { continue; }
           for (let j=0;j<this.keys.length;j++) {
-            if (frame[j]===undefined) { frame[j] = previousKeyFrame[j]; }
+            if (frame[j]===undefined && previousKeyFrame!==null) {
+              frame[j] = previousKeyFrame[j];
+            }
           }
           previousKeyFrame = frame;
         }
@@ -725,18 +727,26 @@ ChoreoGraph.plugin({
         times = [];
 
         pack() {
-          let output = "";
-
-          return output;
+          // time,time,time
+          return this.times.join(",");
         };
 
         unpack(data) {
-          
+          this.times = [];
+          let timesData = data.split(",");
+          for (let i=0;i<timesData.length;i++) {
+            this.times.push(Number(timesData[i]));
+          }
         };
 
         getBakeData() {
           let data = [];
-          
+          let timeKey = this.animation.keys.indexOf("time");
+          for (let frameNumber=0;frameNumber<this.times.length;frameNumber++) {
+            let frame = [];
+            frame[timeKey] = this.times[frameNumber];
+            data.push(frame);
+          }
           return {values:data};
         };
 
@@ -745,13 +755,11 @@ ChoreoGraph.plugin({
         };
 
         info() {
-          let output = this.frames;
-          if (this.frames>1) { output += " frames "; } else { output += " frame "; }
-          if (this.mode=="framerate") {
-            output += this.fps + " fps";
-          } else {
-            output += this.time + " seconds";
+          let totalDuration = 0;
+          for (let i=0;i<this.times.length;i++) {
+            totalDuration += this.times[i];
           }
+          let output = totalDuration + " seconds over " + this.times.length + " frames";
           return output;
         };
       }
@@ -988,8 +996,7 @@ ChoreoGraph.plugin({
           }
         };
 
-        getBakeData(isPrimaryTrack) {
-          if (isPrimaryTrack) { console.warn("Trigger track must NOT be primary"); }
+        getBakeData() {
           let data = [];
           for (let trigger of this.triggers) {
             let outputTrigger = {part:trigger.part,data:[trigger.type]};
@@ -1006,7 +1013,9 @@ ChoreoGraph.plugin({
         };
 
         info() {
-          let output = this.triggers.length + " triggers ";
+          let output = this.triggers.length + " trigger";
+          if (this.triggers.length>1) { output += "s"; }
+          output += " ";
           for (let trigger of this.triggers) {
             output += trigger.type+" ";
           }
