@@ -10,6 +10,7 @@ ChoreoGraph.plugin({
       animation = null;
       track = null;
       autobake = false;
+      preventUndoRedo = false;
       undoStack = [];
       redoStack = [];
       lastPack = null;
@@ -631,20 +632,6 @@ ChoreoGraph.plugin({
           }
           c.stroke();
         }
-
-        for (let grabbablePoint of editor.path.grabbablePoints) {
-          let point = grabbablePoint.point;
-          let distance = Math.sqrt((cg.Input.cursor.x-point[0])**2+(cg.Input.cursor.y-point[1])**2);
-          c.beginPath();
-          if (distance<cg.settings.animationeditor.grabDistance*cg.Input.cursor.canvas.camera.z) {
-            c.strokeStyle = "red";
-          } else {
-            c.strokeStyle = "green";
-          }
-          c.moveTo(point[0],point[1]);
-          c.lineTo(cg.Input.cursor.x,cg.Input.cursor.y);
-          // c.stroke();
-        }
       }
     };
 
@@ -877,6 +864,8 @@ ChoreoGraph.plugin({
       deleteable = false;
       addable = false;
 
+      strictFloatTypeModify = false;
+
       add = null;
 
       keyFrames = [];
@@ -897,6 +886,7 @@ ChoreoGraph.plugin({
       part = 0;
       modifiableValues = [];
       toggleButtons = [];
+      callbackGenerators = [];
     };
 
     getTrackDopeSheetData(cg,trackIndex) {
@@ -907,6 +897,7 @@ ChoreoGraph.plugin({
 
       if (track.type==="path") {
         trackData.modifiable = true;
+        trackData.strictFloatTypeModify = true;
 
         function modify(cg,keyFrame,dataIndex,value) {
           keyFrame.data[dataIndex] = value;
@@ -943,6 +934,7 @@ ChoreoGraph.plugin({
         trackData.moveable = true;
         trackData.deleteable = true;
         trackData.addable = true;
+        trackData.strictFloatTypeModify = true;
 
         trackData.values = track.values;
 
@@ -1077,22 +1069,23 @@ ChoreoGraph.plugin({
             if (trigger.part==part) { return; }
           }
           let trigger = {part:part,type:"",data:[]};
-          trackData.triggers.push(trigger);
-          // let graphic = cg.graphics.animation_editor_dopesheet;
-          // graphic.selectedDopeSheetTrackData = ChoreoGraph.AnimationEditor.getTrackDopeSheetData(cg,this.trackIndex);
-          // let selectedIndex = 0;
-          // for (let keyIndex=0;keyIndex<this.values.length&&keyIndex<part;keyIndex++) {
-          //   let value = this.values[keyIndex]?.v;
-          //   if (value!==undefined) {
-          //     selectedIndex++;
-          //   }
-          // }
-          // graphic.selectedKeyFrame = selectedIndex;
-          // graphic.selectedTrack = this.trackIndex;
-          // graphic.selectedKeyFrameData = graphic.selectedDopeSheetTrackData.keyFrames[selectedIndex];
+          this.triggers.push(trigger);
+          let graphic = cg.graphics.animation_editor_dopesheet;
+          let countLower = 0;
+          for (let trigger of this.track.triggers) {
+            if (trigger.part<part) {
+              countLower++;
+            }
+          }
+          this.triggers.sort((a,b) => { return a.part-b.part; });
 
-          // ChoreoGraph.AnimationEditor.updateDopeSheetUI(cg);
+          graphic.selectedDopeSheetTrackData = ChoreoGraph.AnimationEditor.getTrackDopeSheetData(cg,this.trackIndex);
+          graphic.selectedKeyFrameData = graphic.selectedDopeSheetTrackData.keyFrames[countLower];
+          graphic.selectedKeyFrame = countLower;
+          graphic.selectedTrack = this.trackIndex;
+
           ChoreoGraph.AnimationEditor.updateAnimationOverview(cg);
+          ChoreoGraph.AnimationEditor.updateDopeSheetUI(cg);
         };
 
         for (let i=0;i<track.triggers.length;i++) {
@@ -1102,9 +1095,19 @@ ChoreoGraph.plugin({
           keyFrame.modifiableValues = [trigger.part,trigger.type];
           keyFrame.triggers = track.triggers;
           keyFrame.trigger = trigger;
+          let text = "";
+          for (let data of trigger.data) {
+            text += data.value + ", ";
+          }
+          text = text.substring(0,text.length-2);
+          keyFrame.text = text;
 
           keyFrame.modify = function(cg,keyFrame,dataIndex,value) {
-            keyFrame.triggers[keyFrame.part] = value;
+            if (dataIndex==0) {
+              keyFrame.trigger.part = Number(value);
+            } else if (dataIndex==1) {
+              keyFrame.trigger.type = value;
+            } 
           }
 
           keyFrame.move = function(cg,keyFrame,part) {
@@ -1123,6 +1126,166 @@ ChoreoGraph.plugin({
             ChoreoGraph.AnimationEditor.updateDopeSheetUI(cg);
             ChoreoGraph.AnimationEditor.updateAnimationOverview(cg);
           }
+
+          keyFrame.callbackGenerators.push((cg,div,keyFrame)=>{
+            for (let i=0;i<keyFrame.trigger.data.length;i++) {
+              let data = keyFrame.trigger.data[i];
+              let value = data.value;
+              let dropdown = document.createElement("select");
+              dropdown.cg = cg;
+              dropdown.keyFrame = keyFrame;
+              dropdown.dataIndex = i;
+              dropdown.style.marginRight = "5px";
+              dropdown.style.fontSize = "15px";
+              dropdown.style.padding = "6px";
+              dropdown.style.border = "2px solid grey";
+              dropdown.style.borderRadius = "5px";
+              dropdown.style.background = "black";
+              dropdown.style.color = "white";
+              dropdown.style.fontFamily = "consolas";
+              
+              for (let type of ["number","string","boolean","undefined","evaluate"]) {
+                let option = document.createElement("option");
+                option.text = type;
+                dropdown.add(option);
+              }
+              if (data.evaluate) {
+                dropdown.value = "evaluate";
+              } else {
+                dropdown.value = typeof value;
+              }
+
+              dropdown.onchange = (e) => {
+                let type = e.target.value;
+                let data = keyFrame.trigger.data[e.target.dataIndex];
+                data.evaluate = false;
+                if (type=="number") {
+                  if (typeof data.value==="string") {
+                    data.value = Number(data.value);
+                    if (isNaN(data.value)) {
+                      data.value = 0;
+                    }
+                  } else {
+                    data.value = 0;
+                  }
+                } else if (type=="string") {
+                  if (typeof data.value==="number") {
+                    data.value = String(data.value);
+                  } else {
+                    data.value = "";
+                  }
+                } else if (type=="boolean") {
+                  data.value = true;
+                } else if (type=="undefined") {
+                  data.value = undefined;
+                } else if (type=="evaluate") {
+                  data.evaluate = true;
+                  data.value = String(data.value);
+                }
+                ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+                ChoreoGraph.AnimationEditor.updateDopeSheetUI(e.target.cg,false);
+              }
+              div.appendChild(dropdown);
+
+              if (typeof value === "number" || typeof value === "string") {
+                let input = document.createElement("input");
+                input.type = "text";
+                input.value = value;
+                input.style.fontSize = "15px";
+                input.style.padding = "6px";
+                input.style.border = "2px solid white";
+                input.style.borderRadius = "5px";
+                input.style.background = "black";
+                input.style.color = "white";
+                input.style.fontFamily = "consolas";
+                input.style.width = "auto";
+                input.style.fieldSizing = "content";
+                input.style.marginRight = "5px";
+                input.cg = cg;
+                input.keyFrame = keyFrame;
+                input.dataIndex = i;
+                input.originalValue = value;
+                input.previousValue = value;
+                input.oninput = (e) => {
+                  let value = e.target.value;
+                  let keyFrame = e.target.keyFrame;
+                  let existingValue = keyFrame.trigger.data[e.target.dataIndex].value;
+                  if (typeof existingValue === "number") {
+                    keyFrame.trigger.data[e.target.dataIndex].value = Number(value);
+                  } else if (typeof existingValue === "string") {
+                    keyFrame.trigger.data[e.target.dataIndex].value = String(value);
+                  }
+                  e.target.previousValue = e.target.value;
+                }
+                input.onblur = (e) => {
+                  cg.AnimationEditor.preventUndoRedo = false;
+                  let original = parseFloat(e.target.originalValue);
+                  let value = parseFloat(e.target.value);
+                  if (original!==value) {
+                    ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+                  }
+                }
+                input.onfocus = (e) => {
+                  cg.AnimationEditor.preventUndoRedo = true;
+                }
+                div.appendChild(input);
+              } else if (typeof value === "boolean") {
+                let checkbox = document.createElement("input");
+                checkbox.type = "checkbox";
+                checkbox.checked = value;
+                checkbox.style.marginRight = "5px";
+                checkbox.cg = cg;
+                checkbox.keyFrame = keyFrame;
+                checkbox.dataIndex = i;
+                checkbox.onchange = (e) => {
+                  let keyFrame = e.target.keyFrame;
+                  keyFrame.trigger.data[e.target.dataIndex].value = e.target.checked;
+                  ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+                }
+                div.appendChild(checkbox);
+              }
+            }
+
+            function styleAddRemove(button) {
+              button.classList.add("develop_button");
+              button.classList.add("btn_action");
+              button.style.margin = "0px";
+              button.style.marginRight = "5px";
+              button.style.padding = "6px";
+              button.style.fontSize = "15px";
+              button.style.border = "2px solid grey";
+              button.style.borderRadius = "50px";
+              button.style.color = "white";
+              button.style.fontFamily = "consolas";
+              button.style.width = "34px";
+              button.style.verticalAlign = "top";
+            }
+
+            let removeButton = document.createElement("button");
+            removeButton.innerHTML = "-";
+            styleAddRemove(removeButton);
+            removeButton.trigger = keyFrame.trigger;
+            removeButton.cg = cg;
+            removeButton.onclick = (e) => {
+              e.target.trigger.data.pop();
+              ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+              ChoreoGraph.AnimationEditor.updateDopeSheetUI(e.target.cg,false);
+            }
+            div.appendChild(removeButton);
+
+            let addButton = document.createElement("button");
+            addButton.innerHTML = "+";
+            styleAddRemove(addButton);
+            addButton.trigger = keyFrame.trigger;
+            addButton.cg = cg;
+            addButton.onclick = (e) => {
+              let trigger = e.target.trigger;
+              trigger.data.push({value:"",evaluate:false});
+              ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+              ChoreoGraph.AnimationEditor.updateDopeSheetUI(e.target.cg,false);
+            }
+            div.appendChild(addButton);
+          });
 
           trackData.keyFrames.push(keyFrame);
         }
@@ -1193,27 +1356,44 @@ ChoreoGraph.plugin({
           input.dataIndex = dataIndex;
           input.originalValue = value;
           input.previousValue = value;
+          input.strictFloatTypeModify = trackData.strictFloatTypeModify;
+
           input.oninput = (e) => {
-            if (!(["0","1","2","3","4","5","6","7","8","9",".",null].includes(e.data))) {
-              e.target.value = e.target.previousValue;
-              e.target.blur();
-              return;
+            if (e.target.strictFloatTypeModify) {
+              if (!(["0","1","2","3","4","5","6","7","8","9",".",null].includes(e.data))) {
+                e.target.value = e.target.previousValue;
+                e.target.blur();
+                return;
+              }
+              let value = parseFloat(e.target.value);
+              if (!isNaN(value)) {
+                keyFrame.modifiableValues[e.target.dataIndex] = e.target.value;
+                e.target.keyFrame.modify(e.target.cg,e.target.keyFrame,e.target.dataIndex,value);
+              }
+              e.target.previousValue = e.target.value;
+            } else {
+              keyFrame.modifiableValues[e.target.dataIndex] = e.target.value;
+              e.target.keyFrame.modify(e.target.cg,e.target.keyFrame,e.target.dataIndex,e.target.value);
             }
-            let value = parseFloat(e.target.value);
-            if (!isNaN(value)) {
-              e.target.keyFrame.modify(e.target.cg,e.target.keyFrame,e.target.dataIndex,value);
-            }
-            e.target.previousValue = e.target.value;
           }
           input.onblur = (e) => {
-            let original = parseFloat(e.target.originalValue);
-            let value = parseFloat(e.target.value);
+            cg.AnimationEditor.preventUndoRedo = false;
+            let original = e.target.originalValue;
+            let value = e.target.value;
+            if (e.target.strictFloatTypeModify) {
+              original = parseFloat(original);
+              value = parseFloat(value);
+            }
             if (original!==value) {
               ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
             }
           }
+          input.onfocus = (e) => {
+            cg.AnimationEditor.preventUndoRedo = true;
+          }
           div.appendChild(input);
           if (selectModify&&dataIndex==0) {
+            cg.AnimationEditor.preventUndoRedo = true;
             input.focus();
             input.select();
           }
@@ -1225,6 +1405,10 @@ ChoreoGraph.plugin({
         button.element.style.marginRight = "5px";
         button.element.style.padding = "6px";
         div.appendChild(button.element);
+      }
+
+      for (let callback of keyFrame.callbackGenerators) {
+        callback(cg,div,keyFrame);
       }
     };
 
@@ -2228,6 +2412,7 @@ ChoreoGraph.plugin({
     };
 
     undo(cg) {
+      if (cg.AnimationEditor.preventUndoRedo) { return; }
       if (cg.AnimationEditor.undoStack.length>0) {
         let selectedType = cg.AnimationEditor.track.type;
         let packedData = cg.AnimationEditor.undoStack.pop();
@@ -2242,6 +2427,7 @@ ChoreoGraph.plugin({
     };
 
     redo(cg) {
+      if (cg.AnimationEditor.preventUndoRedo) { return; }
       if (cg.AnimationEditor.redoStack.length>0) {
         let selectedType = cg.AnimationEditor.track.type;
         let packedData = cg.AnimationEditor.redoStack.pop();

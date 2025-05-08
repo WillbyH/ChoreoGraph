@@ -901,6 +901,7 @@ ChoreoGraph.plugin({
         };
 
         encode(string) {
+          if (typeof string !== "string") { return string; }
           let encodeCharacters = [" ","!",'"',"'","`","#","$","%","&","(",")","[","]","{","}","<",">","/","\\","|","~","^","*","+","-","=","_",".",",",";",":","?","@"];
           let rawEncode = {
             "-" : "%2D",
@@ -958,7 +959,7 @@ ChoreoGraph.plugin({
                 output += trigger.data[j].value ? "1" : "0";
               } else if (type==="number") {
                 output += trigger.data[j].value;
-              } else {
+              } else if (type!=="undefined") {
                 output += this.encode(trigger.data[j].value);
               }
             }
