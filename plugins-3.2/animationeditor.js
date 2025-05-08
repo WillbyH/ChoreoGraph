@@ -1262,6 +1262,7 @@ ChoreoGraph.plugin({
           this.dragMode = null; // move resize
 
           this.moving = false;
+          this.startMovingCurX = 0;
 
           this.hasSetInitalPosition = false;
 
@@ -1373,20 +1374,21 @@ ChoreoGraph.plugin({
             if (trackData.addable&&cursor!==undefined&&grabbablePointInRange==false) {
               let y = trackY;
               let verticalDistance = Math.abs(cursor.y-y);
-              if (verticalDistance>9.5) { continue; }
-              let x = (cursor.x-transform.x)/this.partSpacing;
-              x = Math.max(0,Math.min(partCount-1,x));
-              if (trackData.lockToParts) { x = Math.round(x); }
-              c.beginPath();
-              c.arc(x*this.partSpacing,trackY,5,0,2*Math.PI);
-              c.strokeStyle = "#00a233";
-              if (this.moving) {
-                c.strokeStyle = "#ff00ff";
-              }
-              c.lineWidth = 1.4;
-              c.stroke();
-              if (cursor.impulseDown.left) {
-                trackData.add(cg,x);
+              if (verticalDistance<9.5) {
+                let x = (cursor.x-transform.x)/this.partSpacing;
+                x = Math.max(0,Math.min(partCount-1,x));
+                if (trackData.lockToParts) { x = Math.round(x); }
+                c.beginPath();
+                c.arc(x*this.partSpacing,trackY,5,0,2*Math.PI);
+                c.strokeStyle = "#00a233";
+                if (this.moving) {
+                  c.strokeStyle = "#ff00ff";
+                }
+                c.lineWidth = 1.4;
+                c.stroke();
+                if (cursor.impulseDown.left) {
+                  trackData.add(cg,x);
+                }
               }
             }
             c.font = "12px Arial";
@@ -1411,33 +1413,45 @@ ChoreoGraph.plugin({
 
           if (cursor!==undefined) {
             if (cursor.impulseDown.left) {
+              let closestDistance = Infinity;
+              let closestPoint = null;
               for (let i=0;i<grabbablePoints.length;i++) {
                 let point = grabbablePoints[i];
                 let distance = Math.sqrt((cursor.x-transform.x-point.x)**2+(cursor.y-point.y)**2);
                 if (distance<grabbableDistance) {
-                  this.selectedKeyFrame = point.keyFrameIndex;
-                  this.selectedTrack = point.trackIndex;
-                  this.selectedKeyFrameData = point.keyFrame;
-                  this.selectedDopeSheetTrackData = point.trackData;
-                  ChoreoGraph.AnimationEditor.updateDopeSheetUI(cg);
-                  if (point.trackData.moveable) {
-                    this.moving = true;
+                  if (distance<closestDistance) {
+                    closestDistance = distance;
+                    closestPoint = point;
                   }
-                  break;
+                }
+              }
+              if (closestPoint!=null) {
+                this.selectedKeyFrame = closestPoint.keyFrameIndex;
+                this.selectedTrack = closestPoint.trackIndex;
+                this.selectedKeyFrameData = closestPoint.keyFrame;
+                this.selectedDopeSheetTrackData = closestPoint.trackData;
+                ChoreoGraph.AnimationEditor.updateDopeSheetUI(cg);
+                if (closestPoint.trackData.moveable) {
+                  this.moving = true;
+                  this.startMovingCurX = cursor.x;
                 }
               }
             }
             if (cursor.impulseUp.left) {
               if (this.moving) {
                 this.moving = false;
-                let y = this.selectedTrack*20-(10*animation.tracks.length)+15;
-                let verticalDistance = Math.abs(cursor.y-y);
-                if (verticalDistance<9.5) {
-                  let x = (cursor.x-transform.x)/this.partSpacing;
-                  x = Math.max(0,Math.min(partCount-1,x));
-                  let trackData = this.selectedDopeSheetTrackData;
-                  if (trackData.lockToParts) { x = Math.round(x); }
-                  this.selectedKeyFrameData.move(cg,this.selectedKeyFrameData,x);
+                let minDistance = 3;
+                let distance = Math.abs(this.startMovingCurX-cursor.x);
+                if (distance>minDistance) {
+                  let y = this.selectedTrack*20-(10*animation.tracks.length)+15;
+                  let verticalDistance = Math.abs(cursor.y-y);
+                  if (verticalDistance<9.5) {
+                    let x = (cursor.x-transform.x)/this.partSpacing;
+                    x = Math.max(0,Math.min(partCount-1,x));
+                    let trackData = this.selectedDopeSheetTrackData;
+                    if (trackData.lockToParts) { x = Math.round(x); }
+                    this.selectedKeyFrameData.move(cg,this.selectedKeyFrameData,x);
+                  }
                 }
               }
             }
