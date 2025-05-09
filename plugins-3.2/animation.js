@@ -51,9 +51,9 @@ ChoreoGraph.plugin({
               let yKey = -1;
               let rKey = -1;
               for (let k=0;k<animation.keys.length;k++) {
-                if (JSON.stringify(animation.keys[k])==JSON.stringify(cg.settings.animation.debug.pathXKey)) { xKey = k; }
-                if (JSON.stringify(animation.keys[k])==JSON.stringify(cg.settings.animation.debug.pathYKey)) { yKey = k; }
-                if (JSON.stringify(animation.keys[k])==JSON.stringify(cg.settings.animation.debug.pathRKey)) { rKey = k; }
+                if (JSON.stringify(animation.keys[k].keySet)==JSON.stringify(cg.settings.animation.debug.pathXKey)) { xKey = k; }
+                if (JSON.stringify(animation.keys[k].keySet)==JSON.stringify(cg.settings.animation.debug.pathYKey)) { yKey = k; }
+                if (JSON.stringify(animation.keys[k].keySet)==JSON.stringify(cg.settings.animation.debug.pathRKey)) { rKey = k; }
               }
               if (xKey==-1||yKey==-1) { continue; }
 
@@ -178,23 +178,43 @@ ChoreoGraph.plugin({
           let data;
           if (trackData.length>0) { data = track.getBakeData(trackData[0]); }
           else { data = track.getBakeData(); }
+          data.track = track;
           trackData.push(data);
         }
 
-        // COMBINE VALUES AND COLLECT INSERTS
+        // COMBINE VALUES
         this.data = [];
-        let inserts = [];
-        for (let i=0;i<trackData.length;i++) {
-          if (trackData[i].values!==undefined) {
-            for (let j=0;j<trackData[i].values.length;j++) {
-              if (this.data[j]===undefined) { this.data[j] = []; }
-              for (let k=0;k<trackData[i].values[j].length;k++) {
-                let value = trackData[i].values[j][k];
-                if (value===undefined) { continue; }
-                this.data[j][k] = value;
+        for (let keyIndex=0;keyIndex<this.keys.length;keyIndex++) {
+          let key = this.keys[keyIndex];
+          if (key.keySet==="time") {
+            for (let i=0;i<trackData[0].values.length;i++) {
+              if (this.data[i]===undefined) { this.data[i] = []; }
+              let keyFrame = trackData[0].values[i];
+              if (keyFrame[0]!==undefined) {
+                this.data[i][keyIndex] = keyFrame[0];
               }
             }
           }
+          for (let source of key.sources) {
+            let trackIndex = source[0];
+            let track = this.tracks[trackIndex];
+            let streamIndex = track.streams.indexOf(source[1]);
+            if (trackIndex==0) { streamIndex++; }
+            if (trackData[trackIndex].values!==undefined) {
+              for (let i=0;i<trackData[trackIndex].values.length;i++) {
+                if (this.data[i]===undefined) { this.data[i] = []; }
+                let keyFrame = trackData[trackIndex].values[i];
+                if (keyFrame[streamIndex]!==undefined) {
+                  this.data[i][keyIndex] = keyFrame[streamIndex];
+                }
+              }
+            }
+          }
+        }
+
+        // COLLECT INSERTS
+        let inserts = [];
+        for (let i=0;i<trackData.length;i++) {
           if (trackData[i].inserts!==undefined) {
             for (let j=0;j<trackData[i].inserts.length;j++) {
               let insert = trackData[i].inserts[j];
@@ -205,7 +225,7 @@ ChoreoGraph.plugin({
           }
         }
 
-        // SET PERSISTENT VALUES
+        // SET PERSISTENT VALUES AND ZEROING
         let previousKeyFrame = null;
         for (let i=0;i<this.data.length;i++) {
           let frame = this.data[i];
@@ -213,6 +233,8 @@ ChoreoGraph.plugin({
           for (let j=0;j<this.keys.length;j++) {
             if (frame[j]===undefined && previousKeyFrame!==null) {
               frame[j] = previousKeyFrame[j];
+            } else if (frame[j]===undefined && previousKeyFrame === null) {
+              frame[j] = 0;
             }
           }
           previousKeyFrame = frame;
@@ -252,13 +274,32 @@ ChoreoGraph.plugin({
 
       pack() {
         let output = "";
-        this.timeKey = this.keys.indexOf("time");
+        this.timeKey = this.getTimeKey();
         if (this.timeKey==-1) { this.timeKey = "!"; }
-        output += this.timeKey+":";
+
+        // timeKeyData : regularKeyData | regularKeyData
+        // timeKeyData = timeKeyIndex ; timeKeyOverrideTrackIndex ; timeKeyOverrideStream
+        // regularKeyData = keySet ; keyTrackIndex ; keyStream ; keyOverrideTrackIndex ; keyOverrideStream
+        // keySet = objectKey , objectKey , objectKey
+
+        output += this.timeKey;
+        output += ";";
+        if (this.timeKey!=="!") {
+          for (let source of this.keys[this.timeKey].sources) {
+            output += source[0]+","+source[1]+";";
+          }
+        }
+        output = output.slice(0,-1);
+        output += ":";
         for (let i=0;i<this.keys.length;i++) {
-          if (this.keys[i]==="time") { continue; }
-          for (let key of this.keys[i]) {
+          if (this.keys[i].keySet==="time") { continue; }
+          for (let key of this.keys[i].keySet) {
             output += key+",";
+          }
+          output = output.slice(0,-1);
+          output += ";";
+          for (let source of this.keys[i].sources) {
+            output += source[0]+","+source[1]+";";
           }
           output = output.slice(0,-1);
           if (i!=this.keys.length-1) { output += "|"; }
@@ -278,23 +319,37 @@ ChoreoGraph.plugin({
         this.tracks = [];
         this.keys = [];
         let keyData = data.split("&")[0];
-        let timeKey = keyData.split(":")[0];
-        this.keys[timeKey] = "time";
-        this.timeKey = parseInt(timeKey);
-        let keys = keyData.split(":")[1].split("|");
-        let keySetIndex = 0;
-        for (let i=0;i<keys.length;i++) {
-          if (keySetIndex==timeKey) {
-            this.keys[keySetIndex] = "time";
+        let timeKeyData = keyData.split(":")[0].split(";");
+        this.timeKey = parseInt(timeKeyData[0]);
+        this.keys[this.timeKey] = {keySet:"time",sources:[]};
+        timeKeyData.shift();
+        for (let source of timeKeyData) {
+          let trackIndex = parseInt(source.split(",")[0]);
+          let sourceStream = source.split(",")[1];
+          this.keys[this.timeKey].sources.push([trackIndex,sourceStream]);
+        }
+
+        if (keyData.includes(":")) {
+          let keys = keyData.split(":")[1].split("|");
+          let keySetIndex = 0;
+          for (let i=0;i<keys.length;i++) {
+            if (keySetIndex==this.timeKey) { keySetIndex++; }
+            let keyList = keys[i].split(";")[0].split(",");
+            let sourceList = keys[i].split(";");
+            sourceList.shift();
+            this.keys[keySetIndex] = {keySet:[],sources:[]};
+            for (let key of keyList) {
+              this.keys[keySetIndex].keySet.push(key);
+            }
+            for (let source of sourceList) {
+              let trackIndex = parseInt(source.split(",")[0]);
+              let sourceStream = source.split(",")[1];
+              this.keys[keySetIndex].sources.push([trackIndex,sourceStream]);
+            }
             keySetIndex++;
           }
-          let keyList = keys[i].split(",");
-          this.keys[keySetIndex] = [];
-          for (let key of keyList) {
-            this.keys[keySetIndex].push(key);
-          }
-          keySetIndex++;
         }
+
         let tracksData = data.split("&");
         tracksData.shift();
         for (let trackData of tracksData) {
@@ -317,6 +372,17 @@ ChoreoGraph.plugin({
           ChoreoGraph.AnimationEditor.updateAnimationOverview(this.cg.cg,false);
         }
       };
+
+      getTimeKey() {
+        this.timeKey = -1;
+        for (let i=0;i<this.keys.length;i++) {
+          if (this.keys[i].keySet=="time") {
+            this.timeKey = i;
+            break;
+          }
+        }
+        return this.timeKey;
+      };
     };
 
     PrimaryTrackTypes = {
@@ -324,11 +390,8 @@ ChoreoGraph.plugin({
         type = "path";
 
         segments = [];
-        keys = {
-          x : -1,
-          y : -1,
-          r : -1
-        }
+        streams = ["x","y","r"];
+        keys = {x:-1,y:-1,r:-1};
 
         constructor(cg) {
           this.density = cg.settings.animation.defaultPathDensity;
@@ -336,7 +399,7 @@ ChoreoGraph.plugin({
         };
 
         pack() {
-          // xIndex,yIndex:density:trackData
+          // density:trackData
           // trackData -> startX,startY,controlAX,controlAY,controlBX,controlBY,endX,endY
 
           // ! means no control point (comes after startY/controlAY)
@@ -346,8 +409,6 @@ ChoreoGraph.plugin({
           // + means _~ / !!~ (comes after startY)
 
           let output = "";
-          output += this.keys.x+","+this.keys.y+","+this.keys.r;
-          output += ":";
           output += this.density
           output += ":";
           function chop(number,cg) {
@@ -407,11 +468,8 @@ ChoreoGraph.plugin({
         };
 
         unpack(data) {
-          this.keys.x = parseInt(data.split(":")[0].split(",")[0]);
-          this.keys.y = parseInt(data.split(":")[0].split(",")[1]);
-          this.keys.r = parseInt(data.split(":")[0].split(",")[2]);
-          this.density = parseInt(data.split(":")[1]);
-          let segments = data.split(":")[2];
+          this.density = parseInt(data.split(":")[0]);
+          let segments = data.split(":")[1];
           let pointer = 0;
           let previousSegment = null;
           let numberChars = "0123456789.-";
@@ -495,6 +553,10 @@ ChoreoGraph.plugin({
         };
 
         getBakeData() {
+          let timeStreamIndex = 0;
+          let xStreamIndex = this.streams.indexOf("x") + 1;
+          let yStreamIndex = this.streams.indexOf("y") + 1;
+          let rStreamIndex = this.streams.indexOf("r") + 1;
           let data = [];
           let previousPoint = null;
           let previousDisconnected = false;
@@ -546,8 +608,8 @@ ChoreoGraph.plugin({
               }
               r = r + overrotationOffset;
 
-              if (applyRotationNext&&track.keys.r!==-1) {
-                data[data.length-1][track.keys.r] = r;
+              if (applyRotationNext) {
+                data[data.length-1][rStreamIndex] = r;
               }
               applyRotationNext = false;
             } else {
@@ -557,10 +619,10 @@ ChoreoGraph.plugin({
 
             previousPoint = [x,y];
             let keyframe = [];
-            if (track.keys.x!==-1) { keyframe[track.keys.x] = x; }
-            if (track.keys.y!==-1) { keyframe[track.keys.y] = y; }
-            if (track.keys.r!==-1) { keyframe[track.keys.r] = r; }
-            keyframe[track.animation.keys.indexOf("time")] = time;
+            keyframe[timeStreamIndex] = time;
+            keyframe[xStreamIndex] = x;
+            keyframe[yStreamIndex] = y;
+            keyframe[rStreamIndex] = r;
             data.push(keyframe);
           }
           for (let i=0;i<this.segments.length;i++) {
@@ -686,19 +748,18 @@ ChoreoGraph.plugin({
 
         getBakeData() {
           let data = [];
-          let timeKey = this.animation.keys.indexOf("time");
           for (let frameNumber=0;frameNumber<this.frames;frameNumber++) {
             let frame = [];
             if (this.mode=="framerate") {
-              frame[timeKey] = 1/this.fps;
+              frame[0] = 1/this.fps;
             } else if (this.mode=="time") {
               if (this.time.includes("/")) {
                 let split = this.time.split("/");
                 let numerator = parseInt(split[0]);
                 let denominator = parseInt(split[1]);
-                frame[timeKey] = numerator/denominator;
+                frame[0] = numerator/denominator;
               } else {
-                frame[timeKey] = Number(this.time);
+                frame[0] = Number(this.time);
               }
             }
             data.push(frame);
@@ -741,11 +802,8 @@ ChoreoGraph.plugin({
 
         getBakeData() {
           let data = [];
-          let timeKey = this.animation.keys.indexOf("time");
           for (let frameNumber=0;frameNumber<this.times.length;frameNumber++) {
-            let frame = [];
-            frame[timeKey] = this.times[frameNumber];
-            data.push(frame);
+            data.push([this.times[frameNumber]]);
           }
           return {values:data};
         };
@@ -768,9 +826,7 @@ ChoreoGraph.plugin({
       value : class cgValueAnimationTrack {
         type = "value";
 
-        keys = {
-          v : -1
-        }
+        streams = ["v"];
 
         values = [];
 
@@ -779,12 +835,10 @@ ChoreoGraph.plugin({
         }
 
         pack() {
-          // index,values
+          // values
           // values -> + empties , disconnected value ! connected value
 
           let output = "";
-          output += this.keys.v+",";
-          output += ":";
           let valuesData = "";
           let empties = 0;
           for (let i=0;i<this.values.length;i++) {
@@ -815,33 +869,29 @@ ChoreoGraph.plugin({
             number = Number(number);
             return [number,pointer]
           }
-          this.keys.v = parseInt(data.split(":")[0].split(",")[0]);
           this.values = [];
-          let valuesData = data.split(":")[1];
           let pointer = 0;
-          while (pointer<valuesData.length) {
+          while (pointer<data.length) {
             let value = 0;
-            if (valuesData[pointer]=="+") {
+            if (data[pointer]=="+") {
               pointer++;
-              [value, pointer] = getNumber(valuesData,pointer);
+              [value, pointer] = getNumber(data,pointer);
               for (let i=0;i<value;i++) {
                 this.values.push(undefined);
               }
-            } else if (valuesData[pointer]==",") {
+            } else if (data[pointer]==",") {
               pointer++;
-              [value, pointer] = getNumber(valuesData,pointer);
+              [value, pointer] = getNumber(data,pointer);
               this.values.push({v:value,interpolate:false});
-            } else if (valuesData[pointer]=="!") {
+            } else if (data[pointer]=="!") {
               pointer++;
-              [value, pointer] = getNumber(valuesData,pointer);
+              [value, pointer] = getNumber(data,pointer);
               this.values.push({v:value,interpolate:true});
             }
           }
         };
 
         getBakeData(primaryBake) {
-          let timeKey = this.animation.keys.indexOf("time");
-          if (this.keys.v==-1) { return [];}
           let data = [];
           let lastValue = 0;
           let interpolationBuffer = [];
@@ -852,10 +902,10 @@ ChoreoGraph.plugin({
             if (this.values[i]===undefined) {
               let keyframe = [];
               if (interpolate) {
-                interpolationBufferTime += primaryBake.values[i][timeKey];
+                interpolationBufferTime += primaryBake.values[i][0];
                 interpolationBuffer.push({from:lastValue,time:interpolationBufferTime,keyframe:keyframe});
               } else {
-                keyframe[this.keys.v] = undefined;
+                keyframe[0] = undefined;
               }
               data.push(keyframe);
             } else {
@@ -866,15 +916,15 @@ ChoreoGraph.plugin({
                   let from = bufferItem.from;
                   let time = bufferItem.time;
                   let keyframe = bufferItem.keyframe;
-                  let totalTime = interpolationBufferTime+primaryBake.values[i][timeKey];
-                  keyframe[this.keys.v] = from + (to-from)*(time/totalTime);
+                  let totalTime = interpolationBufferTime+primaryBake.values[i][0];
+                  keyframe[0] = from + (to-from)*(time/totalTime);
                 }
                 interpolate = false;
                 interpolationBufferTime = 0;
                 interpolationBuffer = [];
               }
               let keyframe = [];
-              keyframe[this.keys.v] = this.values[i].v;
+              keyframe[0] = this.values[i].v;
               lastValue = this.values[i].v;
               interpolate = this.values[i].interpolate;
               data.push(keyframe);
@@ -1318,14 +1368,15 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
     this.connectionData.keys = [];
 
     for (let key of this.animation.keys) {
-      if (key=="time") { continue; }
+      let keySet = key.keySet;
+      if (keySet=="time") { continue; }
       let keyData = {
-        key : key[key.length-1],
+        key : keySet[keySet.length-1],
         object : this.object
       };
-      if (key.length>1) {
-        for (let i=0;i<key.length-1;i++) {
-          keyData.object = keyData.object[key[i]];
+      if (keySet.length>1) {
+        for (let i=0;i<keySet.length-1;i++) {
+          keyData.object = keyData.object[keySet[i]];
         }
       }
       this.connectionData.keys.push(keyData);

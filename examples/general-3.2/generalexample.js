@@ -78,7 +78,7 @@ cg.Audio.sounds.magneticPlane.play({allowBuffer:true,loop:true});
 //   console.log(key);
 // }
 
-let testAnim = cg.Animation.createAnimationFromPacked("4:transform,x|transform,y|transform,r|Graphic,graphic,width&path=0,1,2:15:154,369,102,315,116,202~169,157,222,112,315,91,349,141^424,309,452,363,359,383~296,356,233,329,220,271~255,234,290,197,410,154,498,196&value=3,:,5+4!10+1,20+7!15+1,5+14!10+3,50+16!60+3,100",{},"testAnim");
+let testAnim = cg.Animation.createAnimationFromPacked("4:transform,x;0,x|transform,y;0,y|transform,r;0,r|Graphic,graphic,width;1,v&path=15:154,369,102,315,116,202~169,157,222,112,315,91,349,141^424,309,452,363,359,383~296,356,233,329,220,271~255,234,290,197,410,154,498,196&value=,5+4!10+1,20+7!15+1,5+14!10+3,50+16!60+3,100",{},"testAnim");
 
 cg.createObject({},"animatedObject")
 .attach("Animator",{animation:testAnim,speed:300})

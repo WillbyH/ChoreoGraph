@@ -1583,8 +1583,14 @@ ChoreoGraph.plugin({
             if (countTrackTypes[name]>1) {
               name += " "+(trackIndex);
             }
-            if (track.type=="value"&&track.keys.v!==-1) {
-              name += " ("+animation.keys[track.keys.v]+")";
+            if (track.type=="value") {
+              for (let key of animation.keys) {
+                for (let source of key.sources) {
+                  if (source[0]==trackIndex) {
+                    name += " ("+key.keySet+")";
+                  }
+                }
+              }
             }
             c.lineWidth = 15;
             c.miterLimit = 2;
@@ -1709,6 +1715,7 @@ ChoreoGraph.plugin({
           graphic.hasSetInitalPosition = true;
           transform.x = -canvas.width/2+80;
         }
+        if (cg.AnimationEditor.animation==null) { return; }
         let height = cg.AnimationEditor.animation.tracks.length*20+40;
         if (cg.AnimationEditor.ui.dopeSheetCanvasContainer.style.height!==height+"px") {
           cg.AnimationEditor.ui.dopeSheetCanvasContainer.style.height = height+"px";
@@ -1959,6 +1966,7 @@ ChoreoGraph.plugin({
     };
 
     updateKeyEditing(cg) {
+      if (cg.AnimationEditor.animation==null) { return; }
       let div = cg.AnimationEditor.ui.keyEditing;
       div.innerHTML = "";
       div.style.marginTop = "20px";
@@ -1969,35 +1977,35 @@ ChoreoGraph.plugin({
         countTrackTypes[track.type]++;
       }
 
-      let trackLinks = [];
+      let streams = [];
       for (let trackIndex=0;trackIndex<cg.AnimationEditor.animation.tracks.length;trackIndex++) {
         let track = cg.AnimationEditor.animation.tracks[trackIndex];
-        for (let trackKey in track.keys) {
-          let keyIndex = track.keys[trackKey];
+        if (track.streams==undefined) { continue; }
+        for (let streamName of track.streams) {
           let name;
           if (countTrackTypes[track.type]>1) {
-            name = track.type + trackIndex + " " + trackKey;
+            name = track.type + trackIndex + " " + streamName;
           } else {
-            name = track.type + " " + trackKey;
+            name = track.type + " " + streamName;
           }
-          let isUsedMoreThanOnce = false;
-          for (let otherLinkIndex=0;otherLinkIndex<trackLinks.length;otherLinkIndex++) {
-            let otherLink = trackLinks[otherLinkIndex];
-            if (otherLink.name==name) { continue; }
-            if (otherLink.keyIndex==keyIndex) {
-              isUsedMoreThanOnce = true;
-              otherLink.isUsedMoreThanOnce = true;
-              break;
+          let uses = [];
+          let keyIndex = 0;
+          for (let key of cg.AnimationEditor.animation.keys) {
+            for (let source of key.sources) {
+              if (source[0]==trackIndex && source[1]==streamName) {
+                uses.push(keyIndex);
+              }
             }
+            keyIndex++;
           }
-          let link = {
+          let stream = {
             name : name,
-            keyIndex : keyIndex,
+            key : streamName,
+            track : track,
             trackIndex : trackIndex,
-            trackKey : trackKey,
-            isUsedMoreThanOnce : isUsedMoreThanOnce
+            uses : uses
           }
-          trackLinks.push(link);
+          streams.push(stream);
         }
       }
 
@@ -2016,7 +2024,8 @@ ChoreoGraph.plugin({
       }
 
       let keyIndex = 0;
-      for (let keySet of cg.AnimationEditor.animation.keys) {
+      for (let key of cg.AnimationEditor.animation.keys) {
+        let keySet = key.keySet;
         let set = document.createElement("ul");
         div.appendChild(set);
         set.style.listStyleType = "none";
@@ -2030,11 +2039,11 @@ ChoreoGraph.plugin({
         makeTimeKeyButton.keyIndex = keyIndex;
         makeTimeKeyButton.onclick = (e) => {
           let animation = e.target.cg.AnimationEditor.animation;
-          let prevIndex = animation.keys.indexOf("time");
+          let prevIndex = animation.getTimeKey();
           if (prevIndex>=0) {
             animation.keys[prevIndex] = animation.keys[e.target.keyIndex];
           }
-          animation.keys[e.target.keyIndex] = "time";
+          animation.keys[e.target.keyIndex] = {keySet:"time",sources:[]};
           ChoreoGraph.AnimationEditor.updateKeyEditing(e.target.cg);
         }
         styleButton(makeTimeKeyButton,true);
@@ -2068,10 +2077,10 @@ ChoreoGraph.plugin({
           moveKeyUpButton.style.borderColor = "#333";
         } else {
           moveKeyUpButton.onclick = (e) => {
-            let keySet = e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex];
-            let prevKeySet = e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex-1];
-            e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex] = prevKeySet;
-            e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex-1] = keySet;
+            let keys = e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex];
+            let prevKeys = e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex-1];
+            e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex] = prevKeys;
+            e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex-1] = keys;
             ChoreoGraph.AnimationEditor.updateKeyEditing(e.target.cg);
             ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
           }
@@ -2089,10 +2098,10 @@ ChoreoGraph.plugin({
           moveKeyDownButton.style.borderColor = "#333";
         } else {
           moveKeyDownButton.onclick = (e) => {
-            let keySet = e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex];
-            let nextKeySet = e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex+1];
-            e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex] = nextKeySet;
-            e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex+1] = keySet;
+            let keys = e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex];
+            let prevKeys = e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex+1];
+            e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex] = prevKeys;
+            e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex+1] = keys;
             ChoreoGraph.AnimationEditor.updateKeyEditing(e.target.cg);
             ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
           }
@@ -2105,7 +2114,7 @@ ChoreoGraph.plugin({
         removeKeyButton.cg = cg;
         removeKeyButton.keyIndex = keyIndex;
         removeKeyButton.onclick = (e) => {
-          let keySet = e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex];
+          let keySet = e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex].keySet;
           keySet.pop();
           ChoreoGraph.AnimationEditor.updateKeyEditing(e.target.cg);
           ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
@@ -2118,17 +2127,79 @@ ChoreoGraph.plugin({
         addKeyButton.cg = cg;
         addKeyButton.keyIndex = keyIndex;
         addKeyButton.onclick = (e) => {
-          let keySet = e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex];
+          let keySet = e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex].keySet;
           keySet.push("");
           ChoreoGraph.AnimationEditor.updateKeyEditing(e.target.cg);
           ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
         };
         styleButton(addKeyButton);
         addKeyButton.style.marginRight = "5px";
+
+        function addSourceDropdown(sourceIndex,isAddNew=false) {
+          let source = key.sources[sourceIndex];
+          let sourceDropdown = document.createElement("select");
+          set.appendChild(sourceDropdown);
+          sourceDropdown.cg = cg;
+          sourceDropdown.key = key;
+          sourceDropdown.source = source;
+          sourceDropdown.sourceIndex = sourceIndex;
+          sourceDropdown.isAddNew = isAddNew;
+          styleButton(sourceDropdown,true);
+          if (isAddNew&&(key.sources.length>0||keySet==="time")) {
+            sourceDropdown.style.borderColor = "#222";
+            sourceDropdown.style.width = "20px";
+            sourceDropdown.title = "Override Source";
+          }
+          sourceDropdown.onchange = (e) => {
+            let option = e.target.options[e.target.options.selectedIndex];
+            if (e.target.isAddNew) {
+              let newSource = [option.stream.trackIndex,option.stream.key];
+              e.target.key.sources.push(newSource);
+            } else {
+              let source = e.target.source;
+              if (option.text=="") {
+                e.target.key.sources.splice(e.target.sourceIndex,1);
+              } else {
+                source[0] = option.stream.trackIndex;
+                source[1] = option.stream.key;
+              }
+            }
+            ChoreoGraph.AnimationEditor.updateKeyEditing(e.target.cg);
+            ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+          }
+
+          let hasFoundCorrectLink = false;
+          for (let stream of streams) {
+            let option = document.createElement("option");
+            option.text = stream.name;
+            option.stream = stream;
+            option.sourceIndex = sourceIndex;
+            if (stream.uses.length>1) {
+              option.style.color = "orange";
+            } else if (stream.uses.length==0) {
+              option.style.color = "red";
+            }
+            sourceDropdown.add(option);
+            if (source!=undefined && stream.trackIndex==source[0] && stream.key==source[1]) {
+              hasFoundCorrectLink = true;
+              sourceDropdown.value = stream.name;
+            }
+
+            sourceIndex++;
+          }
+          if (!hasFoundCorrectLink) {
+            sourceDropdown.value = "";
+          } else {
+            let unlinkOption = document.createElement("option");
+            unlinkOption.text = "";
+            sourceDropdown.add(unlinkOption);
+          }
+        }
         
         if (keySet === "time") {
           let timeLi = document.createElement("li");
           timeLi.style.display = "inline-block";
+          timeLi.style.margin = "0px 5px 0px 0px";
           set.appendChild(timeLi);
           let timeSpan = document.createElement("span");
           timeLi.appendChild(timeSpan);
@@ -2180,14 +2251,14 @@ ChoreoGraph.plugin({
                 }
               }
               let isUnique = true;
-              if (e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex][e.target.keySetIndex]===e.target.value) {
+              if (e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex].keySet[e.target.keySetIndex]===e.target.value) {
                 isUnique = false;
               }
               if (hasIllegal) {
-                e.target.value = e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex][e.target.keySetIndex];
+                e.target.value = e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex].keySet[e.target.keySetIndex];
                 alert("You can not use: " + illegalChars);
               } else {
-                e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex][e.target.keySetIndex] = e.target.value;
+                e.target.cg.AnimationEditor.animation.keys[e.target.keyIndex].keySet[e.target.keySetIndex] = e.target.value;
               }
               if (isUnique&&!hasIllegal) {
                 ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
@@ -2195,67 +2266,13 @@ ChoreoGraph.plugin({
             };
             keySetIndex++;
           }
-
-          let trackLinkDropdown = document.createElement("select");
-          set.appendChild(trackLinkDropdown);
-          trackLinkDropdown.cg = cg;
-          trackLinkDropdown.keyIndex = keyIndex;
-          styleButton(trackLinkDropdown,true);
-          trackLinkDropdown.onchange = (e) => {
-            let animation = e.target.cg.AnimationEditor.animation;
-            let option = e.target.options[e.target.options.selectedIndex];
-            let trackIndex = option.trackIndex;
-            let keyIndex = e.target.keyIndex;
-            let trackKey = option.trackKey;
-            if (option.text=="") {
-              animation.tracks[trackIndex].keys[trackKey] = -1;
-            } else {
-              for (let track of animation.tracks) {
-                for (let key in track.keys) {
-                  let trackKeyIndex = track.keys[key];
-                  if (trackKeyIndex==keyIndex) {
-                    track.keys[key] = -1;
-                  }
-                }
-              }
-              animation.tracks[trackIndex].keys[trackKey] = keyIndex;
-            }
-            ChoreoGraph.AnimationEditor.updateKeyEditing(e.target.cg);
-            ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
-          }
-  
-          let hasFoundCorrectLink = false;
-          let unlinkOption;
-          for (let link of trackLinks) {
-            let option = document.createElement("option");
-            option.text = link.name;
-            option.keyIndex = keyIndex;
-            option.trackIndex = link.trackIndex;
-            option.trackKey = link.trackKey;
-            if (link.keyIndex===-1) {
-              option.style.color = "red";
-            } else if (link.isUsedMoreThanOnce) {
-              option.style.color = "orange";
-            }
-            trackLinkDropdown.add(option);
-            if (link.keyIndex==keyIndex) {
-              hasFoundCorrectLink = true;
-              trackLinkDropdown.value = link.name;
-              unlinkOption = document.createElement("option");
-              unlinkOption.text = "";
-              unlinkOption.trackIndex = link.trackIndex;
-              unlinkOption.trackKey = link.trackKey;
-              if (link.isUsedMoreThanOnce) {
-                trackLinkDropdown.style.color = "orange";
-              }
-            }
-          }
-          if (!hasFoundCorrectLink) {
-            trackLinkDropdown.value = "";
-          } else {
-            trackLinkDropdown.add(unlinkOption);
-          }
         }
+
+        for (let i=0;i<key.sources.length;i++) {
+          addSourceDropdown(i);
+        }
+        addSourceDropdown(-1,true);
+
         keyIndex++;
       }
       let addKeySetButton = document.createElement("button");
@@ -2265,10 +2282,10 @@ ChoreoGraph.plugin({
       addKeySetButton.style.fontStyle = "italic";
       addKeySetButton.onclick = (e) => {
         let animation = e.target.cg.AnimationEditor.animation;
-        if (animation.keys.indexOf("time")===-1) {
-          animation.keys.push("time");
+        if (animation.getTimeKey()===-1) {
+          animation.keys.push({keySet:"time",sources:[]});
         } else {
-          animation.keys.push([""]);
+          animation.keys.push({keySet:[""],sources:[]});
         }
         ChoreoGraph.AnimationEditor.updateKeyEditing(e.target.cg);
         ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
