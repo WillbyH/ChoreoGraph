@@ -502,6 +502,17 @@ ChoreoGraph.plugin({
     .develop_button:hover {
       background: #111;
     }
+    .develop_input {
+      font-size: 15px;
+      padding: 6px;
+      border: 2px solid white;
+      border-radius: 5px;
+      background: black;
+      color: white;
+      font-family: consolas;
+      width: auto;
+      field-sizing: content;
+    }
     .btn_off {
       border-color: ${colOff};
     }
@@ -513,11 +524,6 @@ ChoreoGraph.plugin({
     }
     .btn_action:active {
       background: #999999;
-    }
-    .develop_input {
-      margin:5px;
-      border:0;
-      padding:10px;
     }
     .single_input {
       background: black;

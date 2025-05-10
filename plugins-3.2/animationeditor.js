@@ -417,11 +417,7 @@ ChoreoGraph.plugin({
           cg.AnimationEditor.ui.connectedToggle.setStylesAndText();
         };
         if (ChoreoGraph.Input.lastKeyDownFrame==ChoreoGraph.frame) {
-          if (ChoreoGraph.Input.lastKeyDown==hotkeys.undo) {
-            ChoreoGraph.AnimationEditor.undo(cg);
-          } else if (ChoreoGraph.Input.lastKeyDown==hotkeys.redo) {
-            ChoreoGraph.AnimationEditor.redo(cg);
-          } else if (ChoreoGraph.Input.lastKeyDown==hotkeys.pathAdd) {
+          if (ChoreoGraph.Input.lastKeyDown==hotkeys.pathAdd) {
             editor.path.actionType = editor.ACTION_ADD;
             ChoreoGraph.AnimationEditor.updateTrackContext(cg);
           } else if (ChoreoGraph.Input.lastKeyDown==hotkeys.pathGrab) {
@@ -435,6 +431,13 @@ ChoreoGraph.plugin({
             ChoreoGraph.AnimationEditor.updateTrackContext(cg);
           }
         };
+      }
+      if (ChoreoGraph.Input.lastKeyDownFrame==ChoreoGraph.frame) {
+        if (ChoreoGraph.Input.lastKeyDown==hotkeys.undo) {
+          ChoreoGraph.AnimationEditor.undo(cg);
+        } else if (ChoreoGraph.Input.lastKeyDown==hotkeys.redo) {
+          ChoreoGraph.AnimationEditor.redo(cg);
+        }
       }
     };
 
@@ -648,6 +651,7 @@ ChoreoGraph.plugin({
       this.updateTrackTypeAdding(cg);
       this.deselectDopeSheet(cg);
       this.updateDopeSheetUI(cg);
+      this.updateTrackContext(cg);
     };
 
     generateInterface(cg) {
@@ -704,6 +708,7 @@ ChoreoGraph.plugin({
         ChoreoGraph.AnimationEditor.updateKeyEditing(e.target.cg);
         ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
         ChoreoGraph.AnimationEditor.updateDopeSheetUI(e.target.cg);
+        ChoreoGraph.AnimationEditor.updateTrackContext(e.target.cg);
       }
       section.appendChild(createNewButton);
 
@@ -1191,15 +1196,7 @@ ChoreoGraph.plugin({
                 let input = document.createElement("input");
                 input.type = "text";
                 input.value = value;
-                input.style.fontSize = "15px";
-                input.style.padding = "6px";
-                input.style.border = "2px solid white";
-                input.style.borderRadius = "5px";
-                input.style.background = "black";
-                input.style.color = "white";
-                input.style.fontFamily = "consolas";
-                input.style.width = "auto";
-                input.style.fieldSizing = "content";
+                input.classList.add("develop_input");
                 input.style.marginRight = "5px";
                 input.cg = cg;
                 input.keyFrame = keyFrame;
@@ -1289,6 +1286,16 @@ ChoreoGraph.plugin({
 
           trackData.keyFrames.push(keyFrame);
         }
+
+      } else if (track.type==="sprite") {
+        let frameIndex = 0;
+        for (let frame of track.frames) {
+          let keyFrame = new ChoreoGraph.AnimationEditor.DopeSheetKeyFrame(trackData);
+          keyFrame.part = frameIndex+0.5;
+          keyFrame.text = frame.graphicId;
+          trackData.keyFrames.push(keyFrame);
+          frameIndex++;
+        }
       }
       return trackData;
     };
@@ -1341,15 +1348,7 @@ ChoreoGraph.plugin({
           let input = document.createElement("input");
           input.type = "text";
           input.value = value;
-          input.style.fontSize = "15px";
-          input.style.padding = "6px";
-          input.style.border = "2px solid white";
-          input.style.borderRadius = "5px";
-          input.style.background = "black";
-          input.style.color = "white";
-          input.style.fontFamily = "consolas";
-          input.style.width = "auto";
-          input.style.fieldSizing = "content";
+          input.classList.add("develop_input");
           input.style.marginRight = "5px";
           input.cg = cg;
           input.keyFrame = keyFrame;
@@ -1741,6 +1740,7 @@ ChoreoGraph.plugin({
 
     updateTrackContext(cg) {
       let div = cg.AnimationEditor.ui.trackContext;
+      if (div==undefined) { return; }
       div.innerHTML = "";
       if (cg.AnimationEditor.track==null) { return; }
       // Separator
@@ -1757,6 +1757,9 @@ ChoreoGraph.plugin({
         ChoreoGraph.AnimationEditor.createVariableTimeTrackContext(cg,div);
       } else if (cg.AnimationEditor.track.type=="fixedtime") {
         ChoreoGraph.AnimationEditor.createFixedTimeTrackContext(cg,div);
+      } else if (cg.AnimationEditor.track.type=="sprite") {
+        ChoreoGraph.AnimationEditor.createFixedTimeTrackContext(cg,div,false);
+        ChoreoGraph.AnimationEditor.createSpriteTrackContext(cg,div);
       }
     };
 
@@ -1843,7 +1846,7 @@ ChoreoGraph.plugin({
       div.appendChild(extendButton);
     };
 
-    createFixedTimeTrackContext(cg,div) {
+    createFixedTimeTrackContext(cg,div,includeFrameInput=true) {
       // MODE DROPDOWN
       let modeDropdown = document.createElement("select");
       modeDropdown.cg = cg;
@@ -1867,24 +1870,12 @@ ChoreoGraph.plugin({
         ChoreoGraph.AnimationEditor.updateTrackContext(e.target.cg);
       }
 
-      function styleInput(input) {
-        input.style.fontSize = "15px";
-        input.style.padding = "6px";
-        input.style.border = "2px solid white";
-        input.style.borderRadius = "5px";
-        input.style.background = "black";
-        input.style.color = "white";
-        input.style.fontFamily = "consolas";
-        input.style.width = "auto";
-        input.style.fieldSizing = "content";
-      }
-
       if (cg.AnimationEditor.track.mode=="framerate") {
         // FRAMERATE INPUT
         let framerateInput = document.createElement("input");
         framerateInput.type = "text";
         framerateInput.value = cg.AnimationEditor.track.fps;
-        styleInput(framerateInput);
+        framerateInput.classList.add("develop_input");
         framerateInput.cg = cg;
         div.appendChild(framerateInput);
 
@@ -1915,7 +1906,7 @@ ChoreoGraph.plugin({
         let timeInput = document.createElement("input");
         timeInput.type = "text";
         timeInput.value = cg.AnimationEditor.track.time;
-        styleInput(timeInput);
+        timeInput.classList.add("develop_input");
         timeInput.cg = cg;
         div.appendChild(timeInput);
 
@@ -1932,11 +1923,13 @@ ChoreoGraph.plugin({
         div.appendChild(secondsText);
       }
 
+      if (!includeFrameInput) { return; }
+
       // FRAMES INPUT
       let framesInput = document.createElement("input");
       framesInput.type = "text";
       framesInput.value = cg.AnimationEditor.track.frames;
-      styleInput(framesInput);
+      framesInput.classList.add("develop_input");
       framesInput.style.marginLeft = "10px";
       framesInput.cg = cg;
       div.appendChild(framesInput);
@@ -1963,6 +1956,238 @@ ChoreoGraph.plugin({
       framesText.style.color = "white";
       framesText.style.fontSize = "15px";
       div.appendChild(framesText);
+    };
+
+    createSpriteTrackContext(cg,div) {
+      div.style.width = "100%";
+      div.appendChild(document.createElement("br"));
+      div.appendChild(document.createElement("br"));
+
+      function styleButton(button,unsetWidth=false) {
+        button.classList.add("develop_button");
+        button.classList.add("btn_action");
+        button.style.margin = "0px 1px";
+        button.style.padding = "5px";
+        button.style.border = "2px solid grey";
+        button.style.borderRadius = "500px";
+        button.style.color = "white";
+        button.style.fontWeight = "900";
+        button.style.fontFamily = "consolas";
+        if (!unsetWidth) { button.style.width = "29px"; }
+        button.style.height = "29px";
+      }
+
+      for (let keyIndex=0;keyIndex<cg.AnimationEditor.track.graphicKey.length;keyIndex++) {
+        let keyInput = document.createElement("input");
+        div.appendChild(keyInput);
+        keyInput.type = "text";
+        keyInput.value = cg.AnimationEditor.track.graphicKey[keyIndex];
+        keyInput.cg = cg;
+        keyInput.keyIndex = keyIndex;
+        keyInput.classList.add("develop_input");
+        keyInput.style.marginRight = "5px";
+        keyInput.style.fontSize = "13px";
+        keyInput.oninput = (e) => {
+          let track = e.target.cg.AnimationEditor.track;
+          track.graphicKey[e.target.keyIndex] = e.target.value;
+          ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg,false);
+        }
+        keyInput.onblur = (e) => {
+          cg.AnimationEditor.preventUndoRedo = false;
+          let track = e.target.cg.AnimationEditor.track;
+          let graphicKey = e.target.value;
+          track.graphicKey[e.target.keyIndex] = graphicKey;
+          ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg,false);
+        }
+        keyInput.onfocus = (e) => {
+          cg.AnimationEditor.preventUndoRedo = true;
+        }
+      }
+
+      let removeKeyButton = document.createElement("button");
+      div.appendChild(removeKeyButton);
+      removeKeyButton.innerHTML = "-";
+      removeKeyButton.cg = cg;
+      styleButton(removeKeyButton);
+      removeKeyButton.title = "Remove Key";
+      removeKeyButton.onclick = (e) => {
+        let track = e.target.cg.AnimationEditor.track;
+        if (track.graphicKey.length>1) {
+          track.graphicKey.pop();
+          ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+          ChoreoGraph.AnimationEditor.updateTrackContext(e.target.cg);
+        }
+      }
+
+      let addKeyButton = document.createElement("button");
+      div.appendChild(addKeyButton);
+      addKeyButton.innerHTML = "+";
+      addKeyButton.cg = cg;
+      styleButton(addKeyButton);
+      addKeyButton.title = "Add Key";
+      addKeyButton.onclick = (e) => {
+        let track = e.target.cg.AnimationEditor.track;
+        track.graphicKey.push("");
+        ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+        ChoreoGraph.AnimationEditor.updateTrackContext(e.target.cg);
+      }
+
+      function createInsertButton(insertIndex,track) {
+        let insertButton = document.createElement("button");
+        insertButton.cg = cg;
+        insertButton.insertIndex = insertIndex;
+        styleButton(insertButton);
+        insertButton.title = "Insert Frame";
+        insertButton.style.position = "absolute";
+        insertButton.style.translate = "0px -17px";
+        insertButton.style.height = "8px";
+        insertButton.style.width = "128px";
+        insertButton.onclick = (e) => {
+          let newFrame = new ChoreoGraph.Animation.SpriteFrame();
+          let track = e.target.cg.AnimationEditor.track;
+          track.frames.splice(e.target.insertIndex,0,newFrame);
+          ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+          ChoreoGraph.AnimationEditor.updateTrackContext(e.target.cg);
+        }
+        return insertButton;
+      }
+
+      let frameEditor = document.createElement("div");
+      div.appendChild(frameEditor);
+      frameEditor.style.marginTop = "40px";
+      frameEditor.style.marginBottom = "24px";
+      let track = cg.AnimationEditor.track;
+
+      frameEditor.appendChild(createInsertButton(0,track));
+
+      let frameIndex = 0;
+      for (let frame of track.frames) {
+        let frameDiv = document.createElement("div");
+        frameDiv.style.margin = "20px 0px";
+        frameEditor.appendChild(frameDiv);
+
+        let deleteFrameButton = document.createElement("button");
+        frameDiv.appendChild(deleteFrameButton);
+        deleteFrameButton.title = "Delete Key Set";
+        deleteFrameButton.innerHTML = "X";
+        deleteFrameButton.cg = cg;
+        deleteFrameButton.frameIndex = frameIndex;
+        styleButton(deleteFrameButton);
+        deleteFrameButton.style.marginLeft = "15px";
+        deleteFrameButton.onclick = (e) => {
+          let track = e.target.cg.AnimationEditor.track;
+          track.frames.splice(e.target.frameIndex,1);
+          ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+          ChoreoGraph.AnimationEditor.updateTrackContext(e.target.cg);
+        }
+
+        let moveFrameUpButton = document.createElement("button");
+        frameDiv.appendChild(moveFrameUpButton);
+        moveFrameUpButton.title = "Move Frame Up";
+        moveFrameUpButton.innerHTML = "V";
+        moveFrameUpButton.style.transform = "scale(-1)";
+        moveFrameUpButton.cg = cg;
+        moveFrameUpButton.frameIndex = frameIndex;
+        styleButton(moveFrameUpButton);
+        if (frameIndex==0) {
+          moveFrameUpButton.style.borderColor = "#333";
+          moveFrameUpButton.style.color = "#333";
+        } else {
+          moveFrameUpButton.onclick = (e) => {
+            let track = e.target.cg.AnimationEditor.track;
+            let frameIndex = e.target.frameIndex;
+            let savedFrame = track.frames[frameIndex];
+            track.frames[frameIndex] = track.frames[frameIndex-1];
+            track.frames[frameIndex-1] = savedFrame;
+            ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+            ChoreoGraph.AnimationEditor.updateTrackContext(e.target.cg);
+          }
+        }
+        
+        let moveFrameDownButton = document.createElement("button");
+        frameDiv.appendChild(moveFrameDownButton);
+        moveFrameDownButton.title = "Move Frame Down";
+        moveFrameDownButton.innerHTML = "V";
+        moveFrameDownButton.cg = cg;
+        moveFrameDownButton.frameIndex = frameIndex;
+        styleButton(moveFrameDownButton);
+        moveFrameDownButton.style.marginRight = "5px";
+        if (frameIndex==track.frames.length-1) {
+          moveFrameDownButton.style.borderColor = "#333";
+          moveFrameDownButton.style.color = "#333";
+        } else {
+          moveFrameDownButton.onclick = (e) => {
+            let track = e.target.cg.AnimationEditor.track;
+            let frameIndex = e.target.frameIndex;
+            let savedFrame = track.frames[frameIndex];
+            track.frames[frameIndex] = track.frames[frameIndex+1];
+            track.frames[frameIndex+1] = savedFrame;
+            ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+            ChoreoGraph.AnimationEditor.updateTrackContext(e.target.cg);
+          }
+        }
+
+        let graphicInput = document.createElement("input");
+        frameDiv.appendChild(graphicInput);
+        graphicInput.type = "text";
+        graphicInput.title = "Graphic Id";
+        graphicInput.classList.add("develop_input");
+        graphicInput.style.fontSize = "13px";
+        graphicInput.style.marginRight = "5px";
+        graphicInput.cg = cg;
+        graphicInput.frame = frame;
+        graphicInput.value = frame.graphicId;
+        graphicInput.originalValue = frame.graphicId;
+        graphicInput.oninput = (e) => {
+          let frame = e.target.frame;
+          let graphicId = e.target.value;
+          frame.graphicId = graphicId;
+          ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg,false);
+        }
+        graphicInput.onblur = (e) => {
+          cg.AnimationEditor.preventUndoRedo = false;
+          let graphicId = e.target.value;
+          if (graphicId!=e.target.originalValue) {
+            ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+          }
+        }
+        graphicInput.onfocus = (e) => {
+          cg.AnimationEditor.preventUndoRedo = true;
+        }
+
+        let xSpan = document.createElement("span");
+        frameDiv.appendChild(xSpan);
+        xSpan.innerHTML = "x";
+        xSpan.style.color = "white";
+        xSpan.style.fontSize = "13px";
+        xSpan.style.marginRight = "2px";
+
+        let multiplierInput = document.createElement("input");
+        frameDiv.appendChild(multiplierInput);
+        multiplierInput.type = "text";
+        multiplierInput.title = "Frame Duration Multiplier";
+        multiplierInput.classList.add("develop_input");
+        multiplierInput.style.fontSize = "13px";
+        multiplierInput.cg = cg;
+        multiplierInput.frame = frame;
+        multiplierInput.value = frame.durationMultiplier;
+        multiplierInput.originalValue = frame.durationMultiplier;
+        multiplierInput.oninput = (e) => {
+          let frame = e.target.frame;
+          let durationMultiplier = parseFloat(e.target.value);
+          frame.durationMultiplier = durationMultiplier;
+          ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg,false);
+        }
+        multiplierInput.onblur = (e) => {
+          let durationMultiplier = parseFloat(e.target.value);
+          if (durationMultiplier!=e.target.originalValue) {
+            ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
+          }
+        }
+      
+        frameEditor.appendChild(createInsertButton(frameIndex+1,track));
+        frameIndex++;
+      }
     };
 
     updateKeyEditing(cg) {
@@ -2230,14 +2455,9 @@ ChoreoGraph.plugin({
             let keyValue = document.createElement("input");
             keyLi.appendChild(keyValue);
             keyValue.value = key;
+            keyValue.classList.add("develop_input");
             keyValue.style.padding = "5px";
-            keyValue.style.border = "2px solid white";
-            keyValue.style.borderRadius = "5px";
-            keyValue.style.background = "black";
-            keyValue.style.color = "white";
-            keyValue.style.fontFamily = "consolas";
-            keyValue.style.width = "auto";
-            keyValue.style.fieldSizing = "content";
+            keyValue.style.fontSize = "13px";
             keyValue.keyIndex = keyIndex;
             keyValue.keySetIndex = keySetIndex;
             keyValue.cg = cg;
@@ -2441,6 +2661,7 @@ ChoreoGraph.plugin({
       this.updateKeyEditing(cg);
       this.updateAnimationOverview(cg,false);
       this.updateDopeSheetUI(cg,false);
+      this.updateTrackContext(cg,false);
     };
 
     redo(cg) {
@@ -2456,6 +2677,7 @@ ChoreoGraph.plugin({
       this.updateKeyEditing(cg);
       this.updateAnimationOverview(cg,false);
       this.updateDopeSheetUI(cg,false);
+      this.updateTrackContext(cg,false);
     };
   },
 

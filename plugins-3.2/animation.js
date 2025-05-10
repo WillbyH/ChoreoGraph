@@ -290,7 +290,7 @@ ChoreoGraph.plugin({
           }
         }
         output = output.slice(0,-1);
-        output += ":";
+        if (this.keys.length>0&&!(this.keys.length===1&&this.keys[0].keySet=="time")) { output += ":"; }
         for (let i=0;i<this.keys.length;i++) {
           if (this.keys[i].keySet==="time") { continue; }
           for (let key of this.keys[i].keySet) {
@@ -681,26 +681,111 @@ ChoreoGraph.plugin({
       sprite : class cgSpriteAnimationTrack {
         type = "sprite";
 
+        mode = "framerate"; // framerate or time
+        fps = 60;
+        time = "1/60";
+        frames = [{graphicId:"cursorRectangle",durationMultiplier:1},{graphicId:"cursorRectangle",durationMultiplier:1},{graphicId:"cursorRectangle",durationMultiplier:1},{graphicId:"cursorRectangle",durationMultiplier:1},{graphicId:"cursorRectangle",durationMultiplier:1}];
+
+        graphicKey = ["Graphic","graphic"];
+
         constructor(cg) {
           this.cg = cg;
         }
         
         pack() {
-          return "frameeedata";
+          // mode:duration:graphicKey:frames
+          // mode = f (framerate) or t (time)
+          // duration = fps (framerate) or time (time)
+          // graphicKey = key , key , key
+          // frames = frame | frame | frame
+          // frame = graphicId , durationMultiplier
+
+          let output = this.mode=="framerate" ? "f" : "t";
+          output += ":";
+          if (this.mode=="framerate") {
+            output += this.fps;
+          } else {
+            output += this.time;
+          }
+          output += ":";
+          for (let key of this.graphicKey) {
+            output += key+",";
+          }
+          if (this.graphicKey.length>0) { output = output.slice(0,-1); }
+          output += ":";
+          for (let frame of this.frames) {
+            if (frame.durationMultiplier!=1) {
+              output += frame.graphicId+","+frame.durationMultiplier+"|";
+            } else {
+              output += frame.graphicId+"|";
+            }
+          }
+          if (this.frames.length>0) { output = output.slice(0,-1); }
+          return output;
         };
 
         unpack(data) {
-
+          this.mode = data.split(":")[0]=="f" ? "framerate" : "time";
+          if (this.mode=="framerate") {
+            this.fps = Number(data.split(":")[1]);
+          } else {
+            this.time = data.split(":")[1];
+          }
+          let graphicKeyData = data.split(":")[2].split(",");
+          this.graphicKey = [];
+          for (let i=0;i<graphicKeyData.length;i++) {
+            this.graphicKey[i] = graphicKeyData[i];
+          }
+          let framesData = data.split(":")[3].split("|");
+          this.frames = [];
+          for (let i=0;i<framesData.length;i++) {
+            let frameData = framesData[i].split(",");
+            let graphicId = frameData[0];
+            let durationMultiplier = 1;
+            if (frameData.length>1) {
+              durationMultiplier = Number(frameData[1]);
+            }
+            let frame = new ChoreoGraph.Animation.SpriteFrame();
+            frame.graphicId = graphicId;
+            frame.durationMultiplier = durationMultiplier;
+            this.frames.push(frame);
+          }
         };
 
         getBakeData() {
-          let data = [];
-          return {values:data};
+          let values = [[0]];
+          let inserts = [];
+          for (let frameNumber=0;frameNumber<this.frames.length;frameNumber++) {
+            let time = 0;
+            if (this.mode=="framerate") {
+              time = 1/this.fps;
+            } else if (this.mode=="time") {
+              if (this.time.includes("/")) {
+                let split = this.time.split("/");
+                let numerator = parseInt(split[0]);
+                let denominator = parseInt(split[1]);
+                time = numerator/denominator;
+              } else {
+                time = Number(this.time);
+              }
+            }
+            values.push([time]);
+
+            let frame = this.frames[frameNumber];
+            let graphicId = frame.graphicId;
+            let graphic = this.cg.graphics[graphicId];
+            if (graphic==undefined) {
+              console.warn("Sprite Track on animation:",this.animation.id,"uses a graphic that does not exist:",graphicId);
+              continue;
+            }
+            let insert = {part:frameNumber+0.5,data:["v",this.graphicKey,graphic]};
+            inserts.push(insert);
+          }
+          return {values:values,inserts:inserts};
         };
 
         getPartCount() {
-          let count = 0;
-          return count;
+          return this.frames.length+1;
         };
 
         info() {
@@ -1137,6 +1222,11 @@ ChoreoGraph.plugin({
       getScaledSampleSize(density) {
         return Math.floor(this.getLength(30)/density);
       };
+    };
+
+    SpriteFrame = class cgSpriteFrame {
+      graphicId = "";
+      durationMultiplier = 1;
     };
   },
 
