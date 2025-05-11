@@ -1658,10 +1658,16 @@ ChoreoGraph.plugin({
 
           for (let i=0;i<animators.length;i++) {
             let animator = animators[i];
+            let triggerlessPart = animator.part;
+            for (let j=0;j<=animator.part;j++) {
+              if (typeof animator.animation.data[j][0] != "number") {
+                triggerlessPart--;
+              }
+            }
             c.beginPath();
-            let t = 1-((animator.ent-animator.playhead)/(animator.ent-animator.stt));
-            c.moveTo((animator.part+t)*this.partSpacing,-canvas.height/2);
-            c.lineTo((animator.part+t)*this.partSpacing,canvas.height/2);
+            let t = 1-((animator.ent-animator.playhead)/(animator.ent-animator.stt)) - 1;
+            c.moveTo((triggerlessPart+t)*this.partSpacing,-canvas.height/2);
+            c.lineTo((triggerlessPart+t)*this.partSpacing,canvas.height/2);
             c.strokeStyle = "white";
             c.lineWidth = 2;
             c.stroke();

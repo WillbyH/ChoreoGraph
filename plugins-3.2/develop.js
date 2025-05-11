@@ -143,8 +143,8 @@ ChoreoGraph.plugin({
         let canvas = this.cg.Develop.selectedCanvas;
         let canvasData = this.featureData.freeCam.canvasData[canvas.id];
         if (canvasData===undefined) { return; }
-        canvasData.freeCamera.x = canvasData.savedCamera.x;
-        canvasData.freeCamera.y = canvasData.savedCamera.y;
+        canvasData.freeCamera.transform.x = canvasData.savedCamera.x;
+        canvasData.freeCamera.transform.y = canvasData.savedCamera.y;
         canvasData.freeCamera.z = canvasData.savedCamera.z;
       }
 

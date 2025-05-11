@@ -29,31 +29,62 @@ ChoreoGraph.plugin({
 
       easeFunctions = {
         linear : function(t) { return t; },
+        inSine : function(t) { return 1 - Math.cos((t * Math.PI) / 2); },
+        outSine : function(t) { return Math.sin((t * Math.PI) / 2); },
+        inOutSine : function(t) { return -(Math.cos(Math.PI * t) - 1) / 2; },
+        inQuad : function(t) { return t * t; },
+        outQuad : function(t) { return 1 - (1 - t) * (1 - t); },
+        inOutQuad : function(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; },
+        inCubic : function(t) { return t * t * t; },
+        outCubic : function(t) { return 1 - Math.pow(1 - t, 3); },
+        inOutCubic : function(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; },
+        inQuart : function(t) { return t * t * t * t; },
+        outQuart : function(t) { return 1 - Math.pow(1 - t, 4); },
+        inOutQuart : function(t) { return t < 0.5 ? 8 * t * t * t * t : 1 - Math.pow(-2 * t + 2, 4) / 2; },
+        inQuint : function(t) { return t * t * t * t * t; },
+        outQuint : function(t) { return 1 - Math.pow(1 - t, 5); },
+        inOutQuint : function(t) { return t < 0.5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2; },
+        inExpo : function(t) { return t === 0 ? 0 : Math.pow(2, 10 * t - 10); },
+        outExpo : function(t) { return t === 1 ? 1 : 1 - Math.pow(2, -10 * t); },
+        inOutExpo : function(t) { return t === 0 ? 0 : t === 1 ? 1 : t < 0.5 ? Math.pow(2, 20 * t - 10) / 2 : (2 - Math.pow(2, -20 * t + 10)) / 2; },
+        inCirc : function(t) { return 1 - Math.sqrt(1 - t * t); },
+        outCirc : function(t) { return Math.sqrt(1 - Math.pow(t - 1, 2)); },
+        inOutCirc : function(t) { return t < 0.5 ? (1 - Math.sqrt(1 - 4 * t * t)) / 2 : (Math.sqrt(1 - Math.pow(-2 * t + 2, 2)) + 1) / 2; },
+        inBack : function(t, s = 1.70158) { return t * t * ((s + 1) * t - s); },
+        outBack : function(t, s = 1.70158) { return 1 + (s + 1) * Math.pow(t - 1, 3) + s * Math.pow(t - 1, 2); },
+        inOutBack : function(t, s = 1.70158) { return t < 0.5 ? (Math.pow(2 * t, 2) * ((s *= 1.525) + 1) * t - s) / 2 : (Math.pow(2 * t - 2, 2) * ((s *= 1.525) + 1) * (t - 1) + s + 2) / 2; },
+        inElastic : function(t, s = 1.70158) { return t === 0 ? 0 : t === 1 ? 1 : -Math.pow(2, 10 * t - 10) * Math.sin((t * 10 - 10.75) * (2 * Math.PI) / s); },
+        outElastic : function(t, s = 1.70158) { return t === 0 ? 0 : t === 1 ? 1 : Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * (2 * Math.PI) / s) + 1; },
+        inOutElastic : function(t, s = 1.70158) { return t === 0 ? 0 : t === 1 ? 1 : t < 0.5 ? -(Math.pow(2, 20 * t - 10) * Math.sin((20 * t - 11.125) * (2 * Math.PI) / s)) / 2 : (Math.pow(2, -20 * t + 10) * Math.sin((20 * t - 11.125) * (2 * Math.PI) / s)) / 2 + 1; },
+        inBounce : function(t) { return 1 - ChoreoGraph.Animation.easeFunctions.outBounce(1 - t); },
+        outBounce : function(t) { return t < 4 / 11 ? (121 * t * t) / 16 : t < 8 / 11 ? (363 / 40) * t * t - (99 / 10) * t + 1 : (4356 / 361) * t * t - (35442 / 1805) * t + (16061 / 1805); },
+        inOutBounce : function(t) { return t < 0.5 ? ChoreoGraph.Animation.easeFunctions.inBounce(t * 2) / 2 : ChoreoGraph.Animation.easeFunctions.outBounce(t * 2 - 1) / 2 + 0.5; }
       };
 
       hasActivatedDebugLoop = false;
       animationDebugLoop(cg) {
-        if (!cg.settings.animation.debug.active) { return; }
-        if (cg.settings.animation.debug.showBakedPaths) {
+        let debugSettings = cg.settings.animation.debug;
+        if (!debugSettings.active) { return; }
+        if (debugSettings.showBakedPaths) {
           for (let canvasId of cg.keys.canvases) {
             let canvas = cg.canvases[canvasId];
             if (canvas.camera===null) { continue; }
             canvas.c.save();
 
-            // let markers = [];
+            let markers = [];
             let paths = [];
             let keyFrames = [];
             let lastPosition = [0,0];
-            
+
             for (let animationId of cg.keys.animations) {
               let animation = cg.Animation.animations[animationId];
               let xKey = -1;
               let yKey = -1;
               let rKey = -1;
               for (let k=0;k<animation.keys.length;k++) {
-                if (JSON.stringify(animation.keys[k].keySet)==JSON.stringify(cg.settings.animation.debug.pathXKey)) { xKey = k; }
-                if (JSON.stringify(animation.keys[k].keySet)==JSON.stringify(cg.settings.animation.debug.pathYKey)) { yKey = k; }
-                if (JSON.stringify(animation.keys[k].keySet)==JSON.stringify(cg.settings.animation.debug.pathRKey)) { rKey = k; }
+                if (JSON.stringify(animation.keys[k].keySet)==JSON.stringify(debugSettings.pathXKey)) { xKey = k; }
+                if (JSON.stringify(animation.keys[k].keySet)==JSON.stringify(debugSettings.pathYKey)) { yKey = k; }
+                if (JSON.stringify(animation.keys[k].keySet)==JSON.stringify(debugSettings.pathRKey)) { rKey = k; }
               }
               if (xKey==-1||yKey==-1) { continue; }
 
@@ -70,9 +101,13 @@ ChoreoGraph.plugin({
                   path.push([x,y,r]);
                   lastPosition = [x,y,r];
                 } else if (typeof(frame[0])=="string") {
-                  // let colour = this.animations.markerColours.unknown;
-                  // if (this.animations.markerColours[frame[0].toUpperCase()]!=undefined) { colour = this.animations.markerColours[frame[0].toUpperCase()]; }
-                  // markers.push({x:lastPosition[0],y:lastPosition[1],c:colour,t:frame[1]});
+                  let markerColours = debugSettings.markerColours;
+                  let colour = markerColours.unknown;
+                  let triggerType = frame[0].toUpperCase();
+                  if (markerColours[triggerType]!=undefined) {
+                    colour = markerColours[triggerType];
+                  }
+                  markers.push({x:lastPosition[0],y:lastPosition[1],c:colour,t:frame[1]});
                 }
               }
               paths.push(path);
@@ -98,10 +133,10 @@ ChoreoGraph.plugin({
 
             let c = canvas.c;
 
-            let size = cg.settings.animation.debug.width/canvas.camera.z;
+            let size = debugSettings.width/canvas.camera.z;
         
             c.lineWidth = size; // Odd lerps
-            c.strokeStyle = cg.settings.animation.debug.pathColours[0];
+            c.strokeStyle = debugSettings.pathColours[0];
             c.beginPath();
             for (let p = 0; p < oddLerps.length; p++) {
               c.moveTo(oddLerps[p][0][0], oddLerps[p][0][1]);
@@ -109,7 +144,7 @@ ChoreoGraph.plugin({
             }
             c.stroke();
         
-            c.strokeStyle = cg.settings.animation.debug.pathColours[1]; // Even lerps
+            c.strokeStyle = debugSettings.pathColours[1]; // Even lerps
             c.beginPath();
             for (let p = 0; p < evenLerps.length; p++) {
               c.moveTo(evenLerps[p][0][0], evenLerps[p][0][1]);
@@ -117,20 +152,42 @@ ChoreoGraph.plugin({
             }
             c.stroke();
 
-            c.strokeStyle = cg.settings.animation.debug.pathColours[2];
-            c.fillStyle = cg.settings.animation.debug.pathColours[2]; // Keyframe dots
+            c.strokeStyle = debugSettings.pathColours[2];
+            c.fillStyle = debugSettings.pathColours[2]; // Keyframe dots
             for (let k = 0; k < keyFrames.length; k++) {
               c.fillRect(keyFrames[k][0]-size/2,keyFrames[k][1]-size/2,size,size);
-              if (cg.settings.animation.debug.showDirectionalMarkings) { // Directional markings
+              if (debugSettings.showDirectionalMarkings) { // Directional markings
                 let rotation = keyFrames[k][2];
                 c.beginPath();
-                let directionalMarkingLength = cg.settings.animation.debug.directionalMarkingLength/canvas.camera.z;
+                let directionalMarkingLength = debugSettings.directionalMarkingLength/canvas.camera.z;
                 c.moveTo(keyFrames[k][0],keyFrames[k][1]);
                 c.lineTo(parseFloat((keyFrames[k][0]+(directionalMarkingLength)*Math.cos(ChoreoGraph.degreeToRadianStandard(rotation))).toFixed(2)), parseFloat((keyFrames[k][1]-(directionalMarkingLength)*Math.sin(ChoreoGraph.degreeToRadianStandard(rotation))).toFixed(2)));
                 c.stroke();
                 c.beginPath();
                 c.arc(parseFloat((keyFrames[k][0]+(directionalMarkingLength)*Math.cos(ChoreoGraph.degreeToRadianStandard(rotation))).toFixed(2)), parseFloat((keyFrames[k][1]-(directionalMarkingLength)*Math.sin(ChoreoGraph.degreeToRadianStandard(rotation))).toFixed(2)),size,0,2*Math.PI);
                 c.fill();
+              }
+            }
+
+            c.textAlign = "center";
+            c.font = debugSettings.markerStyle.fontSize + "px " + debugSettings.markerStyle.font;
+            c.textBaseline = "middle";
+            if (debugSettings.showMarkers) {
+              for (let m = 0; m < markers.length; m++) {
+                c.fillStyle = markers[m].c;
+                c.globalAlpha = debugSettings.markerStyle.opacity;
+                c.beginPath();
+                c.arc(markers[m].x,markers[m].y,debugSettings.markerStyle.size,0,2*Math.PI);
+                c.fill();
+                c.globalAlpha = 1;
+                let split = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(markers[m].c); // Decide if marker text colour is white or black by background
+                if (split!=null) {
+                  let rbg = split ? split.map(i => parseInt(i, 16)).slice(1) : null;
+                  if (rbg[0]*0.299+rbg[1]*0.587+rbg[2]*0.114<186) { c.fillStyle = "#ffffff"; } 
+                  else { c.fillStyle = "#000000"; }
+                } else { c.fillStyle = "#ffffff"; }
+                c.textBaseline = "middle";
+                c.fillText(markers[m].t, markers[m].x+debugSettings.markerStyle.offset[0], markers[m].y+debugSettings.markerStyle.offset[1],debugSettings.markerStyle.size*4);
               }
             }
 
@@ -1249,9 +1306,9 @@ ChoreoGraph.plugin({
         pathRKey = ["transform","r"];
         pathColours = ["#0000ff","#ff0000","#00ff00"]; // Odd Lerps, Even Lerps, Keyframes
 
-        markers = true; // Symbols relating to triggers
+        showMarkers = true; // Symbols relating to triggers
         markerColours = {S:"#ff00ff",E:"#00ff00",C:"#0000ff",B:"#ff0000",V:"#00ffff",unknown:"#00ff00"}; // Colours for each type of trigger
-        markerStyle = {size:20,fontSize:25,font:"Arial",offset:[0,0],opacity:0.7};
+        markerStyle = {size:10,fontSize:10,font:"Arial",offset:[0,0],opacity:0.7};
         width = 2;
         #cg = cg;
         #active = false;
@@ -1310,9 +1367,11 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
   to = [];
   ease = "linear";
   nextPlayfromAllowTriggers = false;
+  runTriggers = true;
   loop = true;
   paused = false;
   playing = false;
+  processingTrigger = false;
 
   triggerTypes = {
     "s" : (trigger,object,animator) => { animator.speed = trigger[1]; },
@@ -1325,7 +1384,8 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
         }
         return acc[key];
       }, object);
-    }
+    },
+    "h" : (trigger,object,animator) => { return cg.clock%4000>3500; }
   }
 
   deleteAnimationOnDelete = false;
@@ -1347,27 +1407,92 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
       this.playFrom(this.playhead);
     }
 
-    let cg = scene.cg;
+    if (this.processingTrigger) {
+      if (this.processTriggersAndFindTo()===false) { return }
+    }
 
-    this.playhead += (cg.timeSinceLastFrame*cg.settings.core.timeScale*this.speed)/1000;
+    this.advancePlayhead(scene);
 
+    // PLAYHEAD > DURATION
     if (this.playhead>this.animation.duration) {
       this.setFinalValues();
       this.playing = false;
-      if (!this.loop) {
-        this.paused = true;
+      if (this.loop) {
+        this.rewind();
       } else {
-        this.playhead = this.playhead - this.animation.duration;
-        this.nextPlayfromAllowTriggers = true;
+        this.paused = true;
       }
-    } else if (this.playhead>this.ent) {
+      return;
+    }
+    
+    // PLAYHEAD > ENT
+    else if (this.playhead>this.ent) {
       this.from = this.to;
-      this.findNextKeyframe();
+      this.part++;
+      if (this.processTriggersAndFindTo()===false) { return; }
     }
 
-    if (!this.playing) { return; }
-
     this.setValues();
+  };
+
+  // Moves the playhead forwards
+  advancePlayhead(scene) {
+    let cg = scene.cg;
+    this.playhead += (cg.timeSinceLastFrame*cg.settings.core.timeScale*this.speed)/1000;
+  };
+
+  // Sets the playhead back by the duration of the animation
+  rewind() {
+    this.playhead = this.playhead - this.animation.duration;
+    this.nextPlayfromAllowTriggers = true;
+  };
+
+  // Combines passAllTriggers and findTo, returns false if a trigger interupt happens
+  processTriggersAndFindTo() {
+    let pass = this.passAllTriggers();
+    if (pass===false) {
+      this.playhead = this.ent;
+      this.setValues();
+      return false;
+    } else {
+      if (this.findTo()===false) { return false; }
+    }
+    return true;
+  };
+
+  // Passes all triggers until the next keyframe, returns false if a trigger interupt happens
+  passAllTriggers() {
+    let data = this.animation.data;
+    while (this.part<data.length && typeof data[this.part][0] === "string") {
+      if (this.triggerTypes[data[this.part][0]]!==undefined && this.runTriggers) {
+        let pass = this.triggerTypes[data[this.part][0]](data[this.part],this.object,this);
+        if (pass===false) {
+          if (!this.processingTrigger) {
+            this.playhead = this.ent;
+            this.setValues();
+          }
+          this.processingTrigger = true;
+          return false;
+        } else {
+          this.processingTrigger = false;
+        }
+      }
+      this.part++;
+    }
+    return true;
+  };
+
+  // Sets the TO value then checks if it needs to do it again, returns false if a trigger interupt happens
+  findTo() {
+    this.to = this.animation.data[this.part];
+    this.stt = this.ent;
+    this.ent += this.to[this.animation.timeKey];
+    if (this.playhead > this.ent) {
+      this.from = this.to;
+      this.part++;
+      if (this.processTriggersAndFindTo()===false) { return false; }
+    }
+    return true;
   };
 
   // Sets object values by keys using FROM and TO
@@ -1386,6 +1511,7 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
     }
   };
 
+  // Set object values to the to values
   setFinalValues() {
     for (let i=0;i<this.connectionData.keys.length;i++) {
       let keyData = this.connectionData.keys[i];
@@ -1393,64 +1519,30 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
     }
   };
 
-  // Sets STT ENT FROM AND TO relative to a playhead value
+  // Sets animation values based on a given playhead
   playFrom(playhead) {
+    this.playhead = playhead;
     if (this.animation==null) { return; }
     if (this.animation.ready==false) { return; }
-    if (playhead>this.animation.duration) { playhead = this.animation.duration; }
-    this.playhead = playhead;
-    this.part = 0;
+    if (this.playhead>this.animation.duration) { this.playhead = this.animation.duration; }
+
+    this.paused = false;
+    this.playing = true;
+    this.processingTrigger = false;
+    this.part = 1;
     this.stt = 0;
     this.ent = 0;
-    let cumulativeTime = 0;
-    let previousI = 0;
-    let data = this.animation.data;
-    for (let i=0;i<data.length;i++) {
-      if (typeof data[i][0] === "string") {
-        if (this.nextPlayfromAllowTriggers&&this.triggerTypes[data[i][0]]!==undefined) {
-          this.triggerTypes[data[i][0]](data[i],this.object,this);
-        }
-      }
-      let addition = 0;
-      if (data[i][this.animation.timeKey]!==undefined) { addition = data[i][this.animation.timeKey]; }
-      if (cumulativeTime+addition>=this.playhead) {
-        this.part = Math.max(previousI,0);
-        this.stt = cumulativeTime;
-        this.ent = cumulativeTime;
-        this.from = data[previousI];
-        break;
-      } else {
-        cumulativeTime += addition;
-      }
-      previousI = i;
+
+    this.from = this.animation.data[0];
+
+    if (!this.nextPlayfromAllowTriggers) {
+      this.runTriggers = false;
     }
-    this.findNextKeyframe();
-    this.playing = true;
+
+    this.processTriggersAndFindTo();
+
     this.nextPlayfromAllowTriggers = false;
-  };
-
-  // Given the current part and playhead, find the next keyframe then set STT ENT FROM AND TO
-  findNextKeyframe() {
-    this.part++;
-    this.passAllTriggers();
-    this.to = this.animation.data[this.part];
-    this.stt = this.ent;
-    this.ent += this.to[this.animation.timeKey];
-
-    if (this.playhead > this.ent) {
-      this.from = this.to;
-      this.findNextKeyframe();
-    }
-  };
-
-  passAllTriggers() {
-    let data = this.animation.data;
-    while (this.part<data.length && typeof data[this.part][0] === "string") {
-      if (this.triggerTypes[data[this.part][0]]!==undefined) {
-        this.triggerTypes[data[this.part][0]](data[this.part],this.object,this);
-      }
-      this.part++;
-    }
+    this.runTriggers = true;
   };
 
   initConnection() {
