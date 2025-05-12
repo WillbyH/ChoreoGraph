@@ -56,9 +56,9 @@ ChoreoGraph.plugin({
         inElastic : function(t, s = 1.70158) { return t === 0 ? 0 : t === 1 ? 1 : -Math.pow(2, 10 * t - 10) * Math.sin((t * 10 - 10.75) * (2 * Math.PI) / s); },
         outElastic : function(t, s = 1.70158) { return t === 0 ? 0 : t === 1 ? 1 : Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * (2 * Math.PI) / s) + 1; },
         inOutElastic : function(t, s = 1.70158) { return t === 0 ? 0 : t === 1 ? 1 : t < 0.5 ? -(Math.pow(2, 20 * t - 10) * Math.sin((20 * t - 11.125) * (2 * Math.PI) / s)) / 2 : (Math.pow(2, -20 * t + 10) * Math.sin((20 * t - 11.125) * (2 * Math.PI) / s)) / 2 + 1; },
-        inBounce : function(t) { return 1 - ChoreoGraph.Animation.easeFunctions.outBounce(1 - t); },
+        inBounce : function(t) { return 1 - cg.Animation.easeFunctions.outBounce(1 - t); },
         outBounce : function(t) { return t < 4 / 11 ? (121 * t * t) / 16 : t < 8 / 11 ? (363 / 40) * t * t - (99 / 10) * t + 1 : (4356 / 361) * t * t - (35442 / 1805) * t + (16061 / 1805); },
-        inOutBounce : function(t) { return t < 0.5 ? ChoreoGraph.Animation.easeFunctions.inBounce(t * 2) / 2 : ChoreoGraph.Animation.easeFunctions.outBounce(t * 2 - 1) / 2 + 0.5; }
+        inOutBounce : function(t) { return t < 0.5 ? cg.Animation.easeFunctions.inBounce(t * 2) / 2 : cg.Animation.easeFunctions.outBounce(t * 2 - 1) / 2 + 0.5; }
       };
 
       hasActivatedDebugLoop = false;
@@ -741,7 +741,7 @@ ChoreoGraph.plugin({
         mode = "framerate"; // framerate or time
         fps = 60;
         time = "1/60";
-        frames = [{graphicId:"cursorRectangle",durationMultiplier:1},{graphicId:"cursorRectangle",durationMultiplier:1},{graphicId:"cursorRectangle",durationMultiplier:1},{graphicId:"cursorRectangle",durationMultiplier:1},{graphicId:"cursorRectangle",durationMultiplier:1}];
+        frames = [];
 
         graphicKey = ["Graphic","graphic"];
 
@@ -1385,7 +1385,12 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
         return acc[key];
       }, object);
     },
-    "h" : (trigger,object,animator) => { return cg.clock%4000>3500; }
+    "p" : (trigger,object,animator) => {
+      let output = Array.from(trigger);
+      output.shift();
+      if (output.length==1) { output = output[0]; }
+      console.info(output);
+    }
   }
 
   deleteAnimationOnDelete = false;
@@ -1502,7 +1507,7 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
       let toVal = this.to[i];
       
       let t = 1-((this.ent-this.playhead)/(this.ent-this.stt));
-      if (this.ease!=="linear") { t = cg.easeFunctions[this.ease](t); }
+      if (this.ease!=="linear") { t = this.cg.Animation.easeFunctions[this.ease](t); }
 
       let lerpVal = t * (toVal-fromVal) + fromVal;
       let keyData = this.connectionData.keys[i];

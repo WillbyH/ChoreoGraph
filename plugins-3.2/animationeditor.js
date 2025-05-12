@@ -1174,7 +1174,7 @@ ChoreoGraph.plugin({
                     data.value = 0;
                   }
                 } else if (type=="string") {
-                  if (typeof data.value==="number") {
+                  if (typeof data.value==="number" || typeof data.value==="evaluate") {
                     data.value = String(data.value);
                   } else {
                     data.value = "";
@@ -1666,6 +1666,7 @@ ChoreoGraph.plugin({
             }
             c.beginPath();
             let t = 1-((animator.ent-animator.playhead)/(animator.ent-animator.stt)) - 1;
+            if (animator.ease!="linear") { t = -this.cg.Animation.easeFunctions[animator.ease](t); }
             c.moveTo((triggerlessPart+t)*this.partSpacing,-canvas.height/2);
             c.lineTo((triggerlessPart+t)*this.partSpacing,canvas.height/2);
             c.strokeStyle = "white";
