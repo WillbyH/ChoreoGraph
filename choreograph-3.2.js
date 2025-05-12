@@ -5,6 +5,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     maxFPS : Infinity
   };
 
+  started = false;
   frame = 0;
   lastPerformanceTime = performance.now();
   now = new Date();
@@ -860,6 +861,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
 
       this.instanceConnect = null;
       this.instanceStart = null;
+      this.globalStart = null;
 
       if (pluginInit.globalPackage!=undefined) {
         ChoreoGraph[this.key] = pluginInit.globalPackage;
@@ -872,6 +874,12 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       }
       if (pluginInit.instanceStart!=undefined) {
         this.instanceStart = pluginInit.instanceStart;
+      }
+      if (pluginInit.globalStart!=undefined) {
+        this.globalStart = pluginInit.globalStart;
+        if (ChoreoGraph.started) {
+          this.globalStart();
+        }
       }
     }
   };
@@ -1030,6 +1038,12 @@ const ChoreoGraph = new class ChoreoGraphEngine {
   };
 
   start() {
+    if (this.started) { console.warn("ChoreoGraph.start() ran more than once"); return; }
+    this.started = true;
+    for (let pluginKey in ChoreoGraph.plugins) {
+      let plugin = ChoreoGraph.plugins[pluginKey];
+      if (plugin.globalStart!=null) { plugin.globalStart(); }
+    }
     this.loop();
   };
 

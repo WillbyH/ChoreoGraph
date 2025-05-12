@@ -47,6 +47,8 @@ cg.createCanvas({element:document.getElementsByTagName("canvas")[0],
 // sink.canvases.theSinkCanvas.setCamera(sink.cameras.peeper);
 // sink.scenes.bathroom.createItem("graphic",{graphic:sink.graphics.sinkCursorRectangle},"sinkCursorRectangle");
 
+ChoreoGraph.FMOD.logging = true;
+
 cg.Audio.masterVolume = 0;
 
 cg.scenes.main.createItem("collection",{},"stuff")
