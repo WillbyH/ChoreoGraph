@@ -24,30 +24,11 @@ cg.createCanvas({element:document.getElementsByTagName("canvas")[0],
   width : 600
 });
 
-// const sink = ChoreoGraph.instantiate({
-//   core : {
-//     generateBasicEnvironment : false
-//   }
-// });
-// sink.createCanvas({element:document.getElementsByTagName("canvas")[1],
-//   height : 200,
-//   width : 500,
-//   background:"turquoise"
-// },"theSinkCanvas");
-// sink.createCanvas({element:document.getElementsByTagName("canvas")[2],
-//   height : 150,
-//   width : 600,
-//   background:"mediumpurple"
-// },"theOtherSinkCanvas");
-
-// sink.createGraphic({type:"rectangle",colour:"tomato",width:25,height:25},"sinkCursorRectangle");
-// sink.createScene({},"bathroom");
-// sink.createCamera({},"peeper");
-// sink.cameras.peeper.addScene(sink.scenes.bathroom);
-// sink.canvases.theSinkCanvas.setCamera(sink.cameras.peeper);
-// sink.scenes.bathroom.createItem("graphic",{graphic:sink.graphics.sinkCursorRectangle},"sinkCursorRectangle");
-
 ChoreoGraph.FMOD.logging = true;
+ChoreoGraph.FMOD.baseBankPath = "audio/";
+ChoreoGraph.FMOD.registerBank("MasterStrings","Master.strings.bank");
+ChoreoGraph.FMOD.registerBank("Master","Master.bank");
+ChoreoGraph.FMOD.registerBank("Grouper","Grouper.bank");
 
 cg.Audio.masterVolume = 0;
 
