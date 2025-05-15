@@ -24,7 +24,6 @@ cg.createCanvas({element:document.getElementsByTagName("canvas")[0],
   width : 600
 });
 
-ChoreoGraph.FMOD.logging = true;
 ChoreoGraph.FMOD.baseBankPath = "audio/";
 ChoreoGraph.FMOD.registerBank("MasterStrings","Master.strings.bank");
 ChoreoGraph.FMOD.registerBank("Master","Master.bank");
@@ -68,6 +67,31 @@ cg.createObject({},"animatedObject")
 .attach("Graphic",{graphic:cg.createGraphic({type:"rectangle",colour:"red",height:20,width:20},"testAnimRect")})
 
 cg.scenes.main.addObject(cg.objects.animatedObject);
+
+let blockTestAnim = cg.Animation.createAnimationFromPacked("2:transform,x;0,x|transform,y;0,y&path=15:185,28,185,28,134,37~102,59,70,81,68,176~116,153,164,130,184,96~226,83,268,70,343,118~373,95,403,72,363,24~316,20,269,16,189,29,185,28&trigger=5.45:b:sA|18.51:b:sB|30.96:b:sC|43.77:b:sD",{},"blockTestAnim");
+
+let simpleCircle = cg.createGraphic({type:"arc",radius:10,colour:"#88c35e"},"simpleCircle");
+
+cg.createObject({},"blockObjectA")
+.attach("Animator",{animation:blockTestAnim,playhead:0,speed:150})
+.attach("Graphic",{graphic:simpleCircle})
+.attach("BlockController",{group:"testGroupA"})
+cg.createObject({},"blockObjectB")
+.attach("Animator",{animation:blockTestAnim,playhead:20,speed:150})
+.attach("Graphic",{graphic:simpleCircle})
+.attach("BlockController",{group:"testGroupA"})
+cg.createObject({},"blockObjectC")
+.attach("Animator",{animation:blockTestAnim,playhead:40,speed:150})
+.attach("Graphic",{graphic:simpleCircle})
+.attach("BlockController",{group:"testGroupA"})
+
+cg.scenes.main.addObject(cg.objects.blockObjectA);
+cg.scenes.main.addObject(cg.objects.blockObjectB);
+cg.scenes.main.addObject(cg.objects.blockObjectC);
+
+for (let blockId of ["A","B","C","D"]) {
+  cg.BlockController.createBlock({},blockId);
+}
 
 cg.Input.createAction({keys:["w","up","conleftup","condpadup","conrightup",cg.Input.buttons.dummy]},"forward");
 cg.Input.createAction({keys:["s","down","conleftdown","condpaddown","conrightdown"]},"backward");

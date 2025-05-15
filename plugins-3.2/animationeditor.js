@@ -905,7 +905,7 @@ ChoreoGraph.plugin({
         trackData.strictFloatTypeModify = true;
 
         function modify(cg,keyFrame,dataIndex,value) {
-          keyFrame.data[dataIndex] = value;
+          keyFrame.modifiableValues[dataIndex] = value;
         }
         let part = 0;
         for (let i=0;i<track.segments.length;i++) {

@@ -905,6 +905,29 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         return [this.width,this.height];
       };
     };
+    cg.graphicTypes.arc = new class ArcGraphic {
+      setup(init,cg) {
+        this.fill = true;
+        this.closePath = false;
+        this.lineWidth = 1;
+        this.lineCap = "round";
+
+        this.radius = 5;
+        this.colour = "#ff0000";
+        this.start = 0;
+        this.end = 2*Math.PI;
+        this.counterclockwise = false;
+      };
+      draw(c,ax,ay) {
+        c.beginPath();
+        cg.c.arc(ax, ay, this.radius,this.start,this.end,this.counterclockwise);
+        if (this.closePath) { c.closePath(); }
+        if (this.fill) { c.fillStyle = this.colour; c.fill(); } else { c.lineWidth = this.lineWidth; c.strokeStyle = this.colour; c.stroke(); }
+      };
+      getBounds() {
+        return [this.radius*2,this.radius*2];
+      };
+    };
     cg.graphicTypes.image = new class ImageGraphic {
       setup(init,cg) {
         if (init.image==undefined) { console.error("Image not defined in image graphic"); return; }
