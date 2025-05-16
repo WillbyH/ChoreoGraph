@@ -178,7 +178,7 @@ ChoreoGraph.plugin({
               // DRAW MARKER
               c.fillStyle = "red";
               c.beginPath();
-              c.arc(cX,cY,10,0,Math.PI*2);
+              c.arc(cX,cY,9,0,Math.PI*2);
               c.fill();
               c.fillStyle = "white";
               c.font = "bold 12px Verdana";
@@ -332,6 +332,10 @@ ChoreoGraph.ObjectComponents.BlockController = class cgObjectBlockController {
     if (oldBlock.objectCount<=0) {
       oldBlock.open();
       oldBlock.groupOccupying = null;
+    }
+
+    if (bc.blocked) {
+      bc.start();
     }
 
     bc.block = newBlockId;

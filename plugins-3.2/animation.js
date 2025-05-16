@@ -1309,7 +1309,7 @@ ChoreoGraph.plugin({
 
         showMarkers = true; // Symbols relating to triggers
         markerColours = {S:"#ff00ff",E:"#00ff00",C:"#0000ff",B:"#ff0000",V:"#00ffff",unknown:"#00ff00"}; // Colours for each type of trigger
-        markerStyle = {size:10,fontSize:10,font:"Arial",offset:[0,0],opacity:0.7};
+        markerStyle = {size:9,fontSize:10,font:"Arial",offset:[0,0],opacity:0.7};
         width = 2;
         #cg = cg;
         #active = false;
