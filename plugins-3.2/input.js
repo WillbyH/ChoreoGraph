@@ -164,6 +164,7 @@ ChoreoGraph.plugin({
         if (cg.settings.input.debug.buttons.active) {
           for (let canvasId of cg.keys.canvases) {
             let canvas = cg.canvases[canvasId];
+            if (canvas.hideDebugOverlays) { continue; }
             canvas.c.save();
             for (let buttonId of cg.keys.buttons) {
               let button = cg.Input.buttons[buttonId];

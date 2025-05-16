@@ -213,6 +213,7 @@ ChoreoGraph.plugin({
         }
         for (let canvasId of cg.keys.canvases) {
           let canvas = cg.canvases[canvasId];
+          if (canvas.hideDebugOverlays) { continue; }
           let c = canvas.c;
           c.globalAlpha = 1;
           if (canvas.camera===null) { continue; }
@@ -225,7 +226,7 @@ ChoreoGraph.plugin({
               c.strokeStyle = cg.settings.develop.cameras.colour;
               let cw = canvas.width/camera.cz;
               let ch = canvas.height/camera.cz;
-              c.lineWidth = 3*camera.cz;
+              c.lineWidth = 2/canvas.camera.cz;
               c.beginPath();
               c.rect(-cw*0.5,-ch*0.5,cw,ch)
               c.moveTo(-cw*0.5,-ch*0.5);
@@ -241,6 +242,7 @@ ChoreoGraph.plugin({
       overlayFrustumCulling(cg) {
         for (let canvasId of cg.keys.canvases) {
           let canvas = cg.canvases[canvasId];
+          if (canvas.hideDebugOverlays) { continue; }
           let c = canvas.c;
           let cullCamera = canvas.camera;
           if (cullCamera===null) { continue; }

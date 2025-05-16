@@ -1431,7 +1431,8 @@ ChoreoGraph.plugin({
       canvasParent.appendChild(canvasElement);
       cg.AnimationEditor.ui.dopeSheetCanvasContainer = canvasParent;
       let canvas = cg.createCanvas({element:canvasElement,
-        background:"#121212"
+        background:"#121212",
+        hideDebugOverlays : true
       },"animation_editor_dopesheet");
       canvas.setupParentElement(canvasParent);
       

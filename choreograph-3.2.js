@@ -241,6 +241,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     height = 400;
 
     keepCursorHidden = false;
+    hideDebugOverlays = false;
 
     camera = null;
     parentElement = null;

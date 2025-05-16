@@ -68,6 +68,7 @@ ChoreoGraph.plugin({
         if (debugSettings.showBakedPaths) {
           for (let canvasId of cg.keys.canvases) {
             let canvas = cg.canvases[canvasId];
+            if (canvas.hideDebugOverlays) { continue; }
             if (canvas.camera===null) { continue; }
             canvas.c.save();
 

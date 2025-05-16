@@ -9,7 +9,7 @@ ChoreoGraph.plugin({
       override = false; // If true the block will never be clear
       waitingForOverride = false; // If the object is waiting blocked in a block that is overridden
       clear = true; // If the block is clear to be entered, you know, basic block rules
-      overrideType = 0; // 0 - allow stopping midway, 1 - only at block markers
+      overrideType = 0; // 0 - allow stopping midway  1 - only at block markers
       objectCount = 0;
       groupOccupying = null;
 
@@ -31,8 +31,8 @@ ChoreoGraph.plugin({
       open() {
         this.clear = true;
       }
-      close() { // Dont mark the null block as not clear
-        if (this.id!==null) { this.clear = false; }
+      close(groupId) { // Dont mark the null block as not clear
+        if (this.id!==null) { this.clear = false; this.groupOccupying = groupId; }
       }
     };
 
@@ -56,12 +56,179 @@ ChoreoGraph.plugin({
         cg.keys.blocks.push(id);
         return newBlock;
       }
+
+      hasActivatedDebugLoop = false;
+      blockControllerDebugLoop(cg) {
+        let debugSettings = cg.settings.blockcontroller.debug;
+        if (!debugSettings.active) { return; }
+        for (let canvasId of cg.keys.canvases) {
+          let canvas = cg.canvases[canvasId];
+          if (canvas.hideDebugOverlays) { continue; }
+          ChoreoGraph.transformContext(canvas.camera);
+          for (let animation of debugSettings.animations) {
+            // FIND KEYS
+            let xKey = -1;
+            let yKey = -1;
+            for (let k=0;k<animation.keys.length;k++) {
+              if (JSON.stringify(animation.keys[k].keySet)==JSON.stringify(debugSettings.pathXKey)) { xKey = k; }
+              if (JSON.stringify(animation.keys[k].keySet)==JSON.stringify(debugSettings.pathYKey)) { yKey = k; }
+            }
+            if (xKey==-1||yKey==-1) { continue; }
+
+            let paths = {};
+            let currentPath = [];
+            let block = debugSettings.startingBlock;
+
+            // GET DATA FROM ANIMATIONS
+            let lastX, lastY;
+            for (let keyframe of animation.data) {
+              if (typeof keyframe[0] == "number") {
+                let x = keyframe[xKey];
+                let y = keyframe[yKey];
+                currentPath.push([x,y]);
+                lastX = x;
+                lastY = y;
+              } else if (typeof keyframe[0] == "string") {
+                if (keyframe[0].toUpperCase() == "B") {
+                  let newBlock = keyframe[1];
+                  if (newBlock!=block) {
+                    if (block!=null) {
+                      if (paths[block]==undefined) { paths[block] = []; }
+                      paths[block].push(...currentPath);
+                    }
+                    currentPath = [[lastX,lastY]];
+                    block = newBlock;
+                  }
+                }
+              }
+            }
+            if (block!=null) {
+              if (paths[block]==undefined) { paths[block] = currentPath; }
+              else {
+                paths[block].unshift(...currentPath);
+              }
+            }
+
+            // DRAW PATHS
+            let c = canvas.c;
+            let alternator = 0;
+            c.lineCap = "round";
+            for (let blockId in paths) {
+              c.lineWidth = 4;
+              let block = cg.BlockController.blocks[blockId];
+              let points = paths[blockId];
+              let totalLength = 0;
+              let lastPoint = points[0];
+              c.beginPath();
+
+              // DRAW LINES AND FIND LENGTH
+              for (let i=0;i<points.length;i++) {
+                let x = points[i][0];
+                let y = points[i][1];
+                c.lineTo(x,y);
+
+                let dx = x-lastPoint[0];
+                let dy = y-lastPoint[1];
+                totalLength += Math.sqrt(dx*dx+dy*dy);
+                lastPoint = points[i];
+              }
+              if (block.override) {
+                c.strokeStyle = debugSettings.colours[alternator*3+2];
+              } else if (block.clear) {
+                c.strokeStyle = debugSettings.colours[alternator*3];
+              } else {
+                c.strokeStyle = debugSettings.colours[alternator*3+1];
+              }
+              c.stroke();
+
+              // CAPS
+              c.lineWidth = 2;
+              c.beginPath();
+              let startAngle = Math.atan2(points[1][1]-points[0][1],points[1][0]-points[0][0]);
+              c.moveTo(points[0][0]+Math.cos(startAngle+Math.PI/2)*10,points[0][1]+Math.sin(startAngle+Math.PI/2)*10);
+              c.lineTo(points[0][0]+Math.cos(startAngle-Math.PI/2)*10,points[0][1]+Math.sin(startAngle-Math.PI/2)*10);
+              c.stroke();
+
+              // FIND CENTRE
+              let cX = 0;
+              let cY = 0;
+              lastPoint = points[0];
+              let lengthSoFar = 0;
+              for (let i=0;i<points.length;i++) {
+                let x = points[i][0];
+                let y = points[i][1];
+
+                let dx = x-lastPoint[0];
+                let dy = y-lastPoint[1];
+                let length = Math.sqrt(dx*dx+dy*dy);
+                lengthSoFar += length;
+
+                if (lengthSoFar>=totalLength/2) {
+                  let overshoot = lengthSoFar-totalLength/2;
+                  let ratio = overshoot/length;
+
+                  cX = lastPoint[0]+dx*ratio;
+                  cY = lastPoint[1]+dy*ratio;
+                  break;
+                }
+
+                lastPoint = points[i];
+              }
+
+              // DRAW MARKER
+              c.fillStyle = "red";
+              c.beginPath();
+              c.arc(cX,cY,10,0,Math.PI*2);
+              c.fill();
+              c.fillStyle = "white";
+              c.font = "bold 12px Verdana";
+              c.textBaseline = "middle";
+              c.textAlign = "center";
+              c.fillText(blockId,cX,cY+0.6);
+
+              alternator = !alternator;
+            }
+          }
+        }
+      };
     };
   },
 
   instanceConnect(cg) {
     cg.BlockController = new ChoreoGraph.BlockController.instanceObject(cg);
     cg.keys.blocks = [];
+
+    cg.attachSettings("blockcontroller",{      
+      debug : new class {
+        pathXKey = ["transform","x"];
+        pathYKey = ["transform","y"];
+        animations = [];
+        startingBlock = null;
+        colours = ["#f9f51d","#f54242","#6e6c0c","#feb01d","#ff0000","#855b0d"] // A-Clear A-Blocked A-Overridden B-Clear B-Blocked B-Overridden
+
+        #cg = cg;
+        #active = false;
+        set active(value) {
+          this.#active = value;
+          if (value&&!this.#cg.BlockController.hasActivatedDebugLoop) {
+            this.#cg.BlockController.hasActivatedDebugLoop = true;
+            this.#cg.overlayLoops.push(this.#cg.BlockController.blockControllerDebugLoop);
+          }
+        }
+        get active() { return this.#active; }
+      }
+    });
+
+    if (ChoreoGraph.Develop!==undefined) {
+      cg.Develop.interfaceItems.push({
+        type : "UIToggleButton",
+        activeText : "Blocks Debug",
+        inactiveText : "Blocks Debug",
+        activated : cg.settings.blockcontroller.debug,
+        onActive : (cg) => { cg.settings.blockcontroller.debug.active = true; },
+        onInactive : (cg) => { cg.settings.blockcontroller.debug.active = false; },
+      });
+    };
   }
 });
 
@@ -71,7 +238,7 @@ ChoreoGraph.ObjectComponents.BlockController = class cgObjectBlockController {
     key : "BlockController",
     master : true,
     functions : {
-      update : false
+      update : true
     }
   }
 
@@ -83,7 +250,7 @@ ChoreoGraph.ObjectComponents.BlockController = class cgObjectBlockController {
     let blockGroups = this.Animator.cg.BlockController.blockGroups;
     if (previousGroupId!=null) {
       let previousGroup = blockGroups[previousGroupId];
-      previousGroup.splice(previousGroup.indexOf(this.object),1);
+      previousGroup.splice(previousGroup.indexOf(this),1);
       if (previousGroup.length==0) { delete blockGroups[previousGroupId]; }
     }
     if (value!=null) {
@@ -92,7 +259,7 @@ ChoreoGraph.ObjectComponents.BlockController = class cgObjectBlockController {
         blockGroups[value] = [];
         newGroup = blockGroups[value];
       }
-      newGroup.push(this.Animator.object);
+      newGroup.push(this);
     }
   }
   get group() {
@@ -150,40 +317,71 @@ ChoreoGraph.ObjectComponents.BlockController = class cgObjectBlockController {
 
     bc.processingBlock = true;
 
-    if (newBlock.isOpen(this.group)) {
-      newBlock.groupOccupying = this.group;
+    if (newBlock.isOpen(bc.group)) {
+      newBlock.groupOccupying = bc.group;
       newBlock.objectCount++;
-      newBlock.close();
-    } else if (newBlock.isClosed(this.group)) {
-      bc.stop();
+      newBlock.close(bc.group);
+    } else if (newBlock.isClosed(bc.group)) {
+      bc.stop(false);
+      return false;
+    }
+    
+    if (oldBlockId!=null) {
+      oldBlock.objectCount--;
+    }
+    if (oldBlock.objectCount<=0) {
+      oldBlock.open();
+      oldBlock.groupOccupying = null;
     }
 
+    bc.block = newBlockId;
     bc.processingBlock = false;
     return true;
   };
 
   start() {
+    // UNPAUSE ALL RELEVANT ANIMATORS
     if (this.blocked) {
-      if (this.trainPosition==null) { // Individual Objects
-        this.newlyUnblocked = true;
-        this.blocked = false;
-      } else { // Trains
-        for (let onum=0;onum<this.trainCarriages.length;onum++) {
-          if (this.trainCarriages[onum].blocked) { this.newlyUnblocked = true; }
-          this.trainCarriages[onum].blocked = false;
+      this.blocked = true;
+      if (this.group==null) {
+        this.Animator.paused = false;
+      } else if (this.group!=null) {
+        let blockGroup = this.Animator.cg.BlockController.blockGroups[this.group];
+        for (let bc of blockGroup) {
+          bc.blocked = false;
+          bc.Animator.paused = false;
         }
       }
     }
   };
 
-  stop() {
+  stop(stopSelf=true) {
+    // PAUSE ALL RELEVANT ANIMATORS
     if (!this.blocked) {
       this.blocked = true;
-      if (this.group==null) {
-
-      } else {
-
+      if (this.group==null&&stopSelf) {
+        this.Animator.paused = true;
+      } else if (this.group!=null) {
+        let blockGroup = this.Animator.cg.BlockController.blockGroups[this.group];
+        for (let bc of blockGroup) {
+          if (!stopSelf&&bc==this) { continue; }
+          bc.blocked = true;
+          bc.Animator.paused = true;
+        }
       }
     }
   };
+
+  update(scene) {
+    // BLOCK OVERRIDE RESPONSE
+    if (this.processingBlock) { return; }
+    let block = scene.cg.BlockController.blocks[this.block];
+    if (block.overrideType==0) {
+      if (block.override) {
+        this.stop();
+      } else if (block.isOpen(this.group)) {
+        this.start();
+      }
+    }
+  }
 };

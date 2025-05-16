@@ -68,26 +68,34 @@ cg.createObject({},"animatedObject")
 
 cg.scenes.main.addObject(cg.objects.animatedObject);
 
-let blockTestAnim = cg.Animation.createAnimationFromPacked("2:transform,x;0,x|transform,y;0,y&path=15:185,28,185,28,134,37~102,59,70,81,68,176~116,153,164,130,184,96~226,83,268,70,343,118~373,95,403,72,363,24~316,20,269,16,189,29,185,28&trigger=5.45:b:sA|18.51:b:sB|30.96:b:sC|43.77:b:sD",{},"blockTestAnim");
+let blockTestAnim = cg.Animation.createAnimationFromPacked("2:transform,x;0,x|transform,y;0,y&path=15:185,28,185,28,134,37~102,59,70,81,68,176~116,153,164,130,184,96~226,83,268,70,343,118~373,95,403,72,363,24~316,20,269,16,189,29,185,28&trigger=5.35:b:sA|23.7:b:sB|30.96:b:sC|43.77:b:sD",{},"blockTestAnim");
+
+cg.settings.blockcontroller.debug.animations.push(blockTestAnim);
+cg.settings.blockcontroller.debug.startingBlock = "D";
 
 let simpleCircle = cg.createGraphic({type:"arc",radius:10,colour:"#88c35e"},"simpleCircle");
 
 cg.createObject({},"blockObjectA")
 .attach("Animator",{animation:blockTestAnim,playhead:0,speed:150})
 .attach("Graphic",{graphic:simpleCircle})
-.attach("BlockController",{group:"testGroupA"})
+.attach("BlockController",{group:"testGroupC"})
 cg.createObject({},"blockObjectB")
-.attach("Animator",{animation:blockTestAnim,playhead:20,speed:150})
+.attach("Animator",{animation:blockTestAnim,playhead:60,speed:150})
+.attach("Graphic",{graphic:simpleCircle})
+.attach("BlockController",{group:"testGroupB"})
+cg.createObject({},"blockObjectC")
+.attach("Animator",{animation:blockTestAnim,playhead:160,speed:150})
 .attach("Graphic",{graphic:simpleCircle})
 .attach("BlockController",{group:"testGroupA"})
-cg.createObject({},"blockObjectC")
-.attach("Animator",{animation:blockTestAnim,playhead:40,speed:150})
+cg.createObject({},"blockObjectD")
+.attach("Animator",{animation:blockTestAnim,playhead:140,speed:150})
 .attach("Graphic",{graphic:simpleCircle})
 .attach("BlockController",{group:"testGroupA"})
 
 cg.scenes.main.addObject(cg.objects.blockObjectA);
 cg.scenes.main.addObject(cg.objects.blockObjectB);
 cg.scenes.main.addObject(cg.objects.blockObjectC);
+cg.scenes.main.addObject(cg.objects.blockObjectD);
 
 for (let blockId of ["A","B","C","D"]) {
   cg.BlockController.createBlock({},blockId);
@@ -121,6 +129,7 @@ cg.settings.core.callbacks.loopAfter = () => {
   cg.c.strokeStyle = "white";
   cg.c.font = "20px Arial";
   cg.c.fillStyle = "white";
+  cg.c.textAlign = "left";
   // cg.c.fillText(cg.Input.lastInputType,10,50);
 
   cg.c.fillText(cg.objects.animatedObject.Animator.playhead.toFixed(3),10,330);
