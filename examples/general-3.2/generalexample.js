@@ -63,43 +63,87 @@ cg.Audio.sounds.magneticPlane.play({allowBuffer:true,loop:true});
 let testAnim = cg.Animation.createAnimationFromPacked("4:transform,x;0,x|transform,y;0,y|transform,r;0,r|Graphic,graphic,width;1,v&path=15:154,369,102,315,116,202~169,157,222,112,315,91,349,141^424,309,452,363,359,383~296,356,233,329,220,271~255,234,290,197,410,154,498,196&value=,5+4!10+1,20+7!15+1,5+14!10+3,50+16!60+3,100",{},"testAnim");
 
 cg.createObject({},"animatedObject")
-.attach("Animator",{animation:testAnim,speed:300})
+.attach("Animator",{animation:testAnim,speed:50})
 .attach("Graphic",{graphic:cg.createGraphic({type:"rectangle",colour:"red",height:20,width:20},"testAnimRect")})
 
 cg.scenes.main.addObject(cg.objects.animatedObject);
 
 let blockTestAnim = cg.Animation.createAnimationFromPacked("2:transform,x;0,x|transform,y;0,y&path=15:185,28,185,28,134,37~102,59,70,81,68,176~116,153,164,130,184,96~226,83,268,70,343,118~373,95,403,72,363,24~316,20,269,16,189,29,185,28&trigger=5.35:b:sA|23.7:b:sB|30.96:b:sC|43.77:b:sD",{},"blockTestAnim");
 
-cg.settings.blockcontroller.debug.animations.push(blockTestAnim);
-cg.settings.blockcontroller.debug.startingBlock = "D";
+cg.settings.blockcontroller.debug.animations.push("D",blockTestAnim);
 
 let simpleCircle = cg.createGraphic({type:"arc",radius:10,colour:"#88c35e"},"simpleCircle");
 
-cg.createObject({},"blockObjectA")
+cg.scenes.main.addObject(cg.createObject({},"blockObjectA")
 .attach("Animator",{animation:blockTestAnim,playhead:0,speed:150})
 .attach("Graphic",{graphic:simpleCircle})
-.attach("BlockController",{group:"testGroupC"})
-cg.createObject({},"blockObjectB")
+.attach("BlockController",{group:"testGroupC"}));
+
+cg.scenes.main.addObject(cg.createObject({},"blockObjectB")
 .attach("Animator",{animation:blockTestAnim,playhead:60,speed:150})
 .attach("Graphic",{graphic:simpleCircle})
-.attach("BlockController",{group:"testGroupB"})
-cg.createObject({},"blockObjectC")
+.attach("BlockController",{group:"testGroupB"}));
+
+cg.scenes.main.addObject(cg.createObject({},"blockObjectC")
 .attach("Animator",{animation:blockTestAnim,playhead:160,speed:150})
 .attach("Graphic",{graphic:simpleCircle})
-.attach("BlockController",{group:"testGroupA"})
-cg.createObject({},"blockObjectD")
+.attach("BlockController",{group:"testGroupA"}));
+
+cg.scenes.main.addObject(cg.createObject({},"blockObjectD")
 .attach("Animator",{animation:blockTestAnim,playhead:140,speed:150})
 .attach("Graphic",{graphic:simpleCircle})
-.attach("BlockController",{group:"testGroupA"})
-
-cg.scenes.main.addObject(cg.objects.blockObjectA);
-cg.scenes.main.addObject(cg.objects.blockObjectB);
-cg.scenes.main.addObject(cg.objects.blockObjectC);
-cg.scenes.main.addObject(cg.objects.blockObjectD);
+.attach("BlockController",{group:"testGroupA"}));
 
 for (let blockId of ["A","B","C","D"]) {
   cg.BlockController.createBlock({},blockId);
 }
+
+let generatedData = [];
+for (let i=0;i<50;i++) {
+  let startX = 35;
+  let startY = 415;
+  let gap = 10;
+  let x = startX + i*gap;
+  let y = startY;
+  let time = Number(i!=0);
+  generatedData.push([x,y,time]);
+}
+
+generatedData.splice(10,0,["b","L"]);
+generatedData.splice(20,0,["b","K"]);
+generatedData.splice(30,0,["b","P"]);
+
+for (let blockId of ["K","P","L"]) {
+  cg.BlockController.createBlock({},blockId);
+}
+
+let simplifiedBlockAnim = cg.Animation.createAnimation({},"simplifiedBlockAnim").loadRaw(generatedData,[
+  {keySet:["transform","x"]},
+  {keySet:["transform","y"]},
+  {keySet:"time"}
+]);
+
+cg.settings.blockcontroller.debug.animations.push("P",simplifiedBlockAnim);
+
+cg.scenes.main.addObject(cg.createObject({},"GA_0")
+.attach("Animator",{animation:simplifiedBlockAnim,playhead:2,speed:3})
+.attach("Graphic",{graphic:simpleCircle})
+.attach("BlockController",{group:"blockGroupA"}));
+
+cg.scenes.main.addObject(cg.createObject({},"GA_1")
+.attach("Animator",{animation:simplifiedBlockAnim,playhead:0,speed:3})
+.attach("Graphic",{graphic:simpleCircle})
+.attach("BlockController",{group:"blockGroupA"}));
+
+cg.scenes.main.addObject(cg.createObject({},"GB_0")
+.attach("Animator",{animation:simplifiedBlockAnim,playhead:24,speed:3})
+.attach("Graphic",{graphic:simpleCircle})
+.attach("BlockController",{group:"blockGroupB"}));
+
+cg.scenes.main.addObject(cg.createObject({},"GB_1")
+.attach("Animator",{animation:simplifiedBlockAnim,playhead:20,speed:3})
+.attach("Graphic",{graphic:simpleCircle})
+.attach("BlockController",{group:"blockGroupB"}));
 
 cg.Input.createAction({keys:["w","up","conleftup","condpadup","conrightup",cg.Input.buttons.dummy]},"forward");
 cg.Input.createAction({keys:["s","down","conleftdown","condpaddown","conrightdown"]},"backward");
@@ -139,6 +183,8 @@ cg.settings.core.callbacks.loopAfter = () => {
   cg.c.fillText(cg.Input.actions.backward.get().toFixed(2),40,120);
   cg.c.fillText(cg.Input.actions.left.get().toFixed(2),15,100);
   cg.c.fillText(cg.Input.actions.right.get().toFixed(2),65,100);
+
+  cg.c.fillText(cg.objects.GA_0.Animator.playhead-cg.objects.GA_1.Animator.playhead,10,370);
 
   let dir = cg.Input.getActionNormalisedVector("forward","backward","left","right");
   cg.c.fillText(dir[0],40,160);

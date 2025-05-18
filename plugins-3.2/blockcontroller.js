@@ -65,7 +65,10 @@ ChoreoGraph.plugin({
           let canvas = cg.canvases[canvasId];
           if (canvas.hideDebugOverlays) { continue; }
           ChoreoGraph.transformContext(canvas.camera);
+          let block = null;
           for (let animation of debugSettings.animations) {
+            if (typeof animation=="string") { block = animation; continue; }
+
             // FIND KEYS
             let xKey = -1;
             let yKey = -1;
@@ -77,7 +80,6 @@ ChoreoGraph.plugin({
 
             let paths = {};
             let currentPath = [];
-            let block = debugSettings.startingBlock;
 
             // GET DATA FROM ANIMATIONS
             let lastX, lastY;
@@ -203,7 +205,6 @@ ChoreoGraph.plugin({
         pathXKey = ["transform","x"];
         pathYKey = ["transform","y"];
         animations = [];
-        startingBlock = null;
         colours = ["#f9f51d","#f54242","#6e6c0c","#feb01d","#ff0000","#855b0d"] // A-Clear A-Blocked A-Overridden B-Clear B-Blocked B-Overridden
 
         #cg = cg;
@@ -346,7 +347,7 @@ ChoreoGraph.ObjectComponents.BlockController = class cgObjectBlockController {
   start() {
     // UNPAUSE ALL RELEVANT ANIMATORS
     if (this.blocked) {
-      this.blocked = true;
+      this.blocked = false;
       if (this.group==null) {
         this.Animator.paused = false;
       } else if (this.group!=null) {
@@ -354,6 +355,7 @@ ChoreoGraph.ObjectComponents.BlockController = class cgObjectBlockController {
         for (let bc of blockGroup) {
           bc.blocked = false;
           bc.Animator.paused = false;
+          bc.processingBlock = false;
         }
       }
     }
@@ -371,6 +373,9 @@ ChoreoGraph.ObjectComponents.BlockController = class cgObjectBlockController {
           if (!stopSelf&&bc==this) { continue; }
           bc.blocked = true;
           bc.Animator.paused = true;
+          bc.processingBlock = true;
+          bc.Animator.playhead += this.Animator.travelledThisFrame;
+          bc.Animator.setValues();
         }
       }
     }

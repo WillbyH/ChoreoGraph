@@ -209,7 +209,7 @@ ChoreoGraph.plugin({
       loadRaw(data,keys) {
         this.data = data;
         this.keys = keys;
-        this.timeKey = keys.indexOf("time");
+        this.timeKey = this.getTimeKey();
         this.calculateDuration();
         if (this.data.length<2) {
           console.warn("Animation:",this.id,"must be at least 2 keyframes long");
@@ -217,6 +217,7 @@ ChoreoGraph.plugin({
         } else {
           this.ready = true;
         }
+        return this;
       };
 
       createTrack(trackType) {
@@ -1361,12 +1362,15 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
   }
   speed = 1;
   playhead = 0;
+  timeBudget = 0;
+  travelledThisFrame = 0;
   stt = 0; // Start Time
   ent = 0; // End TIme
   part = 0;
   from = [];
   to = [];
   ease = "linear";
+  lastUpdatedFrame = -1;
   nextPlayfromAllowTriggers = false;
   runTriggers = true;
   loop = true;
@@ -1409,6 +1413,8 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
       this.initConnection();
     }
 
+    this.lastUpdatedFrame = ChoreoGraph.frame;
+
     if (this.playing==false) {
       this.playFrom(this.playhead);
     }
@@ -1417,34 +1423,45 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
       if (this.processTriggersAndFindTo()===false) { return }
     }
 
-    this.advancePlayhead(scene);
+    this.timeBudget = (cg.timeSinceLastFrame*cg.settings.core.timeScale)/1000;
 
-    // PLAYHEAD > DURATION
-    if (this.playhead>this.animation.duration) {
-      this.setFinalValues();
-      this.playing = false;
-      if (this.loop) {
-        this.rewind();
-      } else {
-        this.paused = true;
+    this.travelledThisFrame = 0;
+    while (this.timeBudget>0) {
+      let timeTillNextKeyFrame = (this.ent-this.playhead)/this.speed;
+      if (timeTillNextKeyFrame<=this.timeBudget) {
+        this.travelledThisFrame += this.ent-this.playhead;
+        this.timeBudget -= timeTillNextKeyFrame;
+        this.playhead = this.ent;
+
+        // PLAYHEAD >= DURATION
+        if (this.playhead>=this.animation.duration) {
+          this.playhead += this.timeBudget*this.speed;
+          this.timeBudget = 0;
+          this.setFinalValues();
+          this.playing = false;
+          if (this.loop) {
+            this.rewind();
+          } else {
+            this.paused = true;
+          }
+          return;
+        } 
+
+        // PLAYHEAD == ENT
+        else {
+          this.from = this.to;
+          this.part++;
+          if (this.processTriggersAndFindTo()===false) { return; }
+        }
       }
-      return;
-    }
-    
-    // PLAYHEAD > ENT
-    else if (this.playhead>this.ent) {
-      this.from = this.to;
-      this.part++;
-      if (this.processTriggersAndFindTo()===false) { return; }
-    }
 
-    this.setValues();
-  };
-
-  // Moves the playhead forwards
-  advancePlayhead(scene) {
-    let cg = scene.cg;
-    this.playhead += (cg.timeSinceLastFrame*cg.settings.core.timeScale*this.speed)/1000;
+      // TIMEBUDGET < TIME TILL NEXT KEYFRAME
+      if (this.timeBudget < timeTillNextKeyFrame) {
+        this.playhead += this.timeBudget*this.speed;
+        this.timeBudget = 0;
+        this.setValues();
+      }
+    }
   };
 
   // Sets the playhead back by the duration of the animation
@@ -1493,7 +1510,7 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
     this.to = this.animation.data[this.part];
     this.stt = this.ent;
     this.ent += this.to[this.animation.timeKey];
-    if (this.playhead > this.ent) {
+    if (this.playhead >= this.ent) {
       this.from = this.to;
       this.part++;
       if (this.processTriggersAndFindTo()===false) { return false; }
