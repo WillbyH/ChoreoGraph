@@ -9,6 +9,7 @@ const cg = ChoreoGraph.instantiate({
     // forceMode : "HTMLAudio"
   },
   input : {
+    preventDefaultKeys : ["space","up","down"],
     controller : {
       emulatedCursor : {
         active : true
@@ -17,11 +18,38 @@ const cg = ChoreoGraph.instantiate({
     debug : {
       active : true
     }
+  },
+  shaders : {
+    debug : true
   }
 });
 cg.createCanvas({element:document.getElementsByTagName("canvas")[0],
   height : 450,
   width : 600
+});
+
+cg.Shaders.createCanvas({element:document.getElementsByTagName("canvas")[1],
+  height : 450,
+  width : 600,
+  clearColor : {r:0,g:0,b:0,a:1}
+},"shaderCanvas");
+
+cg.Shaders.canvases.shaderCanvas.addSource({
+  source : cg.canvases.main.element,
+  fragmentShader : `
+    precision mediump float;
+
+    varying vec2 texCoords;
+    uniform sampler2D textureSampler;
+
+    void main() {
+      vec4 color = texture2D(textureSampler, texCoords);
+
+      color.a = 1.0 - max(color.g - color.r - color.b, 0.0);
+
+      gl_FragColor = color;
+    }
+  `
 });
 
 ChoreoGraph.FMOD.baseBankPath = "audio/";
