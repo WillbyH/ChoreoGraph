@@ -13,6 +13,7 @@ ChoreoGraph.plugin({
       document.addEventListener("pointercancel", this.pointerCancel, false);
       document.addEventListener("contextmenu", this.contextMenu, false);
       document.addEventListener("wheel", this.wheel, {passive: false});
+      document.addEventListener("mouseleave", this.unhoverAllButtons, false);
       window.addEventListener("blur", this.blur);
       window.addEventListener("gamepadconnected", (event) => { ChoreoGraph.Input.controllers[event.gamepad.index] = new ChoreoGraph.Input.GamePadController(event); });
       window.addEventListener("gamepaddisconnected", (event) => { ChoreoGraph.Input.controllers[event.gamepad.index].connected = false; });
@@ -29,6 +30,7 @@ ChoreoGraph.plugin({
         this.keyStates[key] = false;
       }
 
+      this.NULLINPUT = "nullinput";
       this.KEYBOARD = "keyboard";
       this.CONTROLLER = "controller";
       this.MOUSE = "mouse";
@@ -36,9 +38,9 @@ ChoreoGraph.plugin({
     }
     instanceObject = class Input {
       get cursor() { return this.canvasCursors[this.cg.settings.core.defaultCanvas.id]; }
-      lastInputType = ChoreoGraph.Input.MOUSE; // mouse touch keyboard controller
-      lastKeyType = ChoreoGraph.Input.KEYBOARD; // keyboard controller mouse
-      lastCursorType = ChoreoGraph.Input.MOUSE; // mouse touch controller
+      lastInputType = ChoreoGraph.Input.NULLINPUT; // mouse touch keyboard controller
+      lastKeyType = ChoreoGraph.Input.NULLINPUT; // keyboard controller mouse
+      lastCursorType = ChoreoGraph.Input.NULLINPUT; // mouse touch controller
       lastInteraction = {
         any : -Infinity,
 
@@ -334,15 +336,17 @@ ChoreoGraph.plugin({
         }
       };
       enter(event) {
-        let cursorEnter = this.cgCanvas.cg.settings.input.callbacks.cursorEnter;
+        let cgCanvas = event.target.cgCanvas;
+        let cursorEnter = cgCanvas.cg.settings.input.callbacks.cursorEnter;
         if (cursorEnter!==null) {
-          cursorEnter(event,this.cgCanvas);
+          cursorEnter(event,cgCanvas);
         }
       };
       exit(event) {
-        let cursorLeave = this.cgCanvas.cg.settings.input.callbacks.cursorLeave;
+        let cgCanvas = event.target.cgCanvas;
+        let cursorLeave = cgCanvas.cg.settings.input.callbacks.cursorLeave;
         if (cursorLeave!==null) {
-          cursorLeave(event,this.cgCanvas);
+          cursorLeave(event,cgCanvas);
         }
       };
       cancel(event) {
@@ -1034,6 +1038,23 @@ ChoreoGraph.plugin({
       }
     };
 
+    unhoverAllButtons(event) {
+      for (let cg of ChoreoGraph.instances) {
+        for (let buttonId of cg.keys.buttons) {
+          let button = cg.Input.buttons[buttonId];
+          if (button.hovered) {
+            button.hovered = false;
+            button.exitTime = ChoreoGraph.nowint;
+            button.hoverCount = 0;
+            cg.Input.hoveredButtons = 0;
+            if (button.exit!==null) {
+              button.exit(event,canvas);
+            }
+          }
+        }
+      }
+    };
+
     // ACTIONS
 
     ActionKey = class cgActionKey {
@@ -1190,7 +1211,7 @@ ChoreoGraph.plugin({
 
       debug : new class {
         buttons = {
-          active : false,
+          active : true,
           opacity : 0.4,
           fadeOut : 300, // Time in ms that the button fades out for
           style : {
