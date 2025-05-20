@@ -116,7 +116,7 @@ ChoreoGraph.plugin({
             let alternator = 0;
             c.lineCap = "round";
             for (let blockId in paths) {
-              c.lineWidth = 4;
+              c.lineWidth = 4 * cg.settings.core.debugScale;
               let block = cg.BlockController.blocks[blockId];
               let points = paths[blockId];
               let totalLength = 0;
@@ -144,7 +144,7 @@ ChoreoGraph.plugin({
               c.stroke();
 
               // CAPS
-              c.lineWidth = 2;
+              c.lineWidth = 2 * cg.settings.core.debugScale;
               c.beginPath();
               let startAngle = Math.atan2(points[1][1]-points[0][1],points[1][0]-points[0][0]);
               c.moveTo(points[0][0]+Math.cos(startAngle+Math.PI/2)*10,points[0][1]+Math.sin(startAngle+Math.PI/2)*10);

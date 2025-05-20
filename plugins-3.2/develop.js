@@ -226,7 +226,7 @@ ChoreoGraph.plugin({
               c.strokeStyle = cg.settings.develop.cameras.colour;
               let cw = canvas.width/camera.cz;
               let ch = canvas.height/camera.cz;
-              c.lineWidth = 2/canvas.camera.cz;
+              c.lineWidth = 2 * cg.settings.core.debugScale / canvas.camera.z;
               c.beginPath();
               c.rect(-cw*0.5,-ch*0.5,cw,ch)
               c.moveTo(-cw*0.5,-ch*0.5);
@@ -249,8 +249,7 @@ ChoreoGraph.plugin({
           if (cullCamera.cullOverride!==null) { cullCamera = cullCamera.cullOverride; }
           ChoreoGraph.transformContext(canvas.camera,cullCamera.x,cullCamera.y);
           c.strokeStyle = cg.settings.develop.frustumCulling.frustumColour;
-          c.lineWidth = 3*canvas.camera.cz;
-          c.lineWidth = 3;
+          c.lineWidth = 3 * cg.settings.core.debugScale / canvas.camera.z;
           c.strokeRect(-canvas.width*0.5,-canvas.height*0.5,canvas.width,canvas.height);
           function drawCollectionCullBoxes(collection) {
             for (let item of collection) {

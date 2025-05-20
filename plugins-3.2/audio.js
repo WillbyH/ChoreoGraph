@@ -18,7 +18,11 @@ ChoreoGraph.plugin({
     mode = null; // WebAudio or HTMLAudio
     ctx = null;
 
-    onReady = null;
+    #onReadys = [];
+    set onReady(callback) {
+      if (this.ready) { callback(); return; }
+      this.#onReadys.push(callback);
+    }
     hasCalledOnReady = false;
 
     cache = {};
@@ -479,7 +483,12 @@ ChoreoGraph.plugin({
     update() {
       let Audio = ChoreoGraph.Audio;
       if (!Audio.checkSetup()) { return; };
-      if (Audio.hasCalledOnReady==false&&Audio.ready&&Audio.onReady!==null) { Audio.hasCalledOnReady = true; Audio.onReady(); }
+      if (Audio.hasCalledOnReady==false&&Audio.ready) {
+        Audio.hasCalledOnReady = true;
+        for (let callback of Audio.#onReadys) {
+          callback();
+        }
+      }
       if (Audio.mode==Audio.HTMLAUDIO) {
         for (let id in Audio.playing) {
           let sound = Audio.playing[id];

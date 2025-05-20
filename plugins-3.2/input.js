@@ -630,11 +630,13 @@ ChoreoGraph.plugin({
       if (controller==null||controller.connected==false||cg.settings.input.allowController==false) { return; }
       if (ChoreoGraph.Input.lastClickedCanvas===null) { return; }
       let gamepad = controller.gamepad;
+      if (gamepad===undefined) { return; }
 
       function checkButton(buttonIndex,pressed) {
         if (controller.lastButtons[buttonIndex]!==pressed) {
           let fakeEvent = new class FakeKeyboardEvent {
             type = null;
+            gamepad = gamepad;
             gamepadButtonIndex = buttonIndex;
             key = ["conactionbottom","conactionright","conactionleft","conactiontop","conleftbumper","conrightbumper","conlefttrigger","conrighttrigger","conselect","constart","conleftstick","conrightstick","condpadup","condpaddown","condpadleft","condpadright","conleftstickup","conleftstickdown","conleftstickleft","conleftstickright","conrightstickup","conrightstickdown","conrightstickleft","conrightstickright"][buttonIndex];
             keyType = "controller";
@@ -714,6 +716,7 @@ ChoreoGraph.plugin({
         let fakeEvent = new class FakePointerEvent {
           target = ChoreoGraph.Input.lastClickedCanvas.element;
           pointerId = 0;
+          gamepad = gamepad;
           type = "pointermove";
           clientX = cursor.clientX;
           clientY = cursor.clientY;
@@ -737,6 +740,7 @@ ChoreoGraph.plugin({
           let fakeEvent = new class FakePointerEvent {
             target = ChoreoGraph.Input.lastClickedCanvas.element;
             pointerId = 0;
+            gamepad = gamepad;
             button = {left:0,right:2,up:1}[side];
             type = "pointerdown";
             clientX = cursor.clientX;
@@ -750,6 +754,7 @@ ChoreoGraph.plugin({
           let fakeEvent = new class FakePointerEvent {
             target = ChoreoGraph.Input.lastClickedCanvas.element;
             pointerId = 0;
+            gamepad = gamepad;
             button = {left:0,right:2,up:1}[side];
             type = "pointerup";
             clientX = cursor.clientX;

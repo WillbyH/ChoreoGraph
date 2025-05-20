@@ -136,8 +136,8 @@ ChoreoGraph.plugin({
 
             let size = debugSettings.width/canvas.camera.z;
         
-            c.lineWidth = size; // Odd lerps
-            c.strokeStyle = debugSettings.pathColours[0];
+            c.lineWidth = size * cg.settings.core.debugScale;
+            c.strokeStyle = debugSettings.pathColours[0]; // Odd lerps
             c.beginPath();
             for (let p = 0; p < oddLerps.length; p++) {
               c.moveTo(oddLerps[p][0][0], oddLerps[p][0][1]);

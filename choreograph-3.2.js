@@ -81,8 +81,9 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         loadChecks : [],
         waitUntilReady : true,
         defaultCanvasSpaceScale : 1,
+        debugScale : 1,
         frustumCulling : true,
-        baseImagePath : "images/",
+        baseImagePath : "",
         defaultCursor : "default",
 
         callbacks : {
@@ -316,61 +317,66 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       }
     };
     drawGraphic(item) {
-      let go = item.transform.o;
-      if (go==0) { return; }
-      let gx = item.transform.x;
-      let gy = item.transform.y;
-      let gax = item.transform.ax;
-      let gay = item.transform.ay;
-      let gr = item.transform.r;
-      let gsx = item.transform.sx;
-      let gsy = item.transform.sy;
-      let CGSpace = item.transform.CGSpace;
-      let flipX = item.transform.flipX;
-      let flipY = item.transform.flipY;
-      let canvasSpaceXAnchor = item.transform.canvasSpaceXAnchor;
-      let canvasSpaceYAnchor = item.transform.canvasSpaceYAnchor;
-      
-      let box = 0;
-      let boy = 0;
+      if (item.graphic.manualTransform) {
+        this.c.resetTransform();
+        item.graphic.draw(this,item.transform);
+      } else {
+        let go = item.transform.o;
+        if (go==0) { return; }
+        let gx = item.transform.x;
+        let gy = item.transform.y;
+        let gax = item.transform.ax;
+        let gay = item.transform.ay;
+        let gr = item.transform.r;
+        let gsx = item.transform.sx;
+        let gsy = item.transform.sy;
+        let CGSpace = item.transform.CGSpace;
+        let flipX = item.transform.flipX;
+        let flipY = item.transform.flipY;
+        let canvasSpaceXAnchor = item.transform.canvasSpaceXAnchor;
+        let canvasSpaceYAnchor = item.transform.canvasSpaceYAnchor;
+        
+        let box = 0;
+        let boy = 0;
 
-      if (this.cg.settings.core.frustumCulling&&item.graphic.getBounds!==undefined) {
-        let [bw, bh] = item.graphic.getBounds();
+        if (this.cg.settings.core.frustumCulling&&item.graphic.getBounds!==undefined) {
+          let [bw, bh] = item.graphic.getBounds();
 
-        if (item.transform.r!==0) {
-          let r = -item.transform.r+90;
-          let rad = r*Math.PI/180;
-          let savedbh = bh;
-          bh = Math.abs(bw*Math.cos(rad))+Math.abs(bh*Math.sin(rad));
-          bw = Math.abs(bw*Math.sin(rad))+Math.abs(savedbh*Math.cos(rad));
+          if (item.transform.r!==0) {
+            let r = -item.transform.r+90;
+            let rad = r*Math.PI/180;
+            let savedbh = bh;
+            bh = Math.abs(bw*Math.cos(rad))+Math.abs(bh*Math.sin(rad));
+            bw = Math.abs(bw*Math.sin(rad))+Math.abs(savedbh*Math.cos(rad));
 
-          let rox = Math.sin(rad)*gax-Math.cos(rad)*gay;
-          let roy = Math.cos(rad)*gax+Math.sin(rad)*gay;
-          box += rox;
-          boy += roy;
-        } else {
-          box += gax;
-          boy += gay;
+            let rox = Math.sin(rad)*gax-Math.cos(rad)*gay;
+            let roy = Math.cos(rad)*gax+Math.sin(rad)*gay;
+            box += rox;
+            boy += roy;
+          } else {
+            box += gax;
+            boy += gay;
+          }
+
+          bw *= item.transform.sx;
+          bh *= item.transform.sy;
+          let bx = gx+box;
+          let by = gy+boy;
+          let camera = this.camera;
+          if (camera.cullOverride!==null) { camera = camera.cullOverride; }
+          let cx = camera.x;
+          let cy = camera.y;
+          let cw = this.width/camera.z;
+          let ch = this.height/camera.z;
+          
+          if (bx+bw*0.5<cx-cw*0.5||bx-bw*0.5>cx+cw*0.5||by+bh*0.5<cy-ch*0.5||by-bh*0.5>cy+ch*0.5) { return; }
         }
 
-        bw *= item.transform.sx;
-        bh *= item.transform.sy;
-        let bx = gx+box;
-        let by = gy+boy;
-        let camera = this.camera;
-        if (camera.cullOverride!==null) { camera = camera.cullOverride; }
-        let cx = camera.x;
-        let cy = camera.y;
-        let cw = this.width/camera.z;
-        let ch = this.height/camera.z;
-        
-        if (bx+bw*0.5<cx-cw*0.5||bx-bw*0.5>cx+cw*0.5||by+bh*0.5<cy-ch*0.5||by-bh*0.5>cy+ch*0.5) { return; }
+        ChoreoGraph.transformContext(this.camera,gx,gy,gr,gsx,gsy,CGSpace,flipX,flipY,canvasSpaceXAnchor,canvasSpaceYAnchor);
+
+        this.c.globalAlpha = go;
+        item.graphic.draw(this.c,gax,gay);
       }
-
-      ChoreoGraph.transformContext(this.camera,gx,gy,gr,gsx,gsy,CGSpace,flipX,flipY,canvasSpaceXAnchor,canvasSpaceYAnchor);
-
-      this.c.globalAlpha = go;
-      item.graphic.draw(this.c,gax,gay);
     }
   };
 
@@ -395,7 +401,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     maximumSize = 500; // The amount of units to be the maximum
     WHRatio = 0.5; // Width:Height Ratio
 
-    // Values used for the transformation
+    // Values used for transformations
     get cx() {
       return -this.x+this.canvas.width*0.5;
     };
@@ -569,6 +575,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
 
   Graphic = class cgGraphic {
     type = "";
+    manualTransform = false;
 
     constructor(graphicInit,cg) {
       let graphicType = cg.graphicTypes[graphicInit.type];
@@ -652,7 +659,14 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     ready = false;
     loadAttempts = 0;
 
-    onLoad = null;
+    #onLoads = [];
+    set onLoad(callback) {
+      if (this.ready) {
+        callback(this);
+      } else {
+        this.#onLoads.push(callback);
+      }
+    };
 
     constructor(imageInit,cg) {
       if (imageInit.crop!=undefined) { this.unsetCrop = false; }
@@ -702,7 +716,9 @@ const ChoreoGraph = new class ChoreoGraphEngine {
           }
   
           this.ready = true;
-          if (this.onLoad!=null) { this.onLoad(this); }
+          for (let callback of this.#onLoads) {
+            callback(this);
+          }
         }
   
         this.image.onerror = () => { // Reload the image if it fails

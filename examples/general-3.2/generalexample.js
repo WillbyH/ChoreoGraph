@@ -1,6 +1,7 @@
 const cg = ChoreoGraph.instantiate({
   core : {
-    generateBasicEnvironment : true
+    generateBasicEnvironment : true,
+    baseImagePath : "images/"
   },
   input : {
     preventSingleTouch : true
@@ -21,6 +22,9 @@ const cg = ChoreoGraph.instantiate({
   },
   shaders : {
     debug : true
+  },
+  tilemaps : {
+    appendCanvases : true
   }
 });
 cg.createCanvas({element:document.getElementsByTagName("canvas")[0],
@@ -45,7 +49,10 @@ cg.Shaders.canvases.shaderCanvas.addSource({
     void main() {
       vec4 color = texture2D(textureSampler, texCoords);
 
-      color.a = 1.0 - max(color.g - color.r - color.b, 0.0);
+      // Invert Colours
+      color.r = 1.0 - color.r;
+      color.g = 1.0 - color.g;
+      color.b = 1.0 - color.b;
 
       gl_FragColor = color;
     }
@@ -178,6 +185,64 @@ cg.Input.createAction({keys:["s","down","conleftdown","condpaddown","conrightdow
 cg.Input.createAction({keys:["a","left","conleftleft","condpadleft","conrightleft"]},"left");
 cg.Input.createAction({keys:["d","right","conrightright","condpadright","conleftright"]},"right");
 
+cg.Input.createAction({keys:["i"]},"secondaryForward");
+cg.Input.createAction({keys:["k"]},"secondaryBackward");
+cg.Input.createAction({keys:["j"]},"secondaryLeft");
+cg.Input.createAction({keys:["l"]},"secondaryRight");
+
+cg.createImage({
+  file : "waveyTiles.png"
+},"waveyTiles")
+
+cg.Tilemaps.createTile({
+  image : cg.images.waveyTiles,
+  imageX : 0,
+  imageY : 0,
+  width : 100,
+  height : 100
+},0);
+
+cg.Tilemaps.createTile({
+  image : cg.images.waveyTiles,
+  imageX : 100,
+  imageY : 0,
+  width : 100,
+  height : 100
+},1);
+
+let testTilemap = cg.Tilemaps.createTilemap({
+  tileHeight : 100,
+  tileWidth : 100
+},"testTilemap");
+
+let testChunk = testTilemap.createChunk({
+  x : 0,
+  y : 0,
+  width : 5,
+  height : 5
+});
+
+testChunk.createLayer({
+  tiles : [
+    0,0,0,0,0,
+    0,1,1,1,null,
+    0,1,0,1,0,
+    0,1,1,1,0,
+    0,0,0,0,1
+  ]
+});
+
+let tilemapGraphic = cg.createGraphic({
+  type : "tilemap",
+  tilemap : testTilemap,
+},"tilemapGraphic");
+
+cg.scenes.main.createItem("graphic",{graphic:tilemapGraphic},"tilemapGraphic");
+cg.scenes.main.tree.tilemapGraphic.transform.sx = 0.5;
+cg.scenes.main.tree.tilemapGraphic.transform.sy = 0.5;
+cg.scenes.main.tree.tilemapGraphic.transform.x = 200;
+cg.scenes.main.tree.tilemapGraphic.transform.y = 100;
+
 cg.settings.core.callbacks.loopBefore = () => {
   cg.sceneItems.cursorRectangle.transform.x = cg.Input.cursor.x;
   cg.sceneItems.cursorRectangle.transform.y = cg.Input.cursor.y;
@@ -219,6 +284,10 @@ cg.settings.core.callbacks.loopAfter = () => {
   cg.c.fillText(dir[1],40,200);
   cg.sceneItems.another.transform.x += dir[0]*0.2*cg.timeDelta;
   cg.sceneItems.another.transform.y += dir[1]*0.2*cg.timeDelta;
+
+  dir = cg.Input.getActionNormalisedVector("secondaryForward","secondaryBackward","secondaryLeft","secondaryRight");
+  cg.cameras.main.transform.x += dir[0]*0.4*cg.timeDelta;
+  cg.cameras.main.transform.y += dir[1]*0.4*cg.timeDelta;
 
   // cg.c.beginPath();
   // cg.c.moveTo(cg.sceneItems.downRectangle.transform.x,cg.sceneItems.downRectangle.transform.y);

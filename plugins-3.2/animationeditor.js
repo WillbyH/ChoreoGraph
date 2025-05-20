@@ -222,7 +222,7 @@ ChoreoGraph.plugin({
           } else if (actionType!=editor.ACTION_ADD) {
             let closestIndex = -1;
             let closestDistance = Infinity;
-            let grabDistance = cg.settings.animationeditor.grabDistance*(1/cg.Input.cursor.canvas.camera.z);
+            let grabDistance = cg.settings.animationeditor.grabDistance * cg.settings.core.debugScale / cg.Input.cursor.canvas.camera.z;
             for (let i=0;i<editor.path.grabbablePoints.length;i++) {
               let grabbablePoint = editor.path.grabbablePoints[i];
               let point = grabbablePoint.point;
@@ -450,7 +450,7 @@ ChoreoGraph.plugin({
       let c = cg.Input.cursor.canvas.c;
       let track = editor.track;
       if (track==null) { return; }
-      let size = 1/cg.Input.cursor.canvas.camera.z;
+      let size = cg.settings.core.debugScale / cg.Input.cursor.canvas.camera.z;
       c.lineWidth = size*2;
       if (track.type=="path") {
         let actionType = editor.path.actionType;
@@ -1478,7 +1478,7 @@ ChoreoGraph.plugin({
             c.fillText(part,part*this.partSpacing,-canvas.height/2+12);
           }
           c.strokeStyle = "#444";
-          c.lineWidth = 1.4;
+          c.lineWidth = 1.4 * cg.settings.core.debugScale;
           c.setLineDash([5,5]);
           c.stroke();
           c.setLineDash([]);
@@ -1526,17 +1526,17 @@ ChoreoGraph.plugin({
               }
               if (keyFrameIndex==this.selectedKeyFrame&&trackIndex==this.selectedTrack) {
                 c.fillStyle = "#ff00ff";
-                c.lineWidth = 5;
+                c.lineWidth = 5 * cg.settings.core.debugScale;
               } else {
                 c.fillStyle = "#121212";
-                c.lineWidth = 2;
+                c.lineWidth = 2 * cg.settings.core.debugScale;
               }
               c.stroke();
               c.fill();
               if (keyFrame.link) {
                 linking = true;
                 c.strokeStyle = "#ffffff";
-                c.lineWidth = 1.4;
+                c.lineWidth = 1.4 * cg.settings.core.debugScale;
                 c.beginPath();
                 c.moveTo(keyFrame.part*this.partSpacing+5,trackY);
               }
@@ -1546,7 +1546,7 @@ ChoreoGraph.plugin({
                 c.textAlign = "left";
                 c.textBaseline = "middle";
                 c.strokeStyle = "#121212";
-                c.lineWidth = 3;
+                c.lineWidth = 3 * cg.settings.core.debugScale;
                 let x = keyFrame.part*this.partSpacing+3;
                 let y = trackY+1;
                 c.strokeText(keyFrame.text,x,y,this.partSpacing);
@@ -1568,7 +1568,7 @@ ChoreoGraph.plugin({
                 if (this.moving) {
                   c.strokeStyle = "#ff00ff";
                 }
-                c.lineWidth = 1.4;
+                c.lineWidth = 1.4 * cg.settings.core.debugScale;
                 c.stroke();
                 if (cursor.impulseDown.left) {
                   trackData.add(cg,x);
@@ -1592,7 +1592,7 @@ ChoreoGraph.plugin({
                 }
               }
             }
-            c.lineWidth = 15;
+            c.lineWidth = 15 * cg.settings.core.debugScale;
             c.miterLimit = 2;
             c.strokeStyle = "#121212";
             c.strokeText(name,leftX+10,trackY+1);
@@ -1671,7 +1671,7 @@ ChoreoGraph.plugin({
             c.moveTo((triggerlessPart+t)*this.partSpacing,-canvas.height/2);
             c.lineTo((triggerlessPart+t)*this.partSpacing,canvas.height/2);
             c.strokeStyle = "white";
-            c.lineWidth = 2;
+            c.lineWidth = 2 * cg.settings.core.debugScale;
             c.stroke();
           }
         };
