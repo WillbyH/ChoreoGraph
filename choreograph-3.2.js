@@ -71,6 +71,28 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       return null;
     };
 
+    get canvas() {
+      if (this.settings.core.defaultCanvas !== null) {
+        return this.settings.core.defaultCanvas;
+      } else if (this.keys.canvases.length===1) {
+        return this.canvases[this.keys.canvases[0]];
+      } else {
+        console.warn("No default canvas on instance:",this.id);
+        return null;
+      }
+    };
+
+    get camera() {
+      if (this.settings.core.defaultCanvas !== null && this.settings.core.defaultCanvas.camera !== null) {
+        return this.settings.core.defaultCanvas.camera;
+      } else if (this.keys.cameras.length===1) {
+        return this.cameras[this.keys.cameras[0]];
+      } else {
+        console.warn("No default canvas with a camera on instance:",this.id);
+        return null;
+      }
+    }
+
     constructor(id=ChoreoGraph.id.get()) {
       this.id = id;
       this.setupCoreSettings();
@@ -318,6 +340,9 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     parentElement = null;
     background = "#fba7b7";
 
+    c;
+    element;
+
     constructor(init,cg) {
       ChoreoGraph.applyAttributes(this,init);
       if (document.getElementsByTagName("canvas")[0].style.width != "") {
@@ -357,35 +382,31 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       });
       ro.observe(parentElement);
     };
-    drawImage(image, x, y, width=image.width, height=image.height, rotation=0, CGSpace=true, context) {
-      let c = context || this.c;
-      if (CGSpace) {
-        x += this.x;
-        y += this.y;
-        x = x*this.z+((this.cw-(this.cw*this.z))*0.5)
-        y = y*this.z+((this.ch-(this.ch*this.z))*0.5)
-        width = width*this.z;
-        height = height*this.z;
+    drawImage(image, x, y, width=image.width, height=image.height, rotation=0, ax=0, ay=0, flipX=false, flipY=false) {
+      let c = this.c;
+      c.save();
+      c.translate(x, y);
+      if (rotation!=0) {
+        c.rotate(rotation*Math.PI/180);
       }
-
+      if (flipX&&flipY) {
+        c.scale(-1,-1);
+        ax = -ax;
+        ay = -ay;
+      } else if (flipX) {
+        c.scale(-1,1);
+        ax = -ax;
+      } else if (flipY) {
+        c.scale(1,-1);
+        ay = -ay;
+      }
       if (image.canvasOnCanvas||image.disableCropping) {
-        if (rotation!=0) {
-          c.save();
-          c.translate(x, y);
-          c.rotate(rotation*Math.PI/180);
-          c.drawImage(image.image, -(width/2), -(height/2), width, height);
-          c.restore();
-        } else { c.drawImage(image.image, x-(width/2), y-(height/2), width, height); }
+        c.drawImage(image.image, -(width/2)+ax, -(height/2)+ay, width, height);
       } else {
         let crop = image.crop;
-        if (rotation!=0) {
-          c.save();
-          c.translate(x, y);
-          c.rotate(rotation*Math.PI/180);
-          c.drawImage(image.image, crop[0],crop[1],crop[2],crop[3], -(width/2), -(height/2), width, height);
-          c.restore();
-        } else { c.drawImage(image.image, crop[0],crop[1],crop[2],crop[3], x-(width/2), y-(height/2), width, height); }
+        c.drawImage(image.image, crop[0], crop[1], crop[2], crop[3], -(width/2)+ax, -(height/2)+ay, width, height);
       }
+      c.restore();
     };
     setCamera(camera) {
       if (this.camera !== null) {
@@ -777,12 +798,14 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     rawWidth = 0;
     rawHeight = 0;
 
-    width = 100;
-    height = 100;
+    width;
+    height;
 
     scale = [1,1];
     ready = false;
     loadAttempts = 0;
+
+    disableCropping;
 
     #onLoads = [];
     set onLoad(callback) {
@@ -855,6 +878,10 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         };
   
         this.image.src = cg.settings.core.baseImagePath + this.file;
+      }
+
+      if (this.disableCropping===undefined) {
+        this.disableCropping = false;
       }
     }
   };
@@ -1136,15 +1163,19 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         if (init.image==undefined) { console.error("Image not defined in image graphic"); return; }
         this.image = init.image;
         if (this.image.width==undefined||this.image.height==undefined) {
-          if (this.image.graphicsAwaitingImageLoad==undefined) { this.image.graphicsAwaitingImageLoad = []; }
-          this.image.graphicsAwaitingImageLoad.push(g);
+          if (this.image.graphicsAwaitingImageLoad==undefined) {
+            this.image.graphicsAwaitingImageLoad = [];
+          }
+          this.image.graphicsAwaitingImageLoad.push(this);
           this.image.onLoad = function(image) {
-            for (let g=0; g<image.graphicsAwaitingImageLoad.length; g++) {
-              let g = image.graphicsAwaitingImageLoad[g];
-              if (this.width==undefined) { this.width = image.width; }
-              if (this.height==undefined) { this.height = image.height; }
+            for (let g=0;g<image.graphicsAwaitingImageLoad.length;g++) {
+              let graphic = image.graphicsAwaitingImageLoad[g];
+              if (graphic.width==undefined) { graphic.width = image.width; }
+              if (graphic.height==undefined) { graphic.height = image.height; }
             }
-            delete image.graphicsAwaitingImageLoad;
+            if (image.graphicsAwaitingImageLoad.length==0) {
+              delete image.graphicsAwaitingImageLoad;
+            }
           }
         }
         this.width = this.image.width;

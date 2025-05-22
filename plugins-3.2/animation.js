@@ -211,12 +211,13 @@ ChoreoGraph.plugin({
         this.keys = keys;
         this.timeKey = this.getTimeKey();
         this.calculateDuration();
-        if (this.data.length<2) {
-          console.warn("Animation:",this.id,"must be at least 2 keyframes long");
+        if (this.data.length==0) {
           this.ready = false;
-        } else {
-          this.ready = true;
+          return this;
+        } else if (this.data.length<2) {
+          this.data[1] = this.data[0];
         }
+        this.ready = true;
         return this;
       };
 

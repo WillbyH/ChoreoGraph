@@ -1651,7 +1651,7 @@ ChoreoGraph.plugin({
           for (let objectId of this.cg.keys.objects) {
             let object = this.cg.objects[objectId];
             for (let component of object.objectData.components) {
-              if (component.manifest.type=="Animator"&&component.animation.id==animation.id) {
+              if (component.manifest.type=="Animator"&&component.animation!==null&&component.animation.id==animation.id) {
                 animators.push(component);
               }
             }
@@ -2258,6 +2258,7 @@ ChoreoGraph.plugin({
 
       let keyIndex = 0;
       for (let key of cg.AnimationEditor.animation.keys) {
+        if (key.sources==undefined) { key.sources = []; }
         let keySet = key.keySet;
         let set = document.createElement("ul");
         div.appendChild(set);
@@ -2634,7 +2635,7 @@ ChoreoGraph.plugin({
       for (let objectId in cg.objects) {
         let object = cg.objects[objectId];
         for (let component of object.objectData.components) {
-          if (component.manifest.type=="Animator"&&component.animation.id==cg.AnimationEditor.animation.id) {
+          if (component.manifest.type=="Animator"&&component.animation!==null&&component.animation.id==cg.AnimationEditor.animation.id) {
             component.playFrom(0);
             component.connectionData.initialisedAnimation = null;
           }

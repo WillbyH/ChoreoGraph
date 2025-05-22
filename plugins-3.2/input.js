@@ -79,27 +79,23 @@ ChoreoGraph.plugin({
         this.canvasCursors = {};
       };
       updateCursor(canvas,event) {
-        if (event.pointerType=="mouse") {
+        if (event.pointerType=="mouse"||event.type=="wheel") {
           this.cg.Input.lastInputType = ChoreoGraph.Input.MOUSE;
           this.cg.Input.lastCursorType = ChoreoGraph.Input.MOUSE;
+          this.cg.Input.lastInteraction.mouse = this.cg.clock;
         } else if (event.pointerType=="touch") {
           this.cg.Input.lastInputType = ChoreoGraph.Input.TOUCH;
           this.cg.Input.lastCursorType = ChoreoGraph.Input.TOUCH;
+          this.cg.Input.lastInteraction.touch = this.cg.clock;
         } else if (event.pointerType=="controller") {
           this.cg.Input.lastInputType = ChoreoGraph.Input.CONTROLLER;
           this.cg.Input.lastCursorType = ChoreoGraph.Input.CONTROLLER;
+          this.cg.Input.lastInteraction.controller = this.cg.clock;
         }
         this.cg.Input.lastInteraction.any = this.cg.clock;
         this.cg.Input.lastInteraction.cursor = this.cg.clock;
         if (event.type=="pointerdown"||event.type=="pointerup") {
           this.cg.Input.lastInteraction.cursorButton = this.cg.clock;
-        }
-        if (event.pointerType=="mouse") {
-          this.cg.Input.lastInteraction.mouse = this.cg.clock;
-        } else if (event.pointerType=="touch") {
-          this.cg.Input.lastInteraction.touch = this.cg.clock;
-        } else if (event.pointerType=="controller") {
-          this.cg.Input.lastInteraction.controller = this.cg.clock;
         }
         let cursor = this.canvasCursors[canvas.id];
         if (cursor===undefined) {
@@ -436,6 +432,9 @@ ChoreoGraph.plugin({
     wheel(event) {
       for (let cg of ChoreoGraph.instances) {
         if (cg.ready==false) { continue; }
+        if (event.target.cgCanvas!==undefined) {
+          cg.Input.updateCursor(event.target.cgCanvas,event);
+        };
         if (cg.settings.input.preventScrollWheel) {
           event.preventDefault();
         }

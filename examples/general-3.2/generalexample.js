@@ -331,6 +331,8 @@ cg.settings.core.callbacks.loopAfter = () => {
   cg.c.fillStyle = "black";
   cg.c.fillRect(transX,transY,10,10);
 
+  cg.canvas.drawImage(cg.images.waveyTiles,100,100,600,100,cg.clock%(360*10)/10,300,0,true,false)
+
   // cg.c.beginPath();
   // cg.c.moveTo(cg.sceneItems.downRectangle.transform.x,cg.sceneItems.downRectangle.transform.y);
   // if (cg.Input.cursor.hold.any) {
