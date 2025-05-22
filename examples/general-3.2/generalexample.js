@@ -215,20 +215,37 @@ let testTilemap = cg.Tilemaps.createTilemap({
   tileWidth : 100
 },"testTilemap");
 
-let testChunk = testTilemap.createChunk({
+let testChunk0 = testTilemap.createChunk({
   x : 0,
   y : 0,
   width : 5,
   height : 5
 });
 
-testChunk.createLayer({
+testChunk0.createLayer({
   tiles : [
     0,0,0,0,0,
     0,1,1,1,null,
     0,1,0,1,0,
     0,1,1,1,0,
     0,0,0,0,1
+  ]
+});
+
+let testChunk1 = testTilemap.createChunk({
+  x : 5,
+  y : 0,
+  width : 5,
+  height : 5
+});
+
+testChunk1.createLayer({
+  tiles : [
+    1,1,1,1,1,
+    1,0,0,0,0,
+    1,0,0,0,0,
+    1,0,1,0,0,
+    1,null,null,null,0
   ]
 });
 
@@ -288,6 +305,31 @@ cg.settings.core.callbacks.loopAfter = () => {
   dir = cg.Input.getActionNormalisedVector("secondaryForward","secondaryBackward","secondaryLeft","secondaryRight");
   cg.cameras.main.transform.x += dir[0]*0.4*cg.timeDelta;
   cg.cameras.main.transform.y += dir[1]*0.4*cg.timeDelta;
+
+  cg.c.resetTransform();
+  let transX = cg.canvases.main.camera.getCanvasSpaceX(cg.Input.cursor.x);
+  let transY = cg.canvases.main.camera.getCanvasSpaceY(cg.Input.cursor.y);
+  cg.c.fillStyle = "green";
+  cg.c.fillRect(transX,transY,100,100);
+  cg.c.fillStyle = "white";
+  cg.c.font = "15px Arial";
+  cg.c.fillText(cg.Input.cursor.x.toFixed(0),transX+10,transY+15);
+  cg.c.fillText(cg.Input.cursor.y.toFixed(0),transX+10,transY+30);
+  cg.c.fillText(cg.Input.cursor.canvasX.toFixed(0),transX+10,transY+45);
+  cg.c.fillText(cg.Input.cursor.canvasY.toFixed(0),transX+10,transY+60);
+  cg.c.fillText(transX.toFixed(0),transX+10,transY+75);
+  cg.c.fillText(transY.toFixed(0),transX+10,transY+90);
+
+  transX = cg.canvases.main.camera.getCanvasSpaceX(0);
+  transY = cg.canvases.main.camera.getCanvasSpaceY(0);
+  cg.c.fillStyle = "cyan";
+  cg.c.fillRect(transX,transY,10,10);
+
+  ChoreoGraph.transformContext(cg.canvases.main.camera);
+  transX = cg.canvases.main.camera.getCGSpaceX(100);
+  transY = cg.canvases.main.camera.getCGSpaceY(100);
+  cg.c.fillStyle = "black";
+  cg.c.fillRect(transX,transY,10,10);
 
   // cg.c.beginPath();
   // cg.c.moveTo(cg.sceneItems.downRectangle.transform.x,cg.sceneItems.downRectangle.transform.y);

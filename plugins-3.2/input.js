@@ -1240,6 +1240,17 @@ ChoreoGraph.plugin({
         get active() { return this.#active; }
       }
     });
+    
+    if (cg.Develop!==undefined) {
+      cg.Develop.interfaceItems.push({
+        type : "UIToggleButton",
+        activated : cg.settings.input.debug.buttons,
+        activeText : "Hide Buttons",
+        inactiveText : "Show Buttons",
+        onActive : (cg) => { cg.settings.input.debug.active = true; cg.settings.input.debug.buttons.active = true; },
+        onInactive : (cg) => { cg.settings.input.debug.buttons.active = false; }
+      });
+    };
   },
 
   instanceStart(cg) {

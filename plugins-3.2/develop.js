@@ -38,16 +38,6 @@ ChoreoGraph.plugin({
           text : "Reset FreeCam",
           action : (cg) => { cg.Develop.resetFreeCam(); }
         });
-        if (ChoreoGraph.Input!==undefined) {
-          this.interfaceItems.push({
-            type : "UIToggleButton",
-            activated : this.cg.settings.input.debug.buttons,
-            activeText : "Hide Buttons",
-            inactiveText : "Show Buttons",
-            onActive : (cg) => { cg.settings.input.debug.active = true; cg.settings.input.debug.buttons.active = true; },
-            onInactive : (cg) => { cg.settings.input.debug.buttons.active = false; }
-          });
-        };
         this.interfaceItems.push({
           type : "UIToggleButton",
           activeText : "Hide Cameras",

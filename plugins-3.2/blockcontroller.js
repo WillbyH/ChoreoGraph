@@ -220,7 +220,7 @@ ChoreoGraph.plugin({
       }
     });
 
-    if (ChoreoGraph.Develop!==undefined) {
+    if (cg.Develop!==undefined) {
       cg.Develop.interfaceItems.push({
         type : "UIToggleButton",
         activeText : "Blocks Debug",

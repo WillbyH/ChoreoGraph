@@ -2,17 +2,16 @@
   body { background:#000; margin:0; }
   ::-webkit-scrollbar { display:none; }
   canvas {margin:0px; display:inline-block;}
-  #full {margin:0; text-align:center;}
-  #shaderContainer {margin:0; margin-left:10%; width:80%;}
+  #centre-canvas {margin:0; text-align:center;}
 </style>
 <br>
-<div id="full"><canvas></canvas></div>
-<div id="shaderContainer"><canvas></canvas></div>
+<div id="centre-canvas"><canvas style="position:absolute;opacity:0"></canvas><canvas></canvas></div>
+
 <br>
 <script src="fmod/fmodstudio.js" type="text/javascript"></script>
 <script src="../../choreograph-3.2.js" type="text/javascript"></script>
-<script src="../../plugins-3.2/input.js" type="text/javascript"></script>
 <script src="../../plugins-3.2/develop.js" type="text/javascript"></script>
+<script src="../../plugins-3.2/input.js" type="text/javascript"></script>
 <script src="../../plugins-3.2/audio.js" type="text/javascript"></script>
 <script src="../../plugins-3.2/fmodconnector.js" type="text/javascript"></script>
 <script src="../../plugins-3.2/animation.js" type="text/javascript"></script>

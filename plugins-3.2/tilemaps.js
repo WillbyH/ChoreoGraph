@@ -50,7 +50,7 @@ ChoreoGraph.plugin({
         let newLayer = new ChoreoGraph.Tilemaps.ChunkLayer(this);
         ChoreoGraph.applyAttributes(newLayer,layerInit);
         this.layers.push(newLayer);
-        if (this.tilemap.cg.settings.tilemaps.autoCache&&this.tilemap.cache) {
+        if (this.tilemap.cg.settings.tilemaps.preCacheChunkLayers&&this.tilemap.cache) {
           newLayer.createCache();
         }
         return newLayer;
@@ -71,6 +71,27 @@ ChoreoGraph.plugin({
 
       createCache() {
         this.cache = new ChoreoGraph.Tilemaps.CachedChunkLayer(this);
+      };
+
+      draw(c) {
+        if (this.cache!==null) {
+          this.drawFromCache(c);
+        } else {
+          if (this.tilemap.cache) {
+            this.createCache();
+            this.drawFromCache(c);
+          } else {
+
+          }
+        }
+      };
+
+      drawFromCache(c) {
+        c.drawImage(this.cache.canvas,0,0,this.chunk.tilemap.tileWidth*this.chunk.width,this.chunk.tilemap.tileHeight*this.chunk.height,0,0,this.chunk.tilemap.tileWidth*this.chunk.width,this.chunk.tilemap.tileHeight*this.chunk.height);
+      };
+
+      drawFromTiles() {
+
       };
     };
 
@@ -239,7 +260,7 @@ ChoreoGraph.plugin({
     cg.keys.tiles = [];
 
     cg.attachSettings("tilemaps",{
-      autoCache : true,
+      preCacheChunkLayers : true,
       appendCanvases : false
     });
 
@@ -249,9 +270,14 @@ ChoreoGraph.plugin({
         this.tilemap = null;
         this.visibleLayers = [];
         this.culling = true;
-        this.debug = true;
+        this.debug = false;
+        this.useDrawBuffer = false;
         this.drawBuffer = document.createElement("canvas");
         this.drawBufferContext = this.drawBuffer.getContext("2d",{alpha:true});
+        if (init.imageSmoothingEnabled==undefined) { init.imageSmoothingEnabled = false; }
+        if (cg.settings.tilemaps.appendCanvases) {
+          document.body.appendChild(this.drawBuffer);
+        }
       };
       draw(canvas,transform) {
         let go = transform.o;
@@ -268,6 +294,12 @@ ChoreoGraph.plugin({
 
         ChoreoGraph.transformContext(canvas.camera,gx,gy,0,gsx,gsy,CGSpace,flipX,flipY,canvasSpaceXAnchor,canvasSpaceYAnchor);
 
+        if (this.useDrawBuffer) {
+          let dc = this.drawBufferContext;
+          dc.clearRect(0,0,this.drawBuffer.width,this.drawBuffer.height);
+          // find and set the size of the buffer based on the visible tilemap pixels
+        };
+
         let c = canvas.c;
         let cg = canvas.cg;
         c.globalAlpha = go;
@@ -280,31 +312,49 @@ ChoreoGraph.plugin({
 
           let cull = false;
 
-          if (cg.settings.core.frustumCulling) {
-            let bx = gx;
-            let by = gy;
+          if (cg.settings.core.frustumCulling&&CGSpace) {
             let bw = chunkWidth * gsx;
             let bh = chunkHeight * gsy;
+            let bx = chunkX * gsx + gx;
+            let by = chunkY * gsy + gy;
             let camera = canvas.camera;
             if (camera.cullOverride!==null) { camera = camera.cullOverride; }
-            let cw = canvas.width/camera.z;
-            let ch = canvas.height/camera.z;
+            let cw = canvas.width / camera.z;
+            let ch = canvas.height / camera.z;
             let cx = camera.x - cw/2;
             let cy = camera.y - ch/2;
 
-            if (!(cx+cw<bx||cx>bx+bw||cy+ch<by||cy>by+bh)) {
+            if (cx+cw<bx||cx>bx+bw||cy+ch<by||cy>by+bh) {
               cull = true;
             }
           }
           if (!cull) {
-            // Uh, draw the tiles here
+            c.save();
+            if (this.useDrawBuffer) {
+              // find the chunk location in buffer space and draw to the buffer, also... you are going to need a buffer for each layer... I guess remember that
+            } else {
+              c.translate(chunkX,chunkY);
+              for (let chunkLayer of chunk.layers) {
+                if (tilemap.layers==0) {
+                  if (this.visibleLayers.length==0||this.visibleLayers.includes(chunkLayer.index)) {
+                    chunkLayer.draw(c);
+                  }
+                } else {
+                  let layer = tilemap.layers[chunkLayer.index];
+                  if (layer.visible&&(this.visibleLayers.length==0||this.visibleLayers.includes(layer.name)||this.visibleLayers.includes(chunkLayer.index))) {
+                    chunkLayer.draw(c);
+                  }
+                }
+              }
+            }
+            c.restore();
           }
           if (this.debug) {
             c.lineWidth = 3 * cg.settings.core.debugScale / canvas.camera.z;
             if (cull) {
-              c.strokeStyle = "green";
-            } else {
               c.strokeStyle = "red";
+            } else {
+              c.strokeStyle = "green";
             }
             c.strokeRect(chunkX,chunkY,chunkWidth,chunkHeight);
 
