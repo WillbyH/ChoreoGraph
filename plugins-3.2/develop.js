@@ -54,6 +54,30 @@ ChoreoGraph.plugin({
           onActive : (cg) => { cg.settings.develop.frustumCulling.active = true; },
           onInactive : (cg) => { cg.settings.develop.frustumCulling.active = false; }
         });
+        this.interfaceItems.push({
+          type : "UIToggleButton",
+          activeText : "Hide FPS",
+          inactiveText : "Show FPS",
+          activated : this.cg.settings.develop.fps,
+          onActive : (cg) => { cg.settings.develop.fps.active = true; },
+          onInactive : (cg) => { cg.settings.develop.fps.active = false; }
+        });
+        this.interfaceItems.push({
+          type : "UIToggleButton",
+          activeText : "Hide Object Annotation",
+          inactiveText : "Show Object Annotation",
+          activated : this.cg.settings.develop.objectAnnotation,
+          onActive : (cg) => { cg.settings.develop.objectAnnotation.active = true; },
+          onInactive : (cg) => { cg.settings.develop.objectAnnotation.active = false; }
+        });
+        this.interfaceItems.push({
+          type : "UIToggleButton",
+          activeText : "Object Gizmo",
+          inactiveText : "Object Gizmo",
+          activated : this.cg.settings.develop.objectGizmo,
+          onActive : (cg) => { cg.settings.develop.objectGizmo.active = true; },
+          onInactive : (cg) => { cg.settings.develop.objectGizmo.active = false; }
+        });
       };
 
       _selectedCanvas = null;
@@ -91,6 +115,20 @@ ChoreoGraph.plugin({
           downCursorPosition : {x:0,y:0},
           downCameraPosition : {x:0,y:0},
           dragging : false
+        },
+        fps : {
+          previous : []
+        },
+        objectGizmo : {
+          active : false,
+          mode : "translate",
+          grabMode : "",
+          selectedScene : null,
+          selectedObject : null,
+          originalPosition: [0,0],
+          originalScale: [1,1],
+          originalRotation: 0,
+          cursorDownPosition : [0,0],
         }
       };
 
@@ -164,8 +202,8 @@ ChoreoGraph.plugin({
               data.dragging = false;
               return;
             }
-            let xo = (data.downCursorPosition.x - cg.Input.cursor.clientX)/camera.cz;
-            let yo = (data.downCursorPosition.y - cg.Input.cursor.clientY)/camera.cz;
+            let xo = (data.downCursorPosition.x - cg.Input.cursor.canvasX)/camera.cz;
+            let yo = (data.downCursorPosition.y - cg.Input.cursor.canvasY)/camera.cz;
             camera.transform.x = data.downCameraPosition.x + xo;
             camera.transform.y = data.downCameraPosition.y + yo;
           } else {
@@ -176,8 +214,8 @@ ChoreoGraph.plugin({
                 y : camera.transform.y
               };
               data.downCursorPosition = {
-                x : cg.Input.cursor.clientX,
-                y : cg.Input.cursor.clientY
+                x : cg.Input.cursor.canvasX,
+                y : cg.Input.cursor.canvasY
               };
             }
           }
@@ -218,7 +256,7 @@ ChoreoGraph.plugin({
               c.strokeStyle = cg.settings.develop.cameras.colour;
               let cw = canvas.width/camera.cz;
               let ch = canvas.height/camera.cz;
-              c.lineWidth = 2 * cg.settings.core.debugScale / canvas.camera.cz;
+              c.lineWidth = 2 * cg.settings.core.debugCGScale / canvas.camera.cz;
               c.beginPath();
               c.rect(-cw*0.5,-ch*0.5,cw,ch)
               c.moveTo(-cw*0.5,-ch*0.5);
@@ -241,7 +279,7 @@ ChoreoGraph.plugin({
           if (cullCamera.cullOverride!==null) { cullCamera = cullCamera.cullOverride; }
           ChoreoGraph.transformContext(canvas.camera,cullCamera.x,cullCamera.y);
           c.strokeStyle = cg.settings.develop.frustumCulling.frustumColour;
-          c.lineWidth = 3 * cg.settings.core.debugScale / canvas.camera.cz;
+          c.lineWidth = 3 * cg.settings.core.debugCGScale / canvas.camera.cz;
           let height = canvas.height / cullCamera.cz;
           let width = canvas.width / cullCamera.cz;
           c.strokeRect(-width*0.5,-height*0.5,width,height);
@@ -292,6 +330,317 @@ ChoreoGraph.plugin({
           for (let scene of cullCamera.scenes) {
             drawCollectionCullBoxes(scene.drawBuffer);
           }
+        }
+      };
+
+      overlayFPS(cg) {
+        for (let canvasId of cg.keys.canvases) {
+          let canvas = cg.canvases[canvasId];
+          if (canvas.hideDebugOverlays) { continue; }
+          let fps = 1000/ChoreoGraph.timeDelta;
+          if (cg.Develop.featureData.fps.previous.length>30) {
+            cg.Develop.featureData.fps.previous.shift();
+          } else {
+            cg.Develop.featureData.fps.previous.push(fps);
+          }
+
+          let average = 0;
+          for (let f of cg.Develop.featureData.fps.previous) {
+            average += f;
+          }
+          average /= cg.Develop.featureData.fps.previous.length;
+          let text = Math.round(fps*10)/10+"fps";
+
+          let scale = cg.settings.core.debugCanvasScale;
+          let c = canvas.c;
+          c.resetTransform();
+          c.font = 14*scale+"px Arial";
+          c.fillStyle = "black";
+          c.globalAlpha = 0.3;
+          c.textBaseline = "bottom";
+          c.fillRect(0,0,c.measureText(text).width+10*scale,26*scale);
+          
+          c.globalAlpha = 1;
+          c.fillStyle = "white";
+          c.textAlign = "left";
+          c.textBaseline = "top";
+          c.fillText(text,5*scale,7*scale);
+        }
+      };
+
+      overlayObjectAnnotation(cg) {
+        for (let canvasId of cg.keys.canvases) {
+          let canvas = cg.canvases[canvasId];
+          if (canvas.hideDebugOverlays) { continue; }
+          let camera = canvas.camera;
+          if (camera===null) { continue; }
+          let c = canvas.c;
+          c.font = 6*cg.settings.core.debugCGScale+"px Arial";
+          c.textAlign = "center";
+          c.fillStyle = cg.settings.develop.objectAnnotation.textColour;
+          for (let scene of camera.scenes) {
+            for (let object of scene.objects) {
+              let x = object.transform.x;
+              let y = object.transform.y;
+              let text = cg.settings.develop.objectAnnotation.keySet.reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), object);
+              if (text===undefined||text==="") { continue; }
+              x += cg.settings.develop.objectAnnotation.offsetX * cg.settings.core.debugCGScale;
+              y += cg.settings.develop.objectAnnotation.offsetY * cg.settings.core.debugCGScale;
+              for (let removeText of cg.settings.develop.objectAnnotation.removeText) {
+                text = text.replace(removeText,"");
+              }
+              c.fillText(text,x,y);
+            }
+          }
+        }
+      };
+
+      overlayObjectGizmo(cg) {
+        let gizmoSettings = cg.settings.develop.objectGizmo;
+        let colours = gizmoSettings.colours;
+        let gizmoData = cg.Develop.featureData.objectGizmo;
+        for (let canvasId of cg.keys.canvases) {
+          let canvas = cg.canvases[canvasId];
+          if (canvas.hideDebugOverlays) { continue; }
+          let camera = canvas.camera;
+          if (camera===null) { continue; }
+          ChoreoGraph.transformContext(camera);
+          let cursor = cg.Input.canvasCursors[canvas.id];
+          let c = canvas.c;
+
+          // SELECTION CIRCLES
+          c.font = 6*cg.settings.core.debugCGScale+"px Arial";
+          c.textAlign = "center";
+          c.fillStyle = cg.settings.develop.objectAnnotation.textColour;
+          for (let scene of camera.scenes) {
+            for (let object of scene.objects) {
+              if (gizmoData.selectedObject===object) { continue; }
+              let x = object.transform.x;
+              let y = object.transform.y;
+
+              let grabDistance = 20 * cg.settings.core.debugCGScale / camera.cz;
+
+              let distanceFromSelected = Infinity;
+              if (gizmoData.selectedObject!==null&&gizmoData.selectedScene==scene) {
+                let selectedX = gizmoData.selectedObject.transform.x;
+                let selectedY = gizmoData.selectedObject.transform.y;
+                distanceFromSelected = Math.sqrt((x - selectedX)**2 + (y - selectedY)**2);
+              }
+              
+              c.lineWidth = 2 * cg.settings.core.debugCGScale / camera.cz;
+              c.strokeStyle = colours.unhoveredSelection;
+              let distance = Math.sqrt((cursor.x - x)**2 + (cursor.y - y)**2);
+              if (distanceFromSelected < 70 * cg.settings.core.debugCGScale / camera.cz) { grabDistance /= 3.5; }
+              if (distance < grabDistance) {
+                c.strokeStyle = colours.hoveredSelection;
+                if (cursor.impulseUp.any||cursor.impulseDown.any) {
+                  gizmoData.selectedObject = object;
+                  gizmoData.selectedScene = scene;
+                }
+              }
+              c.beginPath();
+              c.arc(x,y,grabDistance,0,Math.PI*2);
+              c.stroke();
+            }
+          }
+        }
+
+        if (gizmoData.selectedObject===null||gizmoData.selectedScene===null) { return; }
+
+        let canvas = cg.Develop.selectedCanvas;
+        let camera = canvas.camera;
+        if (camera===null) { return; }
+        let c = canvas.c;
+        
+        ChoreoGraph.transformContext(camera);
+
+        let x = gizmoData.selectedObject.transform.x;
+        let y = gizmoData.selectedObject.transform.y;
+
+        let gizmoSize = 20 * cg.settings.core.debugCGScale / camera.cz;
+
+        if (ChoreoGraph.Input.lastKeyDown==gizmoSettings.hotkeySwitchMode&&ChoreoGraph.Input.lastKeyDownFrame==ChoreoGraph.frame) {
+          if (gizmoData.mode=="translate") {
+            gizmoData.mode = "rotate";
+          } else if (gizmoData.mode=="rotate") {
+            gizmoData.mode = "scale";
+          } else if (gizmoData.mode=="scale") {
+            gizmoData.mode = "translate";
+          }
+        }
+
+        let cursor = cg.Input.canvasCursors[canvas.id];
+        let handSize = gizmoSize * 1;
+        let armLength = gizmoSize * 3;
+        if (gizmoData.mode=="translate") {
+          let curX = cursor.x;
+          let curY = cursor.y;
+
+          let cursorHoverMultiAxis = curX > x && curX < x + handSize*1.1 && curY < y && curY > y - handSize*1.1;
+          let cursorHoverXAxis = curX > x && curX < x + armLength*1.3 && curY > y - handSize/2 && curY < y + handSize/2 && !cursorHoverMultiAxis;
+          let cursorHoverYAxis = curY < y && curY > y - armLength*1.3 && curX > x - handSize/2 && curX < x + handSize/2 && !cursorHoverMultiAxis && !cursorHoverXAxis;
+
+          if ((cursorHoverMultiAxis||cursorHoverXAxis||cursorHoverYAxis)&&cursor.impulseDown.any) {
+            let transform = gizmoData.selectedObject.transform;
+            gizmoData.originalPosition = [transform.x,transform.y];
+            gizmoData.cursorDownPosition = [cursor.x,cursor.y];
+            if (cursorHoverMultiAxis) {
+              gizmoData.grabMode = "multiAxis";
+            } else if (cursorHoverXAxis) {
+              gizmoData.grabMode = "xAxis";
+            } else if (cursorHoverYAxis) {
+              gizmoData.grabMode = "yAxis";
+            }
+          }
+
+          if (cursor.impulseUp.any) {
+            gizmoData.grabMode = "";
+          }
+
+          let dx = cursor.x - gizmoData.cursorDownPosition[0];
+          let dy = cursor.y - gizmoData.cursorDownPosition[1];
+          if (gizmoData.grabMode=="xAxis"||gizmoData.grabMode=="multiAxis") {
+            gizmoData.selectedObject.transform.x = gizmoData.originalPosition[0] + dx;
+          }
+          if (gizmoData.grabMode=="yAxis"||gizmoData.grabMode=="multiAxis") {
+            gizmoData.selectedObject.transform.y = gizmoData.originalPosition[1] + dy;
+          }
+
+          c.strokeStyle = colours.gizmoOther;
+          c.lineWidth = handSize/4;
+          if (cursorHoverMultiAxis) { c.globalAlpha = 0.5; }
+          c.beginPath();
+          c.rect(x,y-handSize,handSize,handSize);
+          c.stroke();
+          c.lineWidth = handSize/3;
+          c.fillStyle = colours.gizmoX;
+          c.strokeStyle = colours.gizmoX;
+          c.globalAlpha = 1;
+          if (cursorHoverXAxis) { c.globalAlpha = 0.5; }
+          c.beginPath();
+          c.moveTo(x,y);
+          c.lineTo(x+armLength,y);
+          c.lineTo(x+armLength,y-(handSize/3));
+          c.lineTo(x+armLength+(handSize/2),y);
+          c.lineTo(x+armLength,y+(handSize/3));
+          c.lineTo(x+armLength,y);
+          c.stroke();
+          c.globalAlpha = 1;
+          if (cursorHoverYAxis) { c.globalAlpha = 0.5; }
+          c.fillStyle = colours.gizmoY;
+          c.strokeStyle = colours.gizmoY;
+          c.beginPath();
+          c.moveTo(x,y+gizmoSize*0.16);
+          c.lineTo(x,y-armLength);
+          c.lineTo(x-(handSize/3),y-armLength);
+          c.lineTo(x,y-armLength-(handSize/2));
+          c.lineTo(x+(handSize/3),y-armLength);
+          c.lineTo(x,y-armLength);
+          c.stroke();
+        } else if (gizmoData.mode=="scale") {
+          let curX = cursor.x;
+          let curY = cursor.y;
+
+          let cursorHoverMultiAxis = curX > x && curX < x + handSize*1.1 && curY < y && curY > y - handSize*1.1;
+          let cursorHoverXAxis = curX > x && curX < x + armLength*1.3 && curY > y - handSize/2 && curY < y + handSize/2 && !cursorHoverMultiAxis;
+          let cursorHoverYAxis = curY < y && curY > y - armLength*1.3 && curX > x - handSize/2 && curX < x + handSize/2 && !cursorHoverMultiAxis && !cursorHoverXAxis;
+
+          if ((cursorHoverMultiAxis||cursorHoverXAxis||cursorHoverYAxis)&&cursor.impulseDown.any) {
+            let transform = gizmoData.selectedObject.transform;
+            gizmoData.originalScale = [transform.sx,transform.sy];
+            gizmoData.cursorDownPosition = [cursor.x,cursor.y];
+            if (cursorHoverMultiAxis) {
+              gizmoData.grabMode = "multiAxis";
+            } else if (cursorHoverXAxis) {
+              gizmoData.grabMode = "xAxis";
+            } else if (cursorHoverYAxis) {
+              gizmoData.grabMode = "yAxis";
+            }
+          }
+
+          if (cursor.impulseUp.any) {
+            gizmoData.grabMode = "";
+          }
+
+          let downPosX = gizmoData.cursorDownPosition[0];
+          let downPosY = gizmoData.cursorDownPosition[1];
+          let originalX = gizmoData.originalScale[0];
+          let originalY = gizmoData.originalScale[1];
+          if (gizmoData.grabMode=="xAxis"||gizmoData.grabMode=="multiAxis") {
+            // gizmoData.selectedObject.transform.sx = gizmoData.originalPosition[0] + dx;
+            gizmoData.selectedObject.transform.sx = originalX*(((curX-downPosX)/handSize)+1);
+            console.log(originalX,curX,downPosX,handSize)
+          }
+          if (gizmoData.grabMode=="yAxis"||gizmoData.grabMode=="multiAxis") {
+            // gizmoData.selectedObject.transform.sy = gizmoData.originalPosition[1] + dy;
+            gizmoData.selectedObject.transform.sy = originalY*(((-(curY-downPosY))/handSize)+1);
+          }
+
+          c.strokeStyle = colours.gizmoOther;
+          c.lineWidth = handSize/4;
+          if (cursorHoverMultiAxis) { c.globalAlpha = 0.5; }
+          c.beginPath();
+          c.rect(x,y-handSize,handSize,handSize);
+          c.stroke();
+          c.lineWidth = handSize/3;
+          c.fillStyle = colours.gizmoX;
+          c.strokeStyle = colours.gizmoX;
+          c.globalAlpha = 1;
+          if (cursorHoverXAxis) { c.globalAlpha = 0.5; }
+          c.beginPath();
+          c.moveTo(x,y);
+          c.lineTo(x+armLength,y);
+          c.rect(x+armLength-handSize/3,y-(handSize/6),handSize/3,handSize/3);
+          c.lineTo(x+armLength,y);
+          c.stroke();
+          c.globalAlpha = 1;
+          if (cursorHoverYAxis) { c.globalAlpha = 0.5; }
+          c.fillStyle = colours.gizmoY;
+          c.strokeStyle = colours.gizmoY;
+          c.beginPath();
+          c.moveTo(x,y+gizmoSize*0.16);
+          c.lineTo(x,y-armLength);
+          c.rect(x-(handSize/6),y-armLength,handSize/3,handSize/3);
+          c.lineTo(x,y-armLength);
+          c.stroke();
+        } else if (gizmoData.mode=="rotate") {
+          let circleRadius = gizmoSize * 2;
+
+          let distance = Math.sqrt((cursor.x - x)**2 + (cursor.y - y)**2);
+          let hoverCircle = distance < circleRadius*1.3;
+
+          if (hoverCircle&&cursor.impulseDown.any) {
+            gizmoData.originalRotation = gizmoData.selectedObject.transform.r;
+            gizmoData.cursorDownPosition = [cursor.x,cursor.y];
+            gizmoData.grabMode = "rotate";
+          }
+
+          if (cursor.impulseUp.any) {
+            gizmoData.grabMode = "";
+          }
+
+          if (gizmoData.grabMode=="rotate") {
+            let angle = Math.atan2(cursor.y-y,cursor.x-x);
+            let startAngle = Math.atan2(gizmoData.cursorDownPosition[1]-y,gizmoData.cursorDownPosition[0]-x);
+            let offset = (angle-startAngle)*180/Math.PI;
+            console.log(angle)
+            let rotation = gizmoData.originalRotation+offset;
+            if (ChoreoGraph.Input.keyStates[gizmoSettings.hotkeySnap]) {
+              rotation = Math.round(rotation/gizmoSettings.rotationSnap)*gizmoSettings.rotationSnap;
+            }
+            if (rotation<0) {
+              rotation += 360;
+            }
+            gizmoData.selectedObject.transform.r = rotation;
+          }
+
+          c.strokeStyle = colours.gizmoOther;
+          c.lineWidth = gizmoSize/2;
+          if (hoverCircle) { c.globalAlpha = 0.5; }
+          c.beginPath();
+          c.arc(x,y,circleRadius,0,Math.PI*2);
+          c.stroke();
+          c.globalAlpha = 1;
         }
       };
     };
@@ -405,21 +754,9 @@ ChoreoGraph.plugin({
 
   instanceConnect(cg) {
     cg.attachSettings("develop",{
-      // fps : {
-      //   active : false,
-      // },
-      // animationCreator : {
-      //   active : false,
-      // },
-      // consoleOverlay : {
-      //   active : false,
-      // },
-      // liveEvaluation : {
-      //   active : false,
-      // },
-      // closestFrameLocator : {
-      //   active : false,
-      // },
+      fps : {
+        active : false,
+      },
       freeCam : {
         hotkey : "shift",
         zoomSpeed : 0.5
@@ -435,15 +772,28 @@ ChoreoGraph.plugin({
         frustumColour : "#5c38eb",
         cgid : cg.id
       },
-      // objectGizmo : {
-      //   active : false,
-      // },
-      // animationEditor : {
-      //   active : false,
-      // },
-      // objectPlacer : {
-      //   active : false,
-      // }
+      objectGizmo : {
+        active : false,
+        hotkeySwitchMode : "x",
+        hotkeySnap : "shift",
+        rotationSnap: 30,
+        colours : {
+          unhoveredSelection : "#ff0000",
+          hoveredSelection : "#0000ff",
+          gizmoX: "#ff0000",
+          gizmoY: "#00ff00",
+          gizmoOther: "#00ffff"
+        }
+      },
+      objectAnnotation : {
+        active : false,
+        textColour : "white",
+        offsetX : 0,
+        offsetY : 0,
+        maxWidth : 100,
+        keySet : ["id"],
+        removeText : []
+      }
     });
     cg.Develop = new ChoreoGraph.Develop.instanceObject(cg);
     cg.processLoops.push(cg.Develop.developProcessLoop);
@@ -468,6 +818,9 @@ ChoreoGraph.plugin({
 
     ChoreoGraph.Develop.loops.overlay.push({cgid:cg.id,activeCheck:cg.settings.develop.cameras,func:cg.Develop.overlayCameras});
     ChoreoGraph.Develop.loops.overlay.push({cgid:cg.id,activeCheck:cg.settings.develop.frustumCulling,func:cg.Develop.overlayFrustumCulling});
+    ChoreoGraph.Develop.loops.overlay.push({cgid:cg.id,activeCheck:cg.settings.develop.fps,func:cg.Develop.overlayFPS});
+    ChoreoGraph.Develop.loops.overlay.push({cgid:cg.id,activeCheck:cg.settings.develop.objectAnnotation,func:cg.Develop.overlayObjectAnnotation});
+    ChoreoGraph.Develop.loops.overlay.push({cgid:cg.id,activeCheck:cg.settings.develop.objectGizmo,func:cg.Develop.overlayObjectGizmo});
   }
 });
 

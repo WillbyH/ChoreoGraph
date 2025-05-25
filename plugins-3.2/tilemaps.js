@@ -350,7 +350,7 @@ ChoreoGraph.plugin({
             c.restore();
           }
           if (this.debug) {
-            c.lineWidth = 3 * cg.settings.core.debugScale / canvas.camera.z;
+            c.lineWidth = 3 * cg.settings.core.debugCGScale / canvas.camera.z;
             if (cull) {
               c.strokeStyle = "red";
             } else {

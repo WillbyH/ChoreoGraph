@@ -221,7 +221,7 @@ ChoreoGraph.plugin({
           } else if (actionType!=editor.ACTION_ADD) {
             let closestIndex = -1;
             let closestDistance = Infinity;
-            let grabDistance = cg.settings.animationeditor.grabDistance * cg.settings.core.debugScale / cg.Input.cursor.canvas.camera.z;
+            let grabDistance = cg.settings.animationeditor.grabDistance * cg.settings.core.debugCGScale / cg.Input.cursor.canvas.camera.z;
             for (let i=0;i<editor.path.grabbablePoints.length;i++) {
               let grabbablePoint = editor.path.grabbablePoints[i];
               let point = grabbablePoint.point;
@@ -450,7 +450,7 @@ ChoreoGraph.plugin({
       let c = cg.Input.cursor.canvas.c;
       let track = editor.track;
       if (track==null) { return; }
-      let size = cg.settings.core.debugScale / cg.Input.cursor.canvas.camera.z;
+      let size = cg.settings.core.debugCGScale / cg.Input.cursor.canvas.camera.z;
       c.lineWidth = size*2;
       if (track.type=="path") {
         let actionType = editor.path.actionType;
@@ -1478,7 +1478,7 @@ ChoreoGraph.plugin({
             c.fillText(part,part*this.partSpacing,-canvas.height/2+12);
           }
           c.strokeStyle = "#444";
-          c.lineWidth = 1.4 * cg.settings.core.debugScale;
+          c.lineWidth = 1.4 * cg.settings.core.debugCGScale;
           c.setLineDash([5,5]);
           c.stroke();
           c.setLineDash([]);
@@ -1526,17 +1526,17 @@ ChoreoGraph.plugin({
               }
               if (keyFrameIndex==this.selectedKeyFrame&&trackIndex==this.selectedTrack) {
                 c.fillStyle = "#ff00ff";
-                c.lineWidth = 5 * cg.settings.core.debugScale;
+                c.lineWidth = 5 * cg.settings.core.debugCGScale;
               } else {
                 c.fillStyle = "#121212";
-                c.lineWidth = 2 * cg.settings.core.debugScale;
+                c.lineWidth = 2 * cg.settings.core.debugCGScale;
               }
               c.stroke();
               c.fill();
               if (keyFrame.link) {
                 linking = true;
                 c.strokeStyle = "#ffffff";
-                c.lineWidth = 1.4 * cg.settings.core.debugScale;
+                c.lineWidth = 1.4 * cg.settings.core.debugCGScale;
                 c.beginPath();
                 c.moveTo(keyFrame.part*this.partSpacing+5,trackY);
               }
@@ -1546,7 +1546,7 @@ ChoreoGraph.plugin({
                 c.textAlign = "left";
                 c.textBaseline = "middle";
                 c.strokeStyle = "#121212";
-                c.lineWidth = 3 * cg.settings.core.debugScale;
+                c.lineWidth = 3 * cg.settings.core.debugCGScale;
                 let x = keyFrame.part*this.partSpacing+3;
                 let y = trackY+1;
                 c.strokeText(keyFrame.text,x,y,this.partSpacing);
@@ -1568,7 +1568,7 @@ ChoreoGraph.plugin({
                 if (this.moving) {
                   c.strokeStyle = "#ff00ff";
                 }
-                c.lineWidth = 1.4 * cg.settings.core.debugScale;
+                c.lineWidth = 1.4 * cg.settings.core.debugCGScale;
                 c.stroke();
                 if (cursor.impulseDown.left) {
                   trackData.add(cg,x);
@@ -1592,7 +1592,7 @@ ChoreoGraph.plugin({
                 }
               }
             }
-            c.lineWidth = 15 * cg.settings.core.debugScale;
+            c.lineWidth = 15 * cg.settings.core.debugCGScale;
             c.miterLimit = 2;
             c.strokeStyle = "#121212";
             c.strokeText(name,leftX+10,trackY+1);
@@ -1674,7 +1674,7 @@ ChoreoGraph.plugin({
             c.moveTo((triggerlessPart+t)*this.partSpacing,-canvas.height/2);
             c.lineTo((triggerlessPart+t)*this.partSpacing,canvas.height/2);
             c.strokeStyle = "white";
-            c.lineWidth = 2 * cg.settings.core.debugScale;
+            c.lineWidth = 2 * cg.settings.core.debugCGScale;
             c.stroke();
           }
         };
@@ -2691,6 +2691,79 @@ ChoreoGraph.plugin({
       this.updateDopeSheetUI(cg,false);
       this.updateTrackContext(cg,false);
     };
+
+    overlayClosestFrameLocator(cg) {
+      let canvas = cg.Input.cursor.canvas;
+      let camera = canvas.camera;
+      let c = canvas.c;
+      let cursor = cg.Input.cursor;
+
+      let closestAnimation = null;
+      let closestDistance = Infinity;
+      let closestPart = -1;
+      let closestX = -1;
+      let closestY = -1;
+      for (let animationId of cg.keys.animations) {
+        let animation = cg.Animation.animations[animationId];
+        let xKey = -1;
+        let yKey = -1;
+        for (let k=0;k<animation.keys.length;k++) {
+          if (JSON.stringify(animation.keys[k].keySet)==JSON.stringify(cg.settings.animation.debug.pathXKey)) { xKey = k; }
+          if (JSON.stringify(animation.keys[k].keySet)==JSON.stringify(cg.settings.animation.debug.pathYKey)) { yKey = k; }
+        }
+        if (xKey==-1||yKey==-1) { continue; }
+
+        for (let part=0;part<animation.data.length;part++) {
+          let data = animation.data[part];
+          if (typeof data[0] !== "number") { continue; }
+          let x = data[xKey];
+          let y = data[yKey];
+          let distance = Math.sqrt(Math.pow(cursor.x-x,2)+Math.pow(cursor.y-y,2));
+          if (distance<closestDistance) {
+            closestDistance = distance;
+            closestAnimation = animation;
+            closestPart = part;
+            closestX = x;
+            closestY = y;
+          }
+        }
+      }
+      if (closestAnimation==null) { return; }
+
+      ChoreoGraph.transformContext(camera);
+      c.beginPath();
+      c.moveTo(cursor.x,cursor.y);
+      c.lineTo(closestX,closestY);
+      c.strokeStyle = cg.settings.animationeditor.closestFrameLocator.lineColour;
+      c.lineWidth = 2 * cg.settings.core.debugCGScale / camera.cz;
+      c.stroke();
+      c.beginPath();
+      c.fillStyle = "white";
+      c.arc(closestX,closestY,2*cg.settings.core.debugCGScale/camera.cz,0,Math.PI*2);
+      c.fill();
+      c.resetTransform();
+
+      let text = `${closestAnimation.id}  part:${closestPart} x:${closestX} y:${closestY}  [${closestAnimation.data[closestPart]}]`;
+
+      let scale = cg.settings.core.debugCanvasScale;
+
+      let yOffset = 0;
+      if (cg.settings.develop.fps.active) {
+        yOffset = 26*scale;
+      }
+
+      c.font = 14*scale+"px Arial";
+      c.fillStyle = "black";
+      c.globalAlpha = 0.3;
+      c.textBaseline = "bottom";
+      c.fillRect(0,yOffset,c.measureText(text).width+10*scale,26*scale);
+      
+      c.globalAlpha = 1;
+      c.fillStyle = "white";
+      c.textAlign = "left";
+      c.textBaseline = "top";
+      c.fillText(text,5*scale,6*scale+yOffset);
+    };
   },
 
   instanceConnect(cg) {
@@ -2721,12 +2794,17 @@ ChoreoGraph.plugin({
         joint : "#00ff00",
         control : "#00ffff",
         curve : "#00ff00",
+      },
+      closestFrameLocator : {
+        active : false,
+        lineColour : "#86acff"
       }
     });
 
     if (ChoreoGraph.Develop!==undefined) {
       ChoreoGraph.Develop.loops.process.push({cgid:cg.id,activeCheck:cg.settings.animationeditor,func:ChoreoGraph.AnimationEditor.processEditor});
       ChoreoGraph.Develop.loops.overlay.push({cgid:cg.id,activeCheck:cg.settings.animationeditor,func:ChoreoGraph.AnimationEditor.overlayEditor});
+      ChoreoGraph.Develop.loops.overlay.push({cgid:cg.id,activeCheck:cg.settings.animationeditor.closestFrameLocator,func:ChoreoGraph.AnimationEditor.overlayClosestFrameLocator});
 
       cg.Develop.interfaceItems.push({
         type : "UIToggleButton",
@@ -2735,6 +2813,15 @@ ChoreoGraph.plugin({
         activated : cg.settings.animationeditor,
         onActive : (cg) => { cg.settings.animationeditor.active = true; },
         onInactive : (cg) => { cg.settings.animationeditor.active = false; ChoreoGraph.AnimationEditor.removeInterface(cg); },
+      });
+
+      cg.Develop.interfaceItems.push({
+        type : "UIToggleButton",
+        activeText : "Closest Frame Locator",
+        inactiveText : "Closest Frame Locator",
+        activated : cg.settings.animationeditor.closestFrameLocator,
+        onActive : (cg) => { cg.settings.animationeditor.closestFrameLocator.active = true; },
+        onInactive : (cg) => { cg.settings.animationeditor.closestFrameLocator.active = false; },
       });
     };
   },

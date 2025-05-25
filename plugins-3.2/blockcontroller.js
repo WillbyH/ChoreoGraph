@@ -64,7 +64,7 @@ ChoreoGraph.plugin({
         for (let canvasId of cg.keys.canvases) {
           let canvas = cg.canvases[canvasId];
           if (canvas.camera==undefined) { continue; }
-          let scale = cg.settings.core.debugScale / canvas.camera.cz;
+          let scale = cg.settings.core.debugCGScale / canvas.camera.cz;
           if (canvas.hideDebugOverlays) { continue; }
           ChoreoGraph.transformContext(canvas.camera);
           let block = null;
