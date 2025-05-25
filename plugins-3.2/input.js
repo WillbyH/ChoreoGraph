@@ -260,11 +260,11 @@ ChoreoGraph.plugin({
         this.canvasX = Math.floor(((event.clientX-this.boundBox.left)/this.boundBox.width)*this.canvas.width);
         this.canvasY = Math.floor(((event.clientY-this.boundBox.top)/this.boundBox.height)*this.canvas.height);
         if (this.canvas.camera!==null) {
-          let cameraXOffset = this.canvas.camera.x-(this.canvas.width/this.canvas.camera.z)/2;
-          let cameraYOffset = this.canvas.camera.y-(this.canvas.height/this.canvas.camera.z)/2;
-          this.x = ((event.clientX-this.boundBox.left)/this.boundBox.width)*(this.canvas.width/this.canvas.camera.z);
+          let cameraXOffset = this.canvas.camera.x-(this.canvas.width/this.canvas.camera.cz)/2;
+          let cameraYOffset = this.canvas.camera.y-(this.canvas.height/this.canvas.camera.cz)/2;
+          this.x = ((event.clientX-this.boundBox.left)/this.boundBox.width)*(this.canvas.width/this.canvas.camera.cz);
           this.x += cameraXOffset;
-          this.y = ((event.clientY-this.boundBox.top)/this.boundBox.height)*(this.canvas.height/this.canvas.camera.z);
+          this.y = ((event.clientY-this.boundBox.top)/this.boundBox.height)*(this.canvas.height/this.canvas.camera.cz);
           this.y += cameraYOffset;
         }
         this.clientX = event.clientX;

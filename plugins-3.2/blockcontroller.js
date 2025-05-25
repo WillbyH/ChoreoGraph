@@ -63,6 +63,8 @@ ChoreoGraph.plugin({
         if (!debugSettings.active) { return; }
         for (let canvasId of cg.keys.canvases) {
           let canvas = cg.canvases[canvasId];
+          if (canvas.camera==undefined) { continue; }
+          let scale = cg.settings.core.debugScale / canvas.camera.cz;
           if (canvas.hideDebugOverlays) { continue; }
           ChoreoGraph.transformContext(canvas.camera);
           let block = null;
@@ -116,9 +118,10 @@ ChoreoGraph.plugin({
             let alternator = 0;
             c.lineCap = "round";
             for (let blockId in paths) {
-              c.lineWidth = 4 * cg.settings.core.debugScale;
+              c.lineWidth = 4 * scale;
               let block = cg.BlockController.blocks[blockId];
               let points = paths[blockId];
+              if (points.length<2) { continue; }
               let totalLength = 0;
               let lastPoint = points[0];
               c.beginPath();
@@ -144,11 +147,12 @@ ChoreoGraph.plugin({
               c.stroke();
 
               // CAPS
-              c.lineWidth = 2 * cg.settings.core.debugScale;
+              c.lineWidth = 5 * scale;
+              let capWidth = 10 * scale;
               c.beginPath();
               let startAngle = Math.atan2(points[1][1]-points[0][1],points[1][0]-points[0][0]);
-              c.moveTo(points[0][0]+Math.cos(startAngle+Math.PI/2)*10,points[0][1]+Math.sin(startAngle+Math.PI/2)*10);
-              c.lineTo(points[0][0]+Math.cos(startAngle-Math.PI/2)*10,points[0][1]+Math.sin(startAngle-Math.PI/2)*10);
+              c.moveTo(points[0][0]+Math.cos(startAngle+Math.PI/2)*capWidth,points[0][1]+Math.sin(startAngle+Math.PI/2)*capWidth);
+              c.lineTo(points[0][0]+Math.cos(startAngle-Math.PI/2)*capWidth,points[0][1]+Math.sin(startAngle-Math.PI/2)*capWidth);
               c.stroke();
 
               // FIND CENTRE
@@ -178,15 +182,19 @@ ChoreoGraph.plugin({
               }
 
               // DRAW MARKER
-              c.fillStyle = "red";
+              if (block.isOpen()) {
+                c.fillStyle = "green";
+              } else if (block.isClosed()) {
+                c.fillStyle = "red";
+              }
               c.beginPath();
-              c.arc(cX,cY,9,0,Math.PI*2);
+              c.arc(cX,cY,14*scale,0,Math.PI*2);
               c.fill();
               c.fillStyle = "white";
-              c.font = "bold 12px Verdana";
+              c.font = "bold "+14*scale+"px Verdana";
               c.textBaseline = "middle";
               c.textAlign = "center";
-              c.fillText(blockId,cX,cY+0.6);
+              c.fillText(blockId,cX,cY+0.7*scale);
 
               alternator = !alternator;
             }

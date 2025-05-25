@@ -108,7 +108,8 @@ ChoreoGraph.plugin({
             WHRatio : canvas.camera.WHRatio,
             maximumSize : canvas.camera.maximumSize,
             pixelScale : canvas.camera.pixelScale,
-            cullOverride : canvas.camera
+            cullOverride : canvas.camera,
+            inactiveCanvas : canvas
           },"develop_freeCam-"+canvas.id);
           for (let scene of canvas.camera.scenes) {
             freeCamera.addScene(scene);
@@ -119,6 +120,7 @@ ChoreoGraph.plugin({
           };
         };
         let canvasData = this.featureData.freeCam.canvasData[canvas.id];
+        canvas.camera.inactiveCanvas = canvas;
         canvas.setCamera(canvasData.freeCamera);
       };
 
@@ -162,8 +164,8 @@ ChoreoGraph.plugin({
               data.dragging = false;
               return;
             }
-            let xo = (data.downCursorPosition.x - cg.Input.cursor.clientX)/camera.z;
-            let yo = (data.downCursorPosition.y - cg.Input.cursor.clientY)/camera.z;
+            let xo = (data.downCursorPosition.x - cg.Input.cursor.clientX)/camera.cz;
+            let yo = (data.downCursorPosition.y - cg.Input.cursor.clientY)/camera.cz;
             camera.transform.x = data.downCameraPosition.x + xo;
             camera.transform.y = data.downCameraPosition.y + yo;
           } else {
@@ -216,7 +218,7 @@ ChoreoGraph.plugin({
               c.strokeStyle = cg.settings.develop.cameras.colour;
               let cw = canvas.width/camera.cz;
               let ch = canvas.height/camera.cz;
-              c.lineWidth = 2 * cg.settings.core.debugScale / canvas.camera.z;
+              c.lineWidth = 2 * cg.settings.core.debugScale / canvas.camera.cz;
               c.beginPath();
               c.rect(-cw*0.5,-ch*0.5,cw,ch)
               c.moveTo(-cw*0.5,-ch*0.5);
@@ -239,8 +241,10 @@ ChoreoGraph.plugin({
           if (cullCamera.cullOverride!==null) { cullCamera = cullCamera.cullOverride; }
           ChoreoGraph.transformContext(canvas.camera,cullCamera.x,cullCamera.y);
           c.strokeStyle = cg.settings.develop.frustumCulling.frustumColour;
-          c.lineWidth = 3 * cg.settings.core.debugScale / canvas.camera.z;
-          c.strokeRect(-canvas.width*0.5,-canvas.height*0.5,canvas.width,canvas.height);
+          c.lineWidth = 3 * cg.settings.core.debugScale / canvas.camera.cz;
+          let height = canvas.height / cullCamera.cz;
+          let width = canvas.width / cullCamera.cz;
+          c.strokeRect(-width*0.5,-height*0.5,width,height);
           function drawCollectionCullBoxes(collection) {
             for (let item of collection) {
               if (item.type=="graphic"&&item.graphic.getBounds!==undefined) {
@@ -268,8 +272,8 @@ ChoreoGraph.plugin({
                 }
                 let cx = cullCamera.x;
                 let cy = cullCamera.y;
-                let cw = canvas.width/cullCamera.z;
-                let ch = canvas.height/cullCamera.z;
+                let cw = canvas.width/cullCamera.cz;
+                let ch = canvas.height/cullCamera.cz;
                 
                 c.strokeStyle = cg.settings.develop.frustumCulling.unculledBoxColour;
                 if (gx+bw*0.5<cx-cw*0.5||gx-bw*0.5>cx+cw*0.5||gy+bh*0.5<cy-ch*0.5||gy-bh*0.5>cy+ch*0.5) {

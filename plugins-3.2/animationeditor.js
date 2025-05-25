@@ -14,7 +14,6 @@ ChoreoGraph.plugin({
       undoStack = [];
       redoStack = [];
       lastPack = null;
-      template = "2:transform,x|transform,y&";
 
       ui = {
         section : null,
@@ -32,7 +31,7 @@ ChoreoGraph.plugin({
       };
 
       path = {
-        actionType : "add",
+        actionType : "grab",
         connectedMode : false,
         downPos : [0,0],
         selectedTangentType : "broken",
@@ -208,7 +207,7 @@ ChoreoGraph.plugin({
             editor.path.downPos = [cg.Input.cursor.x,cg.Input.cursor.y];
 
           // ADD NEW SEGMENT
-          } else if (actionType==editor.ACTION_ADD&&editor.path.connectedMode&&track.segments.length>0) {
+          } else if (actionType==editor.ACTION_ADD&&editor.path.connectedMode&&track.segments.length>0&&ChoreoGraph.Input.keyStates.shift==false) {
             let newSegment = new ChoreoGraph.Animation.SplineSegment();
             newSegment.start = track.segments[track.segments.length-1].end;
             newSegment.end = [snapX(cg.Input.cursor.x,cg),snapY(cg.Input.cursor.y,cg)];
@@ -445,6 +444,7 @@ ChoreoGraph.plugin({
       if (ChoreoGraph.Develop.cg.id!==cg.id) { return; }
       if (cg.Input===undefined) { return; }
       if (cg.Input.cursor.canvas.camera==null) { return; }
+      ChoreoGraph.transformContext(cg.Input.cursor.canvas.camera);
       let editor = cg.AnimationEditor;
       let pathStyle = cg.settings.animationeditor.pathStyle;
       let c = cg.Input.cursor.canvas.c;
@@ -700,8 +700,8 @@ ChoreoGraph.plugin({
         e.target.cg.AnimationEditor.ui.dropdown.add(option);
         e.target.cg.AnimationEditor.ui.dropdown.value = newAnim.id;
 
-        if (cg.AnimationEditor.template!=null) {
-          newAnim.unpack(cg.AnimationEditor.template,false);
+        if (cg.settings.animationeditor.template!=null) {
+          newAnim.unpack(cg.settings.animationeditor.template,false);
         }
 
         ChoreoGraph.AnimationEditor.updateTrackTypeAdding(e.target.cg);
@@ -1660,6 +1660,9 @@ ChoreoGraph.plugin({
           for (let i=0;i<animators.length;i++) {
             let animator = animators[i];
             let triggerlessPart = animator.part;
+            if (animator.part>animator.animation.data.length-1) {
+              continue;
+            }
             for (let j=0;j<=animator.part;j++) {
               if (typeof animator.animation.data[j][0] != "number") {
                 triggerlessPart--;
@@ -2702,6 +2705,7 @@ ChoreoGraph.plugin({
       snapGridOffsetY : 0,
       genericDecimalRounding : 3,
       timeDecimalRounding : 4,
+      template : "2:transform,x|transform,y&",
       hotkeys : {
         undo : "z",
         redo : "y",

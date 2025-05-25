@@ -381,6 +381,11 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         }
       });
       ro.observe(parentElement);
+      return this;
+    };
+    resizeWithSelf() {
+      this.setupParentElement(this.element);
+      return this;
     };
     drawImage(image, x, y, width=image.width, height=image.height, rotation=0, ax=0, ay=0, flipX=false, flipY=false) {
       let c = this.c;
@@ -488,8 +493,8 @@ const ChoreoGraph = new class ChoreoGraphEngine {
           if (camera.cullOverride!==null) { camera = camera.cullOverride; }
           let cx = camera.x;
           let cy = camera.y;
-          let cw = this.width/camera.z;
-          let ch = this.height/camera.z;
+          let cw = this.width/camera.cz;
+          let ch = this.height/camera.cz;
           
           if (bx+bw*0.5<cx-cw*0.5||bx-bw*0.5>cx+cw*0.5||by+bh*0.5<cy-ch*0.5||by-bh*0.5>cy+ch*0.5) { return; }
         }
@@ -507,6 +512,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     canvas = null;
 
     cullOverride = null; // A camera that will be used instead of the current for culling
+    inactiveCanvas = null; // A canvas used as a fallback for transform calculations
 
     get x() { return this.transform.x+this.transform.ox; };
     get y() { return this.transform.y+this.transform.oy; };
@@ -537,10 +543,14 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       if (this.scaleMode=="pixels") {
         return this.z*this.pixelScale;
       } else if (this.scaleMode=="maximum") {
-        if (this.canvas.width*(this.WHRatio)>this.canvas.height*(1-this.WHRatio)) {
-          return this.z*(this.canvas.width/this.maximumSize);
+        let canvas = this.canvas;
+        if (canvas==null&&this.inactiveCanvas!=null) { canvas = this.inactiveCanvas; }
+        else if (canvas==null) { return this.z; }
+        if (canvas==null) { return this.z; }
+        if (canvas.width*(this.WHRatio)>canvas.height*(1-this.WHRatio)) {
+          return this.z*(canvas.width/this.maximumSize);
         } else {
-          return this.z*(this.canvas.height/this.maximumSize);
+          return this.z*(canvas.height/this.maximumSize);
         }
       }
     };
@@ -1121,6 +1131,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         this.lineWidth = 1;
         this.lineJoin = "round";
         this.miterLimit = 10;
+        this.radius = 0;
   
         this.width = 50;
         this.height = 50;
@@ -1128,7 +1139,11 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       };
       draw(c,ax,ay) {
         c.beginPath();
-        c.rect(-this.width/2+ax, -this.height/2+ay, this.width, this.height);
+        if (this.radius>0) {
+          c.roundRect(-this.width/2+ax, -this.height/2+ay, this.width, this.height, this.radius);
+        } else {
+          c.rect(-this.width/2+ax, -this.height/2+ay, this.width, this.height);
+        }
         if (this.fill) { c.fillStyle = this.colour; c.fill(); } else { c.lineWidth = this.lineWidth; c.strokeStyle = this.colour; c.stroke(); }
       };
       getBounds() {

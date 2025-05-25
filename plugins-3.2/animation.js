@@ -134,7 +134,7 @@ ChoreoGraph.plugin({
 
             let c = canvas.c;
 
-            let size = debugSettings.width/canvas.camera.z;
+            let size = debugSettings.width/canvas.camera.cz*cg.settings.core.debugScale;
         
             c.lineWidth = size * cg.settings.core.debugScale;
             c.strokeStyle = debugSettings.pathColours[0]; // Odd lerps
@@ -170,15 +170,16 @@ ChoreoGraph.plugin({
               }
             }
 
+            // MARKERS
             c.textAlign = "center";
-            c.font = debugSettings.markerStyle.fontSize + "px " + debugSettings.markerStyle.font;
+            c.font = debugSettings.markerStyle.fontSize*size + "px " + debugSettings.markerStyle.font;
             c.textBaseline = "middle";
             if (debugSettings.showMarkers) {
               for (let m = 0; m < markers.length; m++) {
                 c.fillStyle = markers[m].c;
                 c.globalAlpha = debugSettings.markerStyle.opacity;
                 c.beginPath();
-                c.arc(markers[m].x,markers[m].y,debugSettings.markerStyle.size,0,2*Math.PI);
+                c.arc(markers[m].x,markers[m].y,debugSettings.markerStyle.size*size,0,2*Math.PI);
                 c.fill();
                 c.globalAlpha = 1;
                 let split = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(markers[m].c); // Decide if marker text colour is white or black by background
@@ -188,7 +189,7 @@ ChoreoGraph.plugin({
                   else { c.fillStyle = "#000000"; }
                 } else { c.fillStyle = "#ffffff"; }
                 c.textBaseline = "middle";
-                c.fillText(markers[m].t, markers[m].x+debugSettings.markerStyle.offset[0], markers[m].y+debugSettings.markerStyle.offset[1],debugSettings.markerStyle.size*4);
+                c.fillText(markers[m].t, markers[m].x+debugSettings.markerStyle.offset[0]*size, markers[m].y+debugSettings.markerStyle.offset[1]*size+size,debugSettings.markerStyle.size*4);
               }
             }
 
@@ -460,7 +461,8 @@ ChoreoGraph.plugin({
 
         pack() {
           // density:trackData
-          // trackData -> startX,startY,controlAX,controlAY,controlBX,controlBY,endX,endY
+          // trackData -> splineDataConnectionsplineDataConnectionsplineData
+          // splineData -> startX,startY,controlAX,controlAY,controlBX,controlBY,endX,endY
 
           // ! means no control point (comes after startY/controlAY)
           // _ means !!
@@ -492,7 +494,7 @@ ChoreoGraph.plugin({
             let segment = this.segments[i];
             output += chop(segment.start[0],this.cg)+","+chop(segment.start[1],this.cg);
             let trailingSymbol = false;
-            if (!segment.controlAEnabled&&!segment.controlAEnabled) {
+            if (!segment.controlAEnabled&&!segment.controlBEnabled) {
               output += "_";
               trailingSymbol = true;
             } else {
@@ -560,6 +562,8 @@ ChoreoGraph.plugin({
               pointer++;
             } else if (data[pointer]==",") {
               pointer = set("controlB",segment,data,++pointer);
+            } else if (numberChars.includes(data[pointer])) {
+              pointer = set("controlB",segment,data,pointer);
             }
             if (data[pointer]=="~") {
               segment.connected = true;
@@ -1311,7 +1315,7 @@ ChoreoGraph.plugin({
 
         showMarkers = true; // Symbols relating to triggers
         markerColours = {S:"#ff00ff",E:"#00ff00",C:"#0000ff",B:"#ff0000",V:"#00ffff",unknown:"#00ff00"}; // Colours for each type of trigger
-        markerStyle = {size:9,fontSize:10,font:"Arial",offset:[0,0],opacity:0.7};
+        markerStyle = {size:7,fontSize:8,font:"Arial",offset:[0,0],opacity:0.7};
         width = 2;
         #cg = cg;
         #active = false;
@@ -1378,6 +1382,8 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
   paused = false;
   playing = false;
   processingTrigger = false;
+  onStart = null;
+  onEnd = null;
 
   triggerTypes = {
     "s" : (trigger,object,animator) => { animator.speed = trigger[1]; },
@@ -1415,9 +1421,13 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
     }
 
     this.lastUpdatedFrame = ChoreoGraph.frame;
+    this.travelledThisFrame = 0;
 
     if (this.playing==false) {
       this.playFrom(this.playhead);
+      if (this.onStart!=null) {
+        this.onStart(this);
+      }
     }
 
     if (this.processingTrigger) {
@@ -1426,7 +1436,6 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
 
     this.timeBudget = (cg.timeSinceLastFrame*cg.settings.core.timeScale)/1000;
 
-    this.travelledThisFrame = 0;
     while (this.timeBudget>0) {
       let timeTillNextKeyFrame = (this.ent-this.playhead)/this.speed;
       if (timeTillNextKeyFrame<=this.timeBudget) {
@@ -1444,6 +1453,9 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
             this.rewind();
           } else {
             this.paused = true;
+          }
+          if (this.onEnd!=null) {
+            this.onEnd(this);
           }
           return;
         } 
@@ -1521,6 +1533,10 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
 
   // Sets object values by keys using FROM and TO
   setValues() {
+    if (this.from==this.to) {
+      this.setFinalValues();
+      return;
+    }
     for (let i=0;i<this.connectionData.keys.length;i++) {
       let fromVal = this.from[i];
       let toVal = this.to[i];
@@ -1530,6 +1546,8 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
 
       let lerpVal = t * (toVal-fromVal) + fromVal;
       let keyData = this.connectionData.keys[i];
+
+      if (isNaN(lerpVal)) { continue; }
 
       keyData.object[keyData.key] = lerpVal;
     }
@@ -1548,7 +1566,7 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
     this.playhead = playhead;
     if (this.animation==null) { return; }
     if (this.animation.ready==false) { return; }
-    if (this.playhead>this.animation.duration) { this.playhead = this.animation.duration; }
+    if (this.playhead>this.animation.duration) { this.playhead = this.animation.duration-0.00001; }
 
     this.paused = false;
     this.playing = true;
