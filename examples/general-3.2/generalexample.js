@@ -24,7 +24,7 @@ const cg = ChoreoGraph.instantiate({
     debug : true
   },
   tilemaps : {
-    appendCanvases : true
+    // appendCanvases : true
   }
 });
 cg.createCanvas({element:document.getElementsByTagName("canvas")[0],
@@ -99,7 +99,7 @@ let testAnim = cg.Animation.createAnimationFromPacked("4:transform,x;0,x|transfo
 
 cg.createObject({},"animatedObject")
 .attach("Animator",{animation:testAnim,speed:50})
-.attach("Graphic",{graphic:cg.createGraphic({type:"rectangle",colour:"red",height:20,width:20},"testAnimRect")})
+.attach("Graphic",{graphic:cg.createGraphic({type:"rectangle",colour:"red",height:20,width:20},"testAnimRect"),collection:"stuff"})
 
 cg.scenes.main.addObject(cg.objects.animatedObject);
 
@@ -111,22 +111,22 @@ let simpleCircle = cg.createGraphic({type:"arc",radius:10,colour:"#88c35e"},"sim
 
 cg.scenes.main.addObject(cg.createObject({},"blockObjectA")
 .attach("Animator",{animation:blockTestAnim,playhead:0,speed:150})
-.attach("Graphic",{graphic:simpleCircle})
+.attach("Graphic",{graphic:simpleCircle,collection:"stuff"})
 .attach("BlockController",{group:"testGroupC"}));
 
 cg.scenes.main.addObject(cg.createObject({},"blockObjectB")
 .attach("Animator",{animation:blockTestAnim,playhead:60,speed:150})
-.attach("Graphic",{graphic:simpleCircle})
+.attach("Graphic",{graphic:simpleCircle,collection:"stuff"})
 .attach("BlockController",{group:"testGroupB"}));
 
 cg.scenes.main.addObject(cg.createObject({},"blockObjectC")
 .attach("Animator",{animation:blockTestAnim,playhead:160,speed:150})
-.attach("Graphic",{graphic:simpleCircle})
+.attach("Graphic",{graphic:simpleCircle,collection:"stuff"})
 .attach("BlockController",{group:"testGroupA"}));
 
 cg.scenes.main.addObject(cg.createObject({},"blockObjectD")
 .attach("Animator",{animation:blockTestAnim,playhead:140,speed:150})
-.attach("Graphic",{graphic:simpleCircle})
+.attach("Graphic",{graphic:simpleCircle,collection:"stuff"})
 .attach("BlockController",{group:"testGroupA"}));
 
 for (let blockId of ["A","B","C","D"]) {
@@ -162,22 +162,22 @@ cg.settings.blockcontroller.debug.animations.push("P",simplifiedBlockAnim);
 
 cg.scenes.main.addObject(cg.createObject({},"GA_0")
 .attach("Animator",{animation:simplifiedBlockAnim,playhead:2,speed:3})
-.attach("Graphic",{graphic:simpleCircle})
+.attach("Graphic",{graphic:simpleCircle,collection:"stuff"})
 .attach("BlockController",{group:"blockGroupA"}));
 
 cg.scenes.main.addObject(cg.createObject({},"GA_1")
 .attach("Animator",{animation:simplifiedBlockAnim,playhead:0,speed:3})
-.attach("Graphic",{graphic:simpleCircle})
+.attach("Graphic",{graphic:simpleCircle,collection:"stuff"})
 .attach("BlockController",{group:"blockGroupA"}));
 
 cg.scenes.main.addObject(cg.createObject({},"GB_0")
 .attach("Animator",{animation:simplifiedBlockAnim,playhead:24,speed:3})
-.attach("Graphic",{graphic:simpleCircle})
+.attach("Graphic",{graphic:simpleCircle,collection:"stuff"})
 .attach("BlockController",{group:"blockGroupB"}));
 
 cg.scenes.main.addObject(cg.createObject({},"GB_1")
 .attach("Animator",{animation:simplifiedBlockAnim,playhead:20,speed:3})
-.attach("Graphic",{graphic:simpleCircle})
+.attach("Graphic",{graphic:simpleCircle,collection:"stuff"})
 .attach("BlockController",{group:"blockGroupB"}));
 
 cg.Input.createAction({keys:["w","up","conleftup","condpadup","conrightup",cg.Input.buttons.dummy]},"forward");
@@ -260,6 +260,13 @@ cg.scenes.main.tree.tilemapGraphic.transform.sy = 0.5;
 cg.scenes.main.tree.tilemapGraphic.transform.x = 200;
 cg.scenes.main.tree.tilemapGraphic.transform.y = 100;
 
+cg.createGraphic({type:"lighting"},"lighting");
+cg.scenes.main.createItem("graphic",{graphic:cg.graphics.lighting},"lighting");
+
+let testLight = cg.Lighting.createLight({type:"spot"});
+testLight.transform.parent = cg.objects.animatedObject.transform;
+let testOccluder = cg.Lighting.createOccluder({path:[[259,297],[259,297],[175,282],[194,206],[273,157],[332,248]]});
+
 cg.settings.core.callbacks.loopBefore = () => {
   cg.sceneItems.cursorRectangle.transform.x = cg.Input.cursor.x;
   cg.sceneItems.cursorRectangle.transform.y = cg.Input.cursor.y;
@@ -331,7 +338,7 @@ cg.settings.core.callbacks.loopAfter = () => {
   cg.c.fillStyle = "black";
   cg.c.fillRect(transX,transY,10,10);
 
-  cg.canvas.drawImage(cg.images.waveyTiles,100,100,600,100,cg.clock%(360*10)/10,300,0,true,false)
+  // cg.canvas.drawImage(cg.images.waveyTiles,100,100,600,100,cg.clock%(360*10)/10,300,0,true,false)
 
   // cg.c.beginPath();
   // cg.c.moveTo(cg.sceneItems.downRectangle.transform.x,cg.sceneItems.downRectangle.transform.y);
