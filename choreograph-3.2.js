@@ -936,7 +936,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
 
     constructor(objectInit,cg) {
       if (objectInit.transform==undefined) {
-        if (objectInit.transformId!=undefined) {
+        if (objectInit.transformId==undefined) {
           this.transform = cg.createTransform();
         } else {
           this.transform = cg.createTransform({},objectInit.transformId);
