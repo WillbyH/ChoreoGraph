@@ -374,6 +374,7 @@ ChoreoGraph.plugin({
           if (canvas.hideDebugOverlays) { continue; }
           let camera = canvas.camera;
           if (camera===null) { continue; }
+          ChoreoGraph.transformContext(camera);
           let c = canvas.c;
           c.font = 6*cg.settings.core.debugCGScale+"px Arial";
           c.textAlign = "center";
@@ -567,12 +568,9 @@ ChoreoGraph.plugin({
           let originalX = gizmoData.originalScale[0];
           let originalY = gizmoData.originalScale[1];
           if (gizmoData.grabMode=="xAxis"||gizmoData.grabMode=="multiAxis") {
-            // gizmoData.selectedObject.transform.sx = gizmoData.originalPosition[0] + dx;
             gizmoData.selectedObject.transform.sx = originalX*(((curX-downPosX)/handSize)+1);
-            console.log(originalX,curX,downPosX,handSize)
           }
           if (gizmoData.grabMode=="yAxis"||gizmoData.grabMode=="multiAxis") {
-            // gizmoData.selectedObject.transform.sy = gizmoData.originalPosition[1] + dy;
             gizmoData.selectedObject.transform.sy = originalY*(((-(curY-downPosY))/handSize)+1);
           }
 
@@ -623,7 +621,6 @@ ChoreoGraph.plugin({
             let angle = Math.atan2(cursor.y-y,cursor.x-x);
             let startAngle = Math.atan2(gizmoData.cursorDownPosition[1]-y,gizmoData.cursorDownPosition[0]-x);
             let offset = (angle-startAngle)*180/Math.PI;
-            console.log(angle)
             let rotation = gizmoData.originalRotation+offset;
             if (ChoreoGraph.Input.keyStates[gizmoSettings.hotkeySnap]) {
               rotation = Math.round(rotation/gizmoSettings.rotationSnap)*gizmoSettings.rotationSnap;

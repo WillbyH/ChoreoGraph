@@ -34,6 +34,62 @@ ChoreoGraph.plugin({
         this.cg.keys.occluders.push(id);
         return newOccluder;
       };
+
+      hasActivatedDebugLoop = false;
+      lightingDebugLoop(cg) {
+        if (!cg.settings.lighting.debug.active) { return; }
+        for (let canvasId of cg.keys.canvases) {
+          let canvas = cg.canvases[canvasId];
+          if (canvas.camera==undefined) { continue; }
+          let c = canvas.c;
+          let scale = cg.settings.core.debugCGScale / canvas.camera.cz;
+          if (canvas.hideDebugOverlays) { continue; }
+          ChoreoGraph.transformContext(canvas.camera);
+
+          for (let lightId of cg.keys.lights) {
+            let light = cg.Lighting.lights[lightId];
+            let bounds = light.getBounds();
+            c.globalAlpha = 1;
+            c.strokeStyle = "green";
+            c.lineWidth = 2 * scale;
+            c.beginPath();
+            c.rect(light.transform.x - bounds[0] * 0.5, light.transform.y - bounds[1] * 0.5, bounds[0], bounds[1]);
+            c.stroke();
+          }
+
+          for (let occluderId of cg.keys.occluders) {
+            let occluder = cg.Lighting.occluders[occluderId];
+            c.strokeStyle = "grey";
+            c.lineWidth = 2 * scale;
+            c.beginPath();
+            c.moveTo(occluder.path[0][0], occluder.path[0][1]);
+            for (let i=1;i<occluder.path.length;i++) {
+              c.lineTo(occluder.path[i][0], occluder.path[i][1]);
+            }
+            c.closePath();
+            c.stroke();
+            c.beginPath();
+            for (let i=0;i<occluder.path.length;i++) {
+              c.moveTo(occluder.path[i][0], occluder.path[i][1]);
+              c.arc(occluder.path[i][0], occluder.path[i][1], 5, 0, 2 * Math.PI);
+            }
+            c.fillStyle = "white";
+            c.fill();
+
+            // for (let side of occluder.sidesBuffer) {
+            //   c.globalAlpha = 1;
+            //   c.strokeStyle = "white";
+            //   c.beginPath();
+            //   c.moveTo(occluder.transform.x + side[0], occluder.transform.y + side[1]);
+            //   c.lineTo(occluder.transform.x + side[2], occluder.transform.y + side[3]);
+            //   c.stroke();
+            //   c.fillStyle = ["red","green","blue","magenta","yellow","cyan","purple"][Math.floor(Math.random()*8)];
+            //   c.globalAlpha = 0.5;
+            //   c.fillRect(occluder.transform.x+side[6], occluder.transform.y+side[8], side[7]-side[6], side[9]-side[8]);
+            // }
+          }
+        }
+      };
     };
 
     Light = class cgLight {
@@ -171,9 +227,9 @@ ChoreoGraph.plugin({
       } else {
         let topA = (x4 - x3) * (y3 - y1) - (y4 - y3) * (x3 - x1);
         let topB = (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1);
-        let t1 = topA/bottomA;
-        let t2 = topB/bottomB;
-        return [(t1>=0&&t1<=1&&t2>=0),t1,t2]
+        let t1 = topA/bottomA; // Intersection ratio on line x1,y1 to x2,y2
+        let t2 = topB/bottomB; // Intersection ratio on line x3,y3 to x4,y4
+        return [(t1>=0&&t1<=1&&t2>=0),t1,t2];
       }
     };
   },
@@ -185,8 +241,30 @@ ChoreoGraph.plugin({
     cg.keys.occluders = [];
 
     cg.attachSettings("lighting",{
-      
+      debug : new class {
+        #cg = cg;
+        #active = false;
+        set active(value) {
+          this.#active = value;
+          if (value&&!this.#cg.Lighting.hasActivatedDebugLoop) {
+            this.#cg.Lighting.hasActivatedDebugLoop = true;
+            this.#cg.overlayLoops.push(this.#cg.Lighting.lightingDebugLoop);
+          }
+        }
+        get active() { return this.#active; }
+      }
     });
+
+    if (cg.Develop!==undefined) {
+      cg.Develop.interfaceItems.push({
+        type : "UIToggleButton",
+        activeText : "Lighting Debug",
+        inactiveText : "Lighting Debug",
+        activated : cg.settings.lighting.debug,
+        onActive : (cg) => { cg.settings.lighting.debug.active = true; },
+        onInactive : (cg) => { cg.settings.lighting.debug.active = false; },
+      });
+    };
 
     cg.graphicTypes.lighting = new class lighting {
       setup(init,cg) {
@@ -199,7 +277,13 @@ ChoreoGraph.plugin({
         this.lights = [];
         this.occluders = [];
 
+        this.detects = [];
+        this.raycastCount = 0; // For debugging
+        this.sideRayPrecision = 0.0001;
+
         this.occlude = function(x,y,width,height) {
+          let maxSize = Math.max(width,height);
+          // GET OCCLUDERS
           let occluders = this.occluders;
           if (this.occluders.length === 0) {
             let occludersIds = this.cg.keys.occluders;
@@ -208,18 +292,161 @@ ChoreoGraph.plugin({
             }
           }
 
-          let vectors = [];
+          this.raycastCount = 0;
+          let points = [];
+          let sidesToCheck = [];
+          let halfWidth = width * 0.5;
+          let halfHeight = height * 0.5;
+          let lxMin = x-halfWidth;
+          let lxMax = x+halfWidth;
+          let lyMin = y-halfHeight;
+          let lyMax = y+halfHeight;
+          points.push([lxMin,lyMin]);
+          points.push([lxMax,lyMin]);
+          points.push([lxMax,lyMax]);
+          points.push([lxMin,lyMax]);
 
-          this.bc.beginPath();
+          // GET POINTS AND SIDES FROM ALL OCCLUDERS
+          let sxMin = lxMin;
+          let sxMax = lxMax;
+          let syMin = lyMin;
+          let syMax = lyMax;
           for (let occluder of occluders) {
-            for (let point of occluder.path) {
-              let occluderX = occluder.transform.x + point[0];
-              let occluderY = occluder.transform.y + point[1];
-              this.bc.lineTo(occluderX, occluderY);
+            let addedIndices = [];
+            for (let i=0;i<occluder.sidesBuffer.length;i++) {
+              let side = occluder.sidesBuffer[i];
+              let xMin = occluder.transform.x + side[6];
+              let xMax = occluder.transform.x + side[7];
+              let yMin = occluder.transform.y + side[8];
+              let yMax = occluder.transform.y + side[9];
+              if (xMin>lxMax||xMax<lxMin||yMin>lyMax||yMax<lyMin) { continue; }
+              sxMin = Math.min(xMin,sxMin);
+              sxMax = Math.max(xMax,sxMax);
+              syMin = Math.min(yMin,syMin);
+              syMax = Math.max(yMax,syMax);
+              sidesToCheck.push(side);
+              let sideRayPrecision = this.sideRayPrecision;
+              function addPoint(point) {
+                points.push(point);
+                let baseAngle = Math.atan2(point[1]-y,point[0]-x);
+                // A little bit to the left and right of each point
+                points.push([point[0]+Math.cos(baseAngle + sideRayPrecision)*maxSize,point[1]+Math.sin(baseAngle + sideRayPrecision)*maxSize]);
+                points.push([point[0]+Math.cos(baseAngle - sideRayPrecision)*maxSize,point[1]+Math.sin(baseAngle - sideRayPrecision)*maxSize]);
+              }
+              if (!addedIndices.includes(side[4])) {
+                addPoint([side[0] + occluder.transform.x,side[1] + occluder.transform.y]);
+                addedIndices.push(side[4]);
+              }
+              if (!addedIndices.includes(side[5])) {
+                addPoint([side[2] + occluder.transform.x,side[3] + occluder.transform.y]);
+                addedIndices.push(side[5]);
+              }
+            }
+          };
+          sidesToCheck.push([sxMin,syMin,sxMax,syMin]);
+          sidesToCheck.push([sxMax,syMin,sxMax,syMax]);
+          sidesToCheck.push([sxMax,syMax,sxMin,syMax]);
+          sidesToCheck.push([sxMin,syMax,sxMin,syMin]);
+
+          // FIND ALL INTERCEPTIONS
+          let detects = [];
+          for (let point of points) {
+            let closest = 2; // 2 because the range is 0-1
+            for (let side of sidesToCheck) {
+              // AABB INTERCEPTION TEST
+              let x1Min = Math.min(side[0],side[2]);
+              let x1Max = Math.max(side[0],side[2]);
+              let y1Min = Math.min(side[1],side[3]);
+              let y1Max = Math.max(side[1],side[3]);
+              let x2Min = Math.min(x,point[0]);
+              let x2Max = Math.max(x,point[0]);
+              let y2Min = Math.min(y,point[1]);
+              let y2Max = Math.max(y,point[1]);
+              if (x1Min>x2Max||x1Max<x2Min||y1Min>y2Max||y1Max<y2Min) { continue; }
+
+              // RAYCAST INTERCEPTION TEST
+              let intercept = ChoreoGraph.Lighting.calculateInterception(side[0],side[1],side[2],side[3],x,y,point[0],point[1]);
+              this.raycastCount++;
+              if (intercept[0]) { if (intercept[2]<closest) { closest = intercept[2]; } }
+            }
+            if (closest<=1) {
+              let interceptX = x + (point[0] - x) * closest;
+              let interceptY = y + (point[1] - y) * closest;
+              let angle = Math.atan2(interceptY-y,interceptX-x);
+              detects.push([point[0],point[1],interceptX,interceptY,angle,x,y]);
             }
           }
 
+          // FIND PATH AND CLIP
+          this.detects = detects.sort((a,b) => a[4]-b[4]);
+          this.bc.beginPath();
+          for (let detect of this.detects) {
+            this.bc.lineTo(detect[2], detect[3]);
+          }
           this.bc.clip();
+        };
+
+        this.drawDebug = function(canvas,lights) {
+          let c = canvas.c;
+          let scale = canvas.cg.settings.core.debugCGScale / canvas.camera.cz;
+          c.resetTransform();
+          c.fillStyle = "white";
+          c.textBaseline = "top";
+          c.fillText(this.raycastCount,10,20);
+          ChoreoGraph.transformContext(canvas.camera);
+          c.globalAlpha = 1;
+          c.strokeStyle = "yellow";
+          c.lineWidth = 4 * scale;
+          c.beginPath();
+          for (let detect of this.detects) {
+            c.lineTo(detect[2], detect[3]);
+          }
+          c.closePath();
+          c.stroke();
+          c.lineWidth = 1 * scale;
+          c.strokeStyle = "red";
+          c.beginPath();
+          for (let detect of this.detects) {
+            c.moveTo(detect[5], detect[6]);
+            c.lineTo(detect[2], detect[3]);
+          }
+          c.stroke();
+          
+          c.lineWidth = 10 * scale;
+          let occluders = this.occluders;
+          if (this.occluders.length === 0) {
+            let occludersIds = this.cg.keys.occluders;
+            for (let i=0;i<occludersIds.length;i++) {
+              occluders[i] = this.cg.Lighting.occluders[this.cg.keys.occluders[i]];
+            }
+          }
+          for (let light of lights) {
+            let x = light.transform.x;
+            let y = light.transform.y;
+            let halfWidth = light.getBounds()[0] * 0.5;
+            let halfHeight = light.getBounds()[1] * 0.5;
+            let lxMin = x-halfWidth;
+            let lxMax = x+halfWidth;
+            let lyMin = y-halfHeight;
+            let lyMax = y+halfHeight;
+            c.beginPath();
+            for (let occluder of occluders) {
+              for (let i=0;i<occluder.sidesBuffer.length;i++) {
+                let side = occluder.sidesBuffer[i];
+                let xMin = occluder.transform.x + side[6];
+                let xMax = occluder.transform.x + side[7];
+                let yMin = occluder.transform.y + side[8];
+                let yMax = occluder.transform.y + side[9];
+                if (xMin>lxMax||xMax<lxMin||yMin>lyMax||yMax<lyMin) {
+                  continue;
+                }
+                c.moveTo(side[0],side[1]);
+                c.lineTo(side[2],side[3]);
+              }
+            }
+            c.strokeStyle = "lightgreen";
+            c.stroke();
+          }
         };
       };
       draw(canvas,transform) {
@@ -243,10 +470,8 @@ ChoreoGraph.plugin({
         // PUT BUFFER IN CG SPACE
         ChoreoGraph.transformContext(canvas.camera,gx,gy,0,gsx,gsy,true,false,false,0,0,this.bc);
 
-        // DRAW LIGHTS
-        this.bc.globalCompositeOperation = "destination-out";
-
         // DRAW OCCLUDED LIGHTS
+        this.bc.globalCompositeOperation = "destination-out";
         let lights = this.lights;
         if (this.lights.length === 0) {
           let lightsIds = this.cg.keys.lights;
@@ -261,11 +486,12 @@ ChoreoGraph.plugin({
         }
 
         let c = canvas.c;
-        c.globalCompositeOperation = "source-over";
         c.globalAlpha = 1;
         c.resetTransform();
 
         c.drawImage(this.bufferCanvas,0,0);
+
+        if (cg.settings.lighting.debug.active) { this.drawDebug(canvas,lights); }
       };
     }
   }

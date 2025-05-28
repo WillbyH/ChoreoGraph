@@ -293,9 +293,6 @@ ChoreoGraph.plugin({
           if (!this.activeTouches.includes(event.pointerId)) {
             this.activeTouches.push(event.pointerId);
           }
-          if (this.canvas.cg.settings.input.callbacks.cursorDown!==null) {
-            this.canvas.cg.settings.input.callbacks.cursorDown(event,this.canvas);
-          }
         } else if (event.type=="pointerup") {
           let side = this.buttonSide(event.button);
           this.up.any.x = this.x;
@@ -309,9 +306,6 @@ ChoreoGraph.plugin({
           this.impulseUp[side] = true;
           delete this.touches[event.pointerId];
           this.activeTouches.splice(this.activeTouches.indexOf(event.pointerId),1);
-          if (this.canvas.cg.settings.input.callbacks.cursorUp!==null) {
-            this.canvas.cg.settings.input.callbacks.cursorUp(event,this.canvas);
-          }
         } else if (event.type=="pointermove") {
           if (cg.Input.cursor.canvas.hasHiddenCursorForEmulatedCursor&&event.pointerType=="mouse") {
             cg.Input.cursor.canvas.hasHiddenCursorForEmulatedCursor = false;
@@ -325,9 +319,6 @@ ChoreoGraph.plugin({
             this.touches[event.pointerId].clientY = event.clientY;
             this.touches[event.pointerId].canvasX = this.canvasX;
             this.touches[event.pointerId].canvasY = this.canvasY;
-          }
-          if (this.canvas.cg.settings.input.callbacks.cursorMove!==null) {
-            this.canvas.cg.settings.input.callbacks.cursorMove(event,this.canvas);
           }
         }
       };
@@ -376,11 +367,17 @@ ChoreoGraph.plugin({
 
     pointerDown(event) {
       if (event.target.cgCanvas===undefined) { return };
-      ChoreoGraph.Input.lastClickedCanvas = event.target.cgCanvas;
+      let canvas = event.target.cgCanvas;
+      let cg = canvas.cg;
+      ChoreoGraph.Input.lastClickedCanvas = canvas;
       if (event.pointerId>1) { ChoreoGraph.Input.hasMultipleCursors = true; }
-      event.target.cgCanvas.cg.Input.updateCursor(event.target.cgCanvas,event);
-      ChoreoGraph.Input.downCanvases[event.pointerId] = event.target.cgCanvas;
-      ChoreoGraph.Input.updateButtons(event.target.cgCanvas,event,"down");
+      cg.Input.updateCursor(canvas,event);
+      ChoreoGraph.Input.downCanvases[event.pointerId] = canvas;
+      ChoreoGraph.Input.updateButtons(canvas,event,"down");
+
+      if (cg.settings.input.callbacks.cursorDown!==null) {
+        cg.settings.input.callbacks.cursorDown(event,cg.Input.canvasCursors[canvas.id]);
+      }
 
       if (event.pointerType=="mouse") {
         let fakeEvent = new class FakeKeyboardEvent {
@@ -398,6 +395,10 @@ ChoreoGraph.plugin({
       ChoreoGraph.Input.updateButtons(canvas,event,"up");
       delete ChoreoGraph.Input.downCanvases[event.pointerId];
 
+      if (cg.settings.input.callbacks.cursorUp!==null) {
+        cg.settings.input.callbacks.cursorUp(event,cg.Input.canvasCursors[canvas.id]);
+      }
+
       if (event.pointerType=="mouse") {
         let fakeEvent = new class FakeKeyboardEvent {
           type = "keyup";
@@ -414,6 +415,10 @@ ChoreoGraph.plugin({
           let canvas = cg.canvases[canvasId];
           cg.Input.updateCursor(canvas,event);
           ChoreoGraph.Input.updateButtons(canvas,event);
+
+          if (cg.settings.input.callbacks.cursorMove!==null) {
+            cg.settings.input.callbacks.cursorMove(event,cg.Input.canvasCursors[canvas.id]);
+          }
         }
       }
     };
@@ -903,10 +908,13 @@ ChoreoGraph.plugin({
       drawTitle(canvas) {
         ChoreoGraph.transformContext(canvas.camera,this.x,this.y,0,1,1,this.CGSpace,false,false,this.canvasSpaceXAnchor,this.canvasSpaceYAnchor);
         let c = canvas.c;
+        let style = canvas.cg.settings.input.debug.buttons.style;
+        let debugCGScale = canvas.cg.settings.core.debugCGScale;
         c.globalAlpha = 1;
         c.textAlign = "center";
         c.textBaseline = "middle";
-        c.fillStyle = canvas.cg.settings.input.debug.buttons.style.textColour;
+        c.font = style.fontSize*debugCGScale+"px "+style.fontFamily;
+        c.fillStyle = style.textColour;
         c.fillText(this.id, 0, 0);
       };
     };
@@ -996,7 +1004,7 @@ ChoreoGraph.plugin({
               cg.Input.cursor.canvas.element.style.cursor = button.cursor;
             }
             if (button.enter!==null) {
-              button.enter(event,canvas);
+              button.enter(button,event,canvas);
             }
           }
           if (special=="down") {
@@ -1004,7 +1012,7 @@ ChoreoGraph.plugin({
               button.downTime = ChoreoGraph.nowint;
               button.pressed = true;
               if (button.down!==null) {
-                button.down(event,canvas);
+                button.down(button,event,canvas);
               }
             }
           } else if (special=="up") {
@@ -1012,7 +1020,7 @@ ChoreoGraph.plugin({
               button.upTime = ChoreoGraph.nowint;
               button.pressed = false;
               if (button.up!==null) {
-                button.up(event,canvas);
+                button.up(button,event,canvas);
               }
             }
           }
@@ -1025,7 +1033,7 @@ ChoreoGraph.plugin({
             if (button.hoverCount==0&&(button.pressed||button.allowUpWithNoPress)) {
               button.upTime = ChoreoGraph.nowint;
               if (button.up!==null) {
-                button.up(event,canvas);
+                button.up(button,event,canvas);
               }
             }
             if (button.hoverCount==0) {
@@ -1035,7 +1043,7 @@ ChoreoGraph.plugin({
               cg.Input.cursor.canvas.element.style.cursor = cg.settings.core.defaultCursor;
             }
             if (button.exit!==null) {
-              button.exit(event,canvas);
+              button.exit(button,event,canvas);
             }
           }
         }
@@ -1215,11 +1223,12 @@ ChoreoGraph.plugin({
 
       debug : new class {
         buttons = {
-          active : true,
+          active : false,
           opacity : 0.4,
           fadeOut : 300, // Time in ms that the button fades out for
           style : {
-            font : "12px Arial",
+            fontSize : 5,
+            fontFamily : "Arial",
             textColour : "#000000",
             bgNormal : "#ffffff",
             bgInactive : "#000000",

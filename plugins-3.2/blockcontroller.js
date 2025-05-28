@@ -208,7 +208,7 @@ ChoreoGraph.plugin({
     cg.BlockController = new ChoreoGraph.BlockController.instanceObject(cg);
     cg.keys.blocks = [];
 
-    cg.attachSettings("blockcontroller",{      
+    cg.attachSettings("blockcontroller",{
       debug : new class {
         pathXKey = ["transform","x"];
         pathYKey = ["transform","y"];
@@ -383,7 +383,6 @@ ChoreoGraph.ObjectComponents.BlockController = class cgObjectBlockController {
           bc.Animator.paused = true;
           bc.processingBlock = true;
           bc.Animator.playhead += this.Animator.travelledThisFrame;
-          bc.Animator.setValues();
         }
       }
     }

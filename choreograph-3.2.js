@@ -690,10 +690,10 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         if (item.type=="graphic") {
           buffer.push({type:"graphic",transform:item.transform,graphic:item.graphic});
         } else if (item.type=="collection") {
-          let newBufferCollection = {type:"collection",children:[]};
+          let newBufferCollection = {type:"collection",id:item.id,children:[]};
           buffer.push(newBufferCollection);
-          if (item.children.length===0) { continue; }
           this.drawBufferCollections[item.id] = newBufferCollection.children;
+          if (item.children.length===0) { continue; }
           this.processCollection(item.children,newBufferCollection.children);
         }
       }
@@ -707,9 +707,6 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       if (collection===null) {
         this.drawBuffer.push({type:"graphic",transform:transform,graphic:graphic});
       } else {
-        if (this.drawBufferCollections[collection]===undefined) {
-          this.drawBufferCollections[collection] = [];
-        }
         this.drawBufferCollections[collection].push({type:"graphic",transform:transform,graphic:graphic});
       }
     };
