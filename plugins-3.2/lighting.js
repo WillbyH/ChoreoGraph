@@ -53,7 +53,7 @@ ChoreoGraph.plugin({
             c.strokeStyle = "green";
             c.lineWidth = 2 * scale;
             c.beginPath();
-            c.rect(light.transform.x - bounds[0] * 0.5, light.transform.y - bounds[1] * 0.5, bounds[0], bounds[1]);
+            c.rect(light.transform.x - bounds[0] * 0.5 + bounds[2], light.transform.y - bounds[1] * 0.5 + bounds[3], bounds[0], bounds[1]);
             c.stroke();
           }
 
@@ -126,7 +126,7 @@ ChoreoGraph.plugin({
       draw(c) {
         c.globalCompositeOperation = "destination-out";
         let radialData = this.transform.x+"-"+this.transform.y+""+this.innerRadius+""+this.outerRadius;
-        if (this.lightGradient==undefined||this.lastRadialData!=radialData) {
+        if (this.lightGradient==undefined||this.lastRadialData!=radialData||true) {
           this.lightGradient = c.createRadialGradient(this.transform.x, this.transform.y, 1, this.transform.x, this.transform.y, this.outerRadius);
           this.lightGradient.addColorStop(0, 'rgba(0,0,0,1)');
           this.lightGradient.addColorStop(this.innerRadius/this.outerRadius, 'rgba(0,0,0,1)');
@@ -157,36 +157,54 @@ ChoreoGraph.plugin({
         let hpi = Math.PI * 0.5;
         this.angleStart = penumbraRadian + rotationRadian;
         this.angleEnd = tau-penumbraRadian + rotationRadian;
-        if (this.angleStart < 0) { this.angleStart += tau; }
-        if (this.angleStart >= tau) { this.angleStart -= tau; }
-        if (this.angleEnd < 0) { this.angleEnd += tau; }
-        if (this.angleEnd >= tau) { this.angleEnd -= tau; }
+        let start = this.angleStart;
+        let end = this.angleEnd;
+        if (start < 0) { start += tau; }
+        if (start >= tau) { start -= tau; }
+        if (end < 0) { end += tau; }
+        if (end >= tau) { end -= tau; }
 
         let minX = 0;
         let minY = 0;
         let maxX = 0;
         let maxY = 0;
-        if (this.angleStart < 0 && this.angleEnd > 0) {
-          maxX = this.outerRadius;
-          console.log("1")
-        }
-        if (this.angleStart < hpi && this.angleEnd > hpi) {
-          maxY = this.outerRadius;
-          console.log("2")
-        }
-        if (this.angleStart < Math.PI && this.angleEnd > Math.PI) {
+        if (this.penumbra==0) {
           minX = -this.outerRadius;
-          console.log("3")
-        }
-        if (this.angleStart < hpi * 3 && this.angleEnd > hpi * 3) {
           minY = -this.outerRadius;
-          console.log("4")
+          maxX = this.outerRadius;
+          maxY = this.outerRadius;
+        } else {
+          if (end < start) {
+            maxX = this.outerRadius;
+          }
+          if (start <= hpi && end >= hpi) {
+            maxY = this.outerRadius;
+          }
+          if (start <= Math.PI && end >= Math.PI) {
+            minX = -this.outerRadius;
+          }
+          if (start <= hpi * 3 && end >= hpi * 3) {
+            minY = -this.outerRadius;
+          }
+          let startX = this.outerRadius * Math.cos(start);
+          let startY = this.outerRadius * Math.sin(start);
+          let endX = this.outerRadius * Math.cos(end);
+          let endY = this.outerRadius * Math.sin(end);
+          maxX = Math.max(maxX, startX, endX);
+          maxY = Math.max(maxY, startY, endY);
+          minX = Math.min(minX, startX, endX);
+          minY = Math.min(minY, startY, endY);
+          maxX += 1;
+          maxY += 1;
+          minX -= 1;
+          minY -= 1;
         }
         let width = maxX - minX;
         let height = maxY - minY;
+        let xo = minX + width * 0.5;
+        let yo = minY + height * 0.5;
 
-        // return [width, height, 0, 0];
-        return [this.outerRadius * 2, this.outerRadius * 2, 0, 0];
+        return [width, height, xo, yo];
       };
     };
 
@@ -198,17 +216,34 @@ ChoreoGraph.plugin({
 
       draw(c) {
         c.save();
-        c.globalCompositeOperation = "destination-out";
+        c.globalCompositeOperation = "source-over";
         c.translate(this.transform.x, this.transform.y);
         if (this.transform.r!=0) {
           c.rotate(this.transform.r*Math.PI/180);
         }
-        c.drawImage(this.image.image, 0, 0, this.width, this.height);
+        let width = this.width || this.image.width;
+        let height = this.height || this.image.height;
+        c.drawImage(this.image.image, -width*0.5, -height*0.5, width, height);
         c.restore();
       };
 
       getBounds() {
-        return [this.width || this.image.width, this.height || this.image.height];
+        if (this.image==null) {
+          if (this.hasWarnedAboutMissingImage===undefined) {
+            console.warn("ImageLight missing image",this.id);
+            this.hasWarnedAboutMissingImage = true;
+          }
+          return;
+        }
+        let width = this.width || this.image.width;
+        let height = this.height || this.image.height;
+        if (this.transform.r!=0) {
+          let rad = (-this.transform.r+90)*Math.PI/180;
+          let savedHeight = height;
+          height = Math.abs(width*Math.cos(rad))+Math.abs(height*Math.sin(rad));
+          width = Math.abs(width*Math.sin(rad))+Math.abs(savedHeight*Math.cos(rad));
+        }
+        return [width, height, 0, 0];
       };
     };
 
@@ -400,7 +435,6 @@ ChoreoGraph.plugin({
 
               // RAYCAST INTERCEPTION TEST
               let intercept = ChoreoGraph.Lighting.calculateInterception(side[0],side[1],side[2],side[3],x,y,point[0],point[1]);
-              // console.log(side[0],side[1],side[2],side[3],x,y,point[0],point[1], intercept[0])
               this.raycastCount++;
               if (intercept[0]) { if (intercept[2]<closest) { closest = intercept[2]; } }
             }
@@ -470,10 +504,10 @@ ChoreoGraph.plugin({
             let bounds = light.getBounds();
             let halfWidth = bounds[0] * 0.5;
             let halfHeight = bounds[1] * 0.5;
-            let lxMin = x-halfWidth;
-            let lxMax = x+halfWidth;
-            let lyMin = y-halfHeight;
-            let lyMax = y+halfHeight;
+            let lxMin = x-halfWidth+bounds[2];
+            let lxMax = x+halfWidth+bounds[2];
+            let lyMin = y-halfHeight+bounds[3];
+            let lyMax = y+halfHeight+bounds[3];
             c.beginPath();
             for (let occluder of occluders) {
               for (let i=0;i<occluder.sidesBuffer.length;i++) {

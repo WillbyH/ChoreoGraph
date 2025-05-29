@@ -263,7 +263,8 @@ cg.scenes.main.tree.tilemapGraphic.transform.y = 100;
 cg.createGraphic({type:"lighting"},"lighting");
 cg.scenes.main.createItem("graphic",{graphic:cg.graphics.lighting},"lighting");
 
-let testLight = cg.Lighting.createLight({type:"spot"});
+// let testLight = cg.Lighting.createLight({type:"spot"});
+let testLight = cg.Lighting.createLight({type:"image",image:cg.images.waveyTiles});
 // testLight.transform.parent = cg.objects.animatedObject.transform;
 let testOccluder = cg.Lighting.createOccluder({path:[[259,297],[175,282],[194,206],[273,157],[332,248]]});
 // let testOccluder = cg.Lighting.createOccluder({path:[[432,174],[401,187],[400,224],[381,199],[406,157],[431,114],[387,99],[374,129],[337,127],[350,159],[314,161],[342,192],[366,160],[378,170],[365,189],[358,219],[363,249],[378,276],[400,267],[422,272],[439,250],[428,224],[467,267],[444,321],[368,309],[326,348],[337,287],[283,352],[338,388],[375,338],[406,342],[384,420],[361,415],[373,439],[429,432],[449,369],[485,350],[528,244],[465,229],[491,190],[435,205],[495,170],[531,177],[545,151],[504,123],[481,160],[471,121],[444,138],[447,164]]});
