@@ -118,45 +118,75 @@ ChoreoGraph.plugin({
       outerRadius = 150;
 
       lightGradient = null;
-      colourGradient = null;
       lastRadialData = null;
 
+      angleStart = 0;
+      angleEnd = 0;
+
       draw(c) {
-        let radialData = this.x+"-"+this.y+""+this.innerRadius+""+this.outerRadius;
-        if (this.gradient==undefined||this.lastRadialData!=radialData) {
+        c.globalCompositeOperation = "destination-out";
+        let radialData = this.transform.x+"-"+this.transform.y+""+this.innerRadius+""+this.outerRadius;
+        if (this.lightGradient==undefined||this.lastRadialData!=radialData) {
           this.lightGradient = c.createRadialGradient(this.transform.x, this.transform.y, 1, this.transform.x, this.transform.y, this.outerRadius);
           this.lightGradient.addColorStop(0, 'rgba(0,0,0,1)');
           this.lightGradient.addColorStop(this.innerRadius/this.outerRadius, 'rgba(0,0,0,1)');
           this.lightGradient.addColorStop(1, 'rgba(0,0,0,0)');
-          if (this.colour!=null) {
-            this.colourGradient = c.createRadialGradient(this.transform.x, this.transform.y, 1, this.transform.x, this.transform.y, this.outerRadius);
-            this.colourGradient.addColorStop(0, this.colour);
-            this.colourGradient.addColorStop(1-(this.innerRadius/this.outerRadius), this.colour);
-            this.colourGradient.addColorStop(1, 'rgba(0,0,0,0)');
-          }
           this.lastRadialData = radialData;
         }
         c.fillStyle = this.lightGradient;
         c.globalAlpha = this.brightness;
-        let penumbraRadian = this.penumbra * Math.PI;
-        let start = penumbraRadian;
-        let end = 2*Math.PI-penumbraRadian;
         c.beginPath();
-        c.arc(this.transform.x,this.transform.y,this.outerRadius,start,end);
+        c.arc(this.transform.x,this.transform.y,this.outerRadius,this.angleStart,this.angleEnd);
         c.lineTo(this.transform.x,this.transform.y);
         c.fill();
+        c.globalCompositeOperation = "soft-light";
         if (this.colour!=null) {
-          c.fillStyle = this.colourGradient;
+          c.fillStyle = this.colour;
           c.globalAlpha = this.brightness;
           c.beginPath();
-          c.arc(this.transform.x,this.transform.y,this.outerRadius,start,end);
+          c.arc(this.transform.x,this.transform.y,this.outerRadius,this.angleStart,this.angleEnd);
           c.lineTo(this.transform.x,this.transform.y);
           c.fill();
         }
       };
 
       getBounds() {
-        return [this.outerRadius*2, this.outerRadius*2];
+        let rotationRadian = this.transform.r%360 * Math.PI / 180;
+        let penumbraRadian = this.penumbra * Math.PI;
+        let tau = 2 * Math.PI;
+        let hpi = Math.PI * 0.5;
+        this.angleStart = penumbraRadian + rotationRadian;
+        this.angleEnd = tau-penumbraRadian + rotationRadian;
+        if (this.angleStart < 0) { this.angleStart += tau; }
+        if (this.angleStart >= tau) { this.angleStart -= tau; }
+        if (this.angleEnd < 0) { this.angleEnd += tau; }
+        if (this.angleEnd >= tau) { this.angleEnd -= tau; }
+
+        let minX = 0;
+        let minY = 0;
+        let maxX = 0;
+        let maxY = 0;
+        if (this.angleStart < 0 && this.angleEnd > 0) {
+          maxX = this.outerRadius;
+          console.log("1")
+        }
+        if (this.angleStart < hpi && this.angleEnd > hpi) {
+          maxY = this.outerRadius;
+          console.log("2")
+        }
+        if (this.angleStart < Math.PI && this.angleEnd > Math.PI) {
+          minX = -this.outerRadius;
+          console.log("3")
+        }
+        if (this.angleStart < hpi * 3 && this.angleEnd > hpi * 3) {
+          minY = -this.outerRadius;
+          console.log("4")
+        }
+        let width = maxX - minX;
+        let height = maxY - minY;
+
+        // return [width, height, 0, 0];
+        return [this.outerRadius * 2, this.outerRadius * 2, 0, 0];
       };
     };
 
@@ -168,6 +198,7 @@ ChoreoGraph.plugin({
 
       draw(c) {
         c.save();
+        c.globalCompositeOperation = "destination-out";
         c.translate(this.transform.x, this.transform.y);
         if (this.transform.r!=0) {
           c.rotate(this.transform.r*Math.PI/180);
@@ -177,7 +208,7 @@ ChoreoGraph.plugin({
       };
 
       getBounds() {
-        return [this.width || this.image.width,this.height || this.image.height];
+        return [this.width || this.image.width, this.height || this.image.height];
       };
     };
 
@@ -196,20 +227,22 @@ ChoreoGraph.plugin({
           }
         }
         ChoreoGraph.applyAttributes(this,occluderInit);
-        if (this.path.length>2) {
+        if (this.path.length>=2) {
           this.calculateSides();
         }
       };
 
       calculateSides() {
         this.sidesBuffer = [];
-        for (let i=0;i<this.path.length-1;i++) {
-          let xMin = Math.min(this.path[i][0],this.path[i+1][0]);
-          let xMax = Math.max(this.path[i][0],this.path[i+1][0]);
-          let yMin = Math.min(this.path[i][1],this.path[i+1][1]);
-          let yMax = Math.max(this.path[i][1],this.path[i+1][1]);
-          // p1x p1y p2x p2y p1i p2i xMin xMax yMin yMax
-          this.sidesBuffer.push([this.path[i][0],this.path[i][1],this.path[i+1][0],this.path[i+1][1],i,i+1,xMin,xMax,yMin,yMax]);
+        if (this.path.length>2) {
+          for (let i=0;i<this.path.length-1;i++) {
+            let xMin = Math.min(this.path[i][0],this.path[i+1][0]);
+            let xMax = Math.max(this.path[i][0],this.path[i+1][0]);
+            let yMin = Math.min(this.path[i][1],this.path[i+1][1]);
+            let yMax = Math.max(this.path[i][1],this.path[i+1][1]);
+            // p1x p1y p2x p2y p1i p2i xMin xMax yMin yMax
+            this.sidesBuffer.push([this.path[i][0],this.path[i][1],this.path[i+1][0],this.path[i+1][1],i,i+1,xMin,xMax,yMin,yMax]);
+          }
         }
         let xMin = Math.min(this.path[0][0],this.path[this.path.length-1][0]);
         let xMax = Math.max(this.path[0][0],this.path[this.path.length-1][0]);
@@ -218,7 +251,7 @@ ChoreoGraph.plugin({
         this.sidesBuffer.push([this.path[0][0],this.path[0][1],this.path[this.path.length-1][0],this.path[this.path.length-1][1],0,this.path.length-1,xMin,xMax,yMin,yMax]);
       };
     };
-    
+
     calculateInterception(x1,y1,x2,y2,x3,y3,x4,y4) {
       let bottomA = (x4 - x3) * (y2 - y1) - (y4 - y3) * (x2 - x1);
       let bottomB = (x4 - x3) * (y2 - y1) - (y4 - y3) * (x2 - x1);
@@ -272,6 +305,7 @@ ChoreoGraph.plugin({
 
         this.bufferCanvas = document.createElement("canvas");
         document.body.appendChild(this.bufferCanvas);
+        this.bufferCanvas.style.backgroundColor = "white";
         this.bc = this.bufferCanvas.getContext("2d",{alpha:true});
 
         this.lights = [];
@@ -281,8 +315,8 @@ ChoreoGraph.plugin({
         this.raycastCount = 0; // For debugging
         this.sideRayPrecision = 0.0001;
 
-        this.occlude = function(x,y,width,height) {
-          let maxSize = Math.max(width,height);
+        this.occlude = function(x,y,width,height,boundXOffset,boundYOffset) {
+          let maxSize = Math.max(width,height)*10;
           // GET OCCLUDERS
           let occluders = this.occluders;
           if (this.occluders.length === 0) {
@@ -297,10 +331,10 @@ ChoreoGraph.plugin({
           let sidesToCheck = [];
           let halfWidth = width * 0.5;
           let halfHeight = height * 0.5;
-          let lxMin = x-halfWidth;
-          let lxMax = x+halfWidth;
-          let lyMin = y-halfHeight;
-          let lyMax = y+halfHeight;
+          let lxMin = x-halfWidth+boundXOffset;
+          let lxMax = x+halfWidth+boundXOffset;
+          let lyMin = y-halfHeight+boundYOffset;
+          let lyMax = y+halfHeight+boundYOffset;
           points.push([lxMin,lyMin]);
           points.push([lxMax,lyMin]);
           points.push([lxMax,lyMax]);
@@ -366,6 +400,7 @@ ChoreoGraph.plugin({
 
               // RAYCAST INTERCEPTION TEST
               let intercept = ChoreoGraph.Lighting.calculateInterception(side[0],side[1],side[2],side[3],x,y,point[0],point[1]);
+              // console.log(side[0],side[1],side[2],side[3],x,y,point[0],point[1], intercept[0])
               this.raycastCount++;
               if (intercept[0]) { if (intercept[2]<closest) { closest = intercept[2]; } }
             }
@@ -403,6 +438,15 @@ ChoreoGraph.plugin({
           }
           c.closePath();
           c.stroke();
+          // let i=0;
+          // for (let detect of this.detects) {
+          //   c.beginPath();
+          //   c.moveTo(detect[2], detect[3]);
+          //   c.arc(detect[2], detect[3], 10 * scale, 0, 2 * Math.PI);
+          //   c.fillStyle = ["red","orange","yellow","green","blue","indigo","violet"][i%7];
+          //   c.fill();
+          //   i++;
+          // }
           c.lineWidth = 1 * scale;
           c.strokeStyle = "red";
           c.beginPath();
@@ -411,7 +455,7 @@ ChoreoGraph.plugin({
             c.lineTo(detect[2], detect[3]);
           }
           c.stroke();
-          
+
           c.lineWidth = 10 * scale;
           let occluders = this.occluders;
           if (this.occluders.length === 0) {
@@ -423,8 +467,9 @@ ChoreoGraph.plugin({
           for (let light of lights) {
             let x = light.transform.x;
             let y = light.transform.y;
-            let halfWidth = light.getBounds()[0] * 0.5;
-            let halfHeight = light.getBounds()[1] * 0.5;
+            let bounds = light.getBounds();
+            let halfWidth = bounds[0] * 0.5;
+            let halfHeight = bounds[1] * 0.5;
             let lxMin = x-halfWidth;
             let lxMax = x+halfWidth;
             let lyMin = y-halfHeight;
@@ -471,7 +516,6 @@ ChoreoGraph.plugin({
         ChoreoGraph.transformContext(canvas.camera,gx,gy,0,gsx,gsy,true,false,false,0,0,this.bc);
 
         // DRAW OCCLUDED LIGHTS
-        this.bc.globalCompositeOperation = "destination-out";
         let lights = this.lights;
         if (this.lights.length === 0) {
           let lightsIds = this.cg.keys.lights;
@@ -481,7 +525,7 @@ ChoreoGraph.plugin({
         }
         for (let light of lights) {
           let bounds = light.getBounds();
-          if (light.occlude) { this.occlude(light.transform.x,light.transform.y,bounds[0],bounds[1]); }
+          if (light.occlude) { this.occlude(light.transform.x,light.transform.y,bounds[0],bounds[1],bounds[2],bounds[3]); }
           light.draw(this.bc);
         }
 
@@ -489,7 +533,9 @@ ChoreoGraph.plugin({
         c.globalAlpha = 1;
         c.resetTransform();
 
+        c.globalCompositeOperation = "multiply";
         c.drawImage(this.bufferCanvas,0,0);
+        c.globalCompositeOperation = "source-over";
 
         if (cg.settings.lighting.debug.active) { this.drawDebug(canvas,lights); }
       };
