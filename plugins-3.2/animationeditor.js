@@ -340,13 +340,13 @@ ChoreoGraph.plugin({
                 if (grabbablePoint.type=="start"||grabbablePoint.type=="end") {
                   let index = track.segments.indexOf(segment);
                   let newSegments = [];
-        
+
                   for (let i=0;i<track.segments.length;i++) {
                     if (i!=index) {
                       newSegments.push(track.segments[i]);
                     }
                   }
-                  
+
                   if (grabbablePoint.type=="start") {
                     let before = segment.before;
                     let after = segment.after;
@@ -1006,7 +1006,7 @@ ChoreoGraph.plugin({
               ChoreoGraph.AnimationEditor.updateDopeSheetUI(cg);
               ChoreoGraph.AnimationEditor.updateAnimationOverview(cg);
             };
-        
+
             let interpolateToggle = new ChoreoGraph.Develop.UIToggleButton({
               activeText : "Interpolate On",
               inactiveText : "Interpolate Off",
@@ -1112,7 +1112,7 @@ ChoreoGraph.plugin({
               keyFrame.trigger.part = Number(value);
             } else if (dataIndex==1) {
               keyFrame.trigger.type = value;
-            } 
+            }
           }
 
           keyFrame.move = function(cg,keyFrame,part) {
@@ -1148,7 +1148,7 @@ ChoreoGraph.plugin({
               dropdown.style.background = "black";
               dropdown.style.color = "white";
               dropdown.style.fontFamily = "consolas";
-              
+
               for (let type of ["number","string","boolean","undefined","evaluate"]) {
                 let option = document.createElement("option");
                 option.text = type;
@@ -1435,7 +1435,7 @@ ChoreoGraph.plugin({
         hideDebugOverlays : true
       },"animation_editor_dopesheet");
       canvas.setupParentElement(canvasParent);
-      
+
       cg.graphicTypes.animation_editor_dopesheet = new class AnimationEditorDopeSheet {
         setup(init,cg) {
           this.cg = cg;
@@ -1686,7 +1686,7 @@ ChoreoGraph.plugin({
       cg.cameras.animation_editor_dopesheet.addScene(cg.scenes.animation_editor_dopesheet);
       cg.canvases.animation_editor_dopesheet.setCamera(cg.cameras.animation_editor_dopesheet);
       cg.scenes.animation_editor_dopesheet.createItem("graphic",{graphic:cg.graphics.animation_editor_dopesheet,transform:cg.createTransform({},"animation_editor_dopesheet")},"animation_editor_dopesheet");
-      
+
       cg.processLoops.push(function dopeSheetProcessLoop(cg){
         let cursor = cg.Input.canvasCursors.animation_editor_dopesheet;
         if (cursor===undefined) { return; }
@@ -1827,7 +1827,7 @@ ChoreoGraph.plugin({
         e.target.cg.AnimationEditor.path.selectedTangentType = e.target.value;
       }
       dropdown.value = cg.AnimationEditor.path.selectedTangentType;
-    
+
       let copyJointsButton = document.createElement("button");
       copyJointsButton.innerText = "Copy Joint Path";
       copyJointsButton.classList.add("develop_button");
@@ -1840,7 +1840,7 @@ ChoreoGraph.plugin({
       div.appendChild(copyJointsButton);
     };
 
-    createVariableTimeTrackContext(cg,div) {      
+    createVariableTimeTrackContext(cg,div) {
       // EXTEND BUTTON
       let extendButton = document.createElement("button");
       extendButton.classList.add("develop_button");
@@ -1871,7 +1871,7 @@ ChoreoGraph.plugin({
       let timeOption = document.createElement("option");
       timeOption.text = "time";
       modeDropdown.add(timeOption);
-      
+
       modeDropdown.value = cg.AnimationEditor.track.mode;
 
       modeDropdown.onchange = (e) => {
@@ -2114,7 +2114,7 @@ ChoreoGraph.plugin({
             ChoreoGraph.AnimationEditor.updateTrackContext(e.target.cg);
           }
         }
-        
+
         let moveFrameDownButton = document.createElement("button");
         frameDiv.appendChild(moveFrameDownButton);
         moveFrameDownButton.title = "Move Frame Down";
@@ -2195,7 +2195,7 @@ ChoreoGraph.plugin({
             ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
           }
         }
-      
+
         frameEditor.appendChild(createInsertButton(frameIndex+1,track));
         frameIndex++;
       }
@@ -2322,7 +2322,7 @@ ChoreoGraph.plugin({
             ChoreoGraph.AnimationEditor.updateAnimationOverview(e.target.cg);
           }
         }
-        
+
         let moveKeyDownButton = document.createElement("button");
         set.appendChild(moveKeyDownButton);
         moveKeyDownButton.title = "Move Key Set Down";
@@ -2432,7 +2432,7 @@ ChoreoGraph.plugin({
             sourceDropdown.add(unlinkOption);
           }
         }
-        
+
         if (keySet === "time") {
           let timeLi = document.createElement("li");
           timeLi.style.display = "inline-block";
@@ -2530,7 +2530,7 @@ ChoreoGraph.plugin({
     updateAnimationOverview(cg,addToUndoQueue=true) {
       let anim = cg.AnimationEditor.animation;
       if (anim==null) { return; }
-      
+
       let div = cg.AnimationEditor.ui.animationInformation;
       if (div==null) { return; }
       div.innerHTML = "";
@@ -2549,7 +2549,7 @@ ChoreoGraph.plugin({
         let data = e.target.cg.AnimationEditor.animation.pack();
         navigator.clipboard.writeText(data);
       };
-      div.appendChild(copyPackedButton);      
+      div.appendChild(copyPackedButton);
 
       let copyBakedButton = document.createElement("button");
       copyBakedButton.innerHTML = "Copy Baked Data";
@@ -2745,24 +2745,7 @@ ChoreoGraph.plugin({
 
       let text = `${closestAnimation.id}  part:${closestPart} x:${closestX} y:${closestY}  [${closestAnimation.data[closestPart]}]`;
 
-      let scale = cg.settings.core.debugCanvasScale;
-
-      let yOffset = 0;
-      if (cg.settings.develop.fps.active) {
-        yOffset = 26*scale;
-      }
-
-      c.font = 14*scale+"px Arial";
-      c.fillStyle = "black";
-      c.globalAlpha = 0.3;
-      c.textBaseline = "bottom";
-      c.fillRect(0,yOffset,c.measureText(text).width+10*scale,26*scale);
-      
-      c.globalAlpha = 1;
-      c.fillStyle = "white";
-      c.textAlign = "left";
-      c.textBaseline = "top";
-      c.fillText(text,5*scale,6*scale+yOffset);
+      cg.Develop.drawTopLeftText(cg,canvas,text);
     };
   },
 

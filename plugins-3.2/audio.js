@@ -14,7 +14,7 @@ ChoreoGraph.plugin({
     soundLoadBuffer = [];
     instanceLoadBuffer = [];
     playBuffer = [];
-    
+
     mode = null; // WebAudio or HTMLAudio
     ctx = null;
 
@@ -92,7 +92,7 @@ ChoreoGraph.plugin({
         }
         if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.WEBAUDIO) {
           // SOURCE -> GAIN -> EFFECT NODES -> BUS GAIN -> MASTER GAIN -> DESTINATION
-    
+
           let source = ChoreoGraph.Audio.ctx.createBufferSource();
           source.buffer = sound.audio;
           source.gainNode = ChoreoGraph.Audio.ctx.createGain();
@@ -101,7 +101,7 @@ ChoreoGraph.plugin({
           source.playbackRate.value = options.speed; // Speed
 
           source.connect(source.gainNode);
-    
+
           let lastNode = source.gainNode;
           for (let i=0;i<options.nodes.length;i++) {
             lastNode = lastNode.connect(options.nodes[i]);
@@ -118,9 +118,9 @@ ChoreoGraph.plugin({
           };
 
           lastNode.connect(this.masterGain);
-    
+
           source.start();
-    
+
           let newSoundInstance = new ChoreoGraph.Audio.SoundInstance({id:options.soundInstanceId,source:source,nodes:options.nodes,sound:sound});
           newSoundInstance.cgAudio = this;
           if (options.fadeIn!=0) {
@@ -133,7 +133,7 @@ ChoreoGraph.plugin({
           sound.instances[newSoundInstance.id] = newSoundInstance;
 
           newSoundInstance.applyEndListener();
-          
+
           return newSoundInstance;
         } else if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.HTMLAUDIO) {
           let source = sound.audio.cloneNode();
@@ -160,7 +160,7 @@ ChoreoGraph.plugin({
 
           this.playing[newSoundInstance.id] = newSoundInstance;
           sound.instances[newSoundInstance.id] = newSoundInstance;
-    
+
           return newSoundInstance;
         }
       };
@@ -168,7 +168,7 @@ ChoreoGraph.plugin({
       stop(id, fadeoutSeconds=0) {
         if (this.playing[id]==undefined) { console.warn("Sound not found"); return; }
         let sound = this.playing[id];
-        
+
         if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.WEBAUDIO) {
           if (fadeoutSeconds==0) {
             sound.source.stopped = true;
@@ -276,7 +276,7 @@ ChoreoGraph.plugin({
         ChoreoGraph.applyAttributes(this,playOptionsInit);
       }
     }
-    
+
     Sound = class cgSound {
       source = "";
       blobAudio = null;
@@ -313,10 +313,10 @@ ChoreoGraph.plugin({
         let url = URL.createObjectURL(this.blobAudio);
         this.audio = await new Promise((resolve, reject) => {
           let audio = new Audio(url);
-  
+
           audio.addEventListener("canplaythrough", () => resolve(audio), { once: true });
           audio.addEventListener("error", () => reject(new Error(`Failed to load audio: ${url}`)), { once: true });
-  
+
           audio.load();
         });
         this.loaded = true;
@@ -520,7 +520,7 @@ ChoreoGraph.plugin({
             } else {
               if (Audio.mode==Audio.WEBAUDIO) {
                 soundInstance.source.playbackRate.value = 1;
-                
+
                 const now = ChoreoGraph.Audio.ctx.currentTime;
                 soundInstance.source.gainNode.gain.cancelScheduledValues(now);
                 soundInstance.source.gainNode.gain.setValueAtTime(soundInstance.source.gainNode.gain.value, now);

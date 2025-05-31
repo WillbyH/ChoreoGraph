@@ -6,6 +6,7 @@ ChoreoGraph.plugin({
   globalPackage : new class cgAnimationPackage {
     instanceObject = class cgAnimationInstancePackage {
       createAnimation(animationInit={},id=ChoreoGraph.id.get()) {
+        if (this.cg.keys.animations.includes(id)) { id += "-" + ChoreoGraph.id.get(); }
         let newAnimation = new ChoreoGraph.Animation.Animation(animationInit);
         newAnimation.id = id;
         newAnimation.cg = this;
@@ -15,6 +16,7 @@ ChoreoGraph.plugin({
         return newAnimation;
       };
       createAnimationFromPacked(packedData,animationInit={},id=ChoreoGraph.id.get()) {
+        if (this.cg.keys.animations.includes(id)) { id += "-" + ChoreoGraph.id.get(); }
         let newAnimation = new ChoreoGraph.Animation.Animation(this.cg);
         newAnimation.id = id;
         newAnimation.cg = this;
@@ -116,7 +118,7 @@ ChoreoGraph.plugin({
 
             let oddLerps = [];
             let evenLerps = [];
-        
+
             for (let p = 0; p < paths.length; p++) { // Find lerp paths
               for (let f = 0; f < paths[p].length; f++) {
                 if (f!=0) {
@@ -135,7 +137,7 @@ ChoreoGraph.plugin({
             let c = canvas.c;
 
             let size = debugSettings.width/canvas.camera.cz*cg.settings.core.debugCGScale;
-        
+
             c.lineWidth = size * cg.settings.core.debugCGScale;
             c.strokeStyle = debugSettings.pathColours[0]; // Odd lerps
             c.beginPath();
@@ -144,7 +146,7 @@ ChoreoGraph.plugin({
               c.lineTo(oddLerps[p][1][0], oddLerps[p][1][1]);
             }
             c.stroke();
-        
+
             c.strokeStyle = debugSettings.pathColours[1]; // Even lerps
             c.beginPath();
             for (let p = 0; p < evenLerps.length; p++) {
@@ -185,7 +187,7 @@ ChoreoGraph.plugin({
                 let split = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(markers[m].c); // Decide if marker text colour is white or black by background
                 if (split!=null) {
                   let rbg = split ? split.map(i => parseInt(i, 16)).slice(1) : null;
-                  if (rbg[0]*0.299+rbg[1]*0.587+rbg[2]*0.114<186) { c.fillStyle = "#ffffff"; } 
+                  if (rbg[0]*0.299+rbg[1]*0.587+rbg[2]*0.114<186) { c.fillStyle = "#ffffff"; }
                   else { c.fillStyle = "#000000"; }
                 } else { c.fillStyle = "#ffffff"; }
                 c.textBaseline = "middle";
@@ -755,7 +757,7 @@ ChoreoGraph.plugin({
         constructor(cg) {
           this.cg = cg;
         }
-        
+
         pack() {
           // mode:duration:graphicKey:frames
           // mode = f (framerate) or t (time)
@@ -881,7 +883,7 @@ ChoreoGraph.plugin({
           } else {
             output += this.time;
           }
-          
+
           return output;
         };
 
@@ -933,7 +935,7 @@ ChoreoGraph.plugin({
       },
       variabletime : class cgVariableTimeAnimationTrack {
         type = "variabletime";
-        
+
         times = [];
 
         pack() {
@@ -1132,7 +1134,7 @@ ChoreoGraph.plugin({
           }
           return output;
         };
-        
+
         pack() {
           let typeIdentifiers = {
             "string" : "s",
@@ -1234,7 +1236,7 @@ ChoreoGraph.plugin({
       before = null;
       after = null;
       connected = false;
-  
+
       getPoint(t) {
         let sX = this.start[0];
         let sY = this.start[1];
@@ -1303,7 +1305,7 @@ ChoreoGraph.plugin({
       defaultPathDensity : 15,
       genericDecimalRounding : 3,
       timeDecimalRounding : 4,
-      
+
       debug : new class {
         showBakedPaths = true;
         showDirectionalMarkings = true;
@@ -1458,7 +1460,7 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
             this.onEnd(this);
           }
           return;
-        } 
+        }
 
         // PLAYHEAD == ENT
         else {
@@ -1540,7 +1542,7 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
     for (let i=0;i<this.connectionData.keys.length;i++) {
       let fromVal = this.from[i];
       let toVal = this.to[i];
-      
+
       let t = 1-((this.ent-this.playhead)/(this.ent-this.stt));
       if (this.ease!=="linear") { t = this.cg.Animation.easeFunctions[this.ease](t); }
 

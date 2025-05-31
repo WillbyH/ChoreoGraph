@@ -73,7 +73,7 @@ ChoreoGraph.plugin({
         gl.attachShader(this.program, vertexShader);
         gl.attachShader(this.program, fragmentShader);
         gl.linkProgram(this.program);
-        
+
         gl.useProgram(this.program);
         if (cg.settings.shaders.debug) {
           gl.validateProgram(this.program);
@@ -178,6 +178,7 @@ ChoreoGraph.plugin({
       }
 
       createCanvas(canvasInit={},id=ChoreoGraph.id.get()) {
+        if (this.cg.keys.shaderCanvases.includes(id)) { id += "-" + ChoreoGraph.id.get(); }
         let newCanvas = new ChoreoGraph.Shaders.Canvas(canvasInit,this);
         newCanvas.id = id;
         newCanvas.cg = this.cg;

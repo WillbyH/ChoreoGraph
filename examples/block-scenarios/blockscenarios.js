@@ -12,7 +12,7 @@ const cg = ChoreoGraph.instantiate({
     }
   },
   input : {
-    preventDefaultKeys : ["up","down"],
+    preventDefaultKeys : ["up","down","tab"],
   }
 });
 
@@ -20,24 +20,27 @@ const cg = ChoreoGraph.instantiate({
 cg.createCamera({
   x : 400/2,
   y : 300/2,
-  scaleMode : "maximum",
-  maximumSize : 400,
-  WHRatio : 1
+  scaleMode : "minimum",
+  minimumWidth : 400,
+  minimumHeight : 300,
 },"railways")
 .addScene(cg.createScene({},"railways"));
 
 cg.createCanvas({
   element : document.getElementById("railways"),
   background : "#145a96"
-},"railways").resizeWithSelf()
+},"railways")
+.resizeWithSelf()
 .setCamera(cg.cameras.railways);
 
 cg.scenes.railways.createItem("collection",{},"background");
+cg.scenes.railways.createItem("collection",{},"track");
 cg.scenes.railways.createItem("collection",{},"low");
 cg.scenes.railways.createItem("collection",{},"high");
 
 let cr = cg.canvases.railways.c;
 
+// GRID GRAPHIC TYPE
 cg.graphicTypes.grid = new class grid {
   draw(c,ax,ay) {
     c.lineWidth = 0.25;
@@ -59,7 +62,7 @@ cg.graphicTypes.grid = new class grid {
       c.moveTo(i*4*5,0);
       c.lineTo(i*4*5,300);
     }
-  
+
     for (let i=0;i<=15;i++) {
       c.moveTo(0,i*4*5);
       c.lineTo(400,i*4*5);
@@ -70,6 +73,7 @@ cg.graphicTypes.grid = new class grid {
 }
 cg.createGraphic({type:"grid"},"grid");
 
+// TRACK GRAPHIC TYPE
 cg.graphicTypes.railwayVisualisation = new class railwayVisualisation {
   draw(c,ax,ay) {
     c.beginPath();
@@ -104,23 +108,123 @@ cg.graphicTypes.railwayVisualisation = new class railwayVisualisation {
 }
 cg.createGraphic({type:"railwayVisualisation"},"railwayVisualisation");
 
+// SIGNAL GRAPHIC TYPE
+cg.graphicTypes.railwayVisualisation = new class railwayVisualisation {
+  setup(init,cg) {
+    this.block;
+    this.armXO = 0;
+    this.armYO = 0;
+  };
+  draw(c,ax,ay) {
+    let clear = cg.BlockController.blocks[this.block].isOpen();
+    c.beginPath();
+    c.moveTo(this.armXO,this.armYO);
+    c.lineTo(0,0);
+    c.lineWidth = 1;
+    c.strokeStyle = "#bcb6b3";
+    c.stroke();
+    c.beginPath();
+    c.arc(0,0,1.5,0,Math.PI*2);
+    if (clear) {
+      c.fillStyle = "#53d04f";
+    } else {
+      c.fillStyle = "#8f0000";
+    }
+    c.fill();
+    c.lineWidth = 0.7;
+    c.strokeStyle = "#ffffff";
+    c.stroke();
+  }
+}
+cg.createGraphic({type:"railwayVisualisation"},"railwayVisualisation");
+
+// FULLSCREEN TOGGLE GRAPHIC TYPE
+cg.graphicTypes.fullscreenToggle = new class fullscreenToggle {
+  setup(init,cg) {
+    this.isFullscreen = false;
+  };
+  draw(c,ax,ay) {
+    if (cg.Input.buttons.fullscreenToggle.hovered) {
+      c.strokeStyle = "#cfcfcf";
+    } else {
+      c.strokeStyle = "#969696";
+    }
+    c.lineWidth = 1;
+    c.beginPath();
+    if (this.isFullscreen) {
+      c.moveTo(-5,-1);
+      c.lineTo(-1,-1);
+      c.lineTo(-1,-5);
+      c.moveTo(5,1);
+      c.lineTo(1,1);
+      c.lineTo(1,5);
+    } else {
+      c.moveTo(-5,0);
+      c.lineTo(-5,-5);
+      c.lineTo(0,-5);
+      c.moveTo(5,0);
+      c.lineTo(5,5);
+      c.lineTo(0,5);
+    }
+    c.stroke();
+  }
+}
+cg.createGraphic({type:"fullscreenToggle"},"fullscreenToggle");
+cg.Input.createButton({type:"rectangle",
+  transform : cg.createTransform({x:390,y:290}),
+  width : 20,
+  height : 20,
+  down : ()=> {
+    cg.graphics.fullscreenToggle.isFullscreen = !cg.graphics.fullscreenToggle.isFullscreen;
+    if (cg.graphics.fullscreenToggle.isFullscreen) {
+      cg.cameras.railways.minimumHeight = 320;
+      cg.cameras.railways.minimumWidth = 420;
+      document.getElementById("railways").requestFullscreen().catch((e)=>{
+        cg.cameras.railways.minimumHeight = 300;
+        cg.cameras.railways.minimumWidth = 400;
+        cg.Input.buttons.fullscreenToggle.transform.x = 100000000;
+        cg.sceneItems.fullscreenToggle.transform.x = 100000000;
+        alert("Your browser does not support fullscreen")
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  },
+},"fullscreenToggle");
+
+document.addEventListener("fullscreenchange", (event) => {
+  if (!document.fullscreenElement) {
+    cg.graphics.fullscreenToggle.isFullscreen = false;
+    cg.cameras.railways.minimumHeight = 300;
+    cg.cameras.railways.minimumWidth = 400;
+  }
+});
+
+// CREATE TRAIN GRAPHICS
 cg.createGraphic({type:"rectangle",width:6,height:15,radius:2,colour:"#cfcfcf",fill:true},"train");
 cg.createGraphic({type:"rectangle",width:6,height:15,radius:2,colour:"#000000",fill:true},"trainShadow");
-cg.createGraphic({type:"rectangle",width:12,height:18,radius:4,colour:"#0fba91",fill:true},"trainHover");
+cg.createGraphic({type:"rectangle",width:12,height:19,radius:4,colour:"#0fba91",fill:true},"trainHover");
 
+// CREATE GRID AND TRACK GRAPHICS
 cg.scenes.railways.createItem("graphic",{
   graphic : cg.graphics.grid
 },"grid","background");
 cg.scenes.railways.createItem("graphic",{
   graphic : cg.graphics.railwayVisualisation
-},"railwayVisualisation","background");
+},"railwayVisualisation","track");
+cg.scenes.railways.createItem("graphic",{
+  graphic : cg.graphics.fullscreenToggle,
+  transform : cg.createTransform({x:390,y:290}),
+},"fullscreenToggle","high");
 
+// RAILWAY MANAGER (dont wanna put much in the global scope)
 const rwManager = new class RailwayManager {
   nextTrainId = 0;
   trains = [];
   selectedTrain = -1;
   cascadeConnectionCount = 2;
 
+  // PACKED ANIMATIONS AND CONNECTED OUTPUT ANIMATION IDS
   trackData = {
     "leftLine" : {
       animation : "3:transform,x;0,x|transform,y;0,y|transform,r;0,r&path=3:128,112+84,72,68,56,48,64~48,80+48,84+48,108+48,160+48,244+48,256+48,244+48,200,48,184,40,176~40,160+40,156+40,84,40,68,48,56~64,56,80,56!~88,64+92,68_136,108&trigger=1.6:b:sL1|19.51:b:sL2|20.71:b:sL3|21.56:j:n64|37.21:b:sL4|39.51:b:sL5|59.57:b:sL6",
@@ -131,7 +235,7 @@ const rwManager = new class RailwayManager {
       connections : ["outerLoop_top"]
     },
     "topLine" : {
-      animation : "3:transform,x;0,x|transform,y;0,y|transform,r;0,r&path=3:252,100,252,88,244,80~232,80+180,80,168,80,160,72~160,60,160,48,168,40~180,40+184,40+204,40+300,40+340,40,352,40,360,48~360,60+360,64+360,140+360,228+360,240+360,228+360,180,360,164,352,156~352,140+352,136+352,72,352,52,348,48~332,48+328,48+300,48+204,48+184,48,164,48,164,72~184,72+188,72+240,72,252,72,260,80~260,92_260,100&trigger=11.71:b:sT1|33.51:b:sT2|34.41:b:sT3|47.47:b:sT4|48.68:j:n64|64.37:b:sT5|80.44:b:sT6|81.44:b:sT7|95.45:b:sT9",
+      animation : "3:transform,x;0,x|transform,y;0,y|transform,r;0,r&path=3:252,100,252,88,244,80~232,80+180,80,168,80,160,72~160,60,160,48,168,40~180,40+184,40+204,40+300,40+340,40,352,40,360,48~360,60+360,64+360,140+360,228+360,240+360,228+360,180,360,164,352,156~352,140+352,136+352,72,352,52,348,48~332,48+328,48+300,48+204,48+184,48,164,48,164,72~184,72+188,72+240,72,252,72,260,80~260,92_260,100&trigger=11.71:b:sT1|33.51:b:sT2|34.41:b:sT3|47.47:b:sT4|48.68:j:n64|64.37:b:sT5|80.44:b:sT6|81.44:b:sT7|95.45:b:sT8",
       connections : ["topLine-outerLoop"]
     },
     "topLine-outerLoop" : {
@@ -219,6 +323,7 @@ const rwManager = new class RailwayManager {
     this.createTracks();
   };
 
+  // CREATES ALL THE ANIMATIONS FROM THE DATA ABOVE
   createTracks() {
     for (let trackId in this.trackData) {
       let track = this.trackData[trackId];
@@ -238,6 +343,7 @@ const rwManager = new class RailwayManager {
     }
   };
 
+  // TRANSITIONS THE ANIMATION OF A TRAIN TO THE NEXT
   findNextTrack(Animator) {
     let cascadeIndex = Animator.animation.cascadeIndex;
     let connections = Animator.animation.connections;
@@ -276,6 +382,7 @@ const rwManager = new class RailwayManager {
     }
   };
 
+  // CREATES EVERYTHING REQUIRED FOR A TRAIN
   createTrain(animation, playhead, useAltGraphic=false) {
     function createCarriage(trainId,carriageIndex,isBack) {
       let newCarriage = cg.createObject({},"train_"+trainId+"_carriage_"+carriageIndex)
@@ -312,7 +419,7 @@ const rwManager = new class RailwayManager {
           return true;
         }
       }
-    
+
       newCarriage.BlockController.group = "train_"+trainId;
       newCarriage.transform.ay = 2;
       newCarriage.Animator.playFrom(playhead-carriageIndex*18);
@@ -331,8 +438,26 @@ const rwManager = new class RailwayManager {
     }
     this.nextTrainId++;
   };
+
+  createSignal(block, x, y, armX, armY, idAddition) {
+    let armXO = armX - x;
+    let armYO = armY - y;
+    let newSignal = cg.createObject({
+      transform : cg.createTransform({x:x,y:y}),
+    },"signal_"+block + (idAddition == undefined ? "" : "-" + idAddition));
+    newSignal.attach("Graphic",{
+      graphic : cg.createGraphic({type:"railwayVisualisation",
+        block:block,
+        armXO : armXO,
+        armYO : armYO
+      }),
+      collection : "background"
+    });
+    cg.scenes.railways.addObject(newSignal);
+  };
 }
 
+// CREATE THE 13 TRAINS
 rwManager.createTrain("leftLine",50);
 rwManager.createTrain("leftLine",150);
 rwManager.createTrain("leftLine",400);
@@ -347,6 +472,48 @@ rwManager.createTrain("topLine",250);
 rwManager.createTrain("topLine",480);
 rwManager.createTrain("outerLoop_bottomLeft",40);
 
+// CREATE THE SIGNALS
+rwManager.createSignal("O0", 151, 132, 144, 127, "-1");
+rwManager.createSignal("O0", 142, 103, 137, 109, "-2");
+rwManager.createSignal("O1", 196, 110, 196, 120);
+rwManager.createSignal("O2", 248, 130, 252, 123, "-1");
+rwManager.createSignal("O2", 268, 116, 260, 116, "-2");
+rwManager.createSignal("O3", 267, 170, 258, 167);
+rwManager.createSignal("O4", 200, 172, 200, 180, "-1");
+rwManager.createSignal("O4", 188, 206, 196, 206, "-2");
+rwManager.createSignal("O5", 154, 170, 149, 177);
+rwManager.createSignal("J0", 212, 214, 204, 214, "-1");
+rwManager.createSignal("J0", 220, 252, 220, 244, "-2");
+rwManager.createSignal("J1", 208, 236, 204, 240, "-1");
+rwManager.createSignal("J1", 184, 227, 188, 233, "-2");
+rwManager.createSignal("R0", 212, 218, 204, 218);
+rwManager.createSignal("R1", 272, 228, 272, 236);
+rwManager.createSignal("R2", 292, 180, 300, 180);
+rwManager.createSignal("R3", 316, 180, 308, 180);
+rwManager.createSignal("R4", 288, 252, 288, 244);
+rwManager.createSignal("T0", 243, 110, 249, 115);
+rwManager.createSignal("T1", 180, 88, 180, 80);
+rwManager.createSignal("T2", 204, 32, 204, 40);
+rwManager.createSignal("T3", 300, 32, 300, 40);
+rwManager.createSignal("T4", 368, 140, 360, 140);
+rwManager.createSignal("T5", 344, 140, 352, 140);
+rwManager.createSignal("T6", 300, 56, 300, 48);
+rwManager.createSignal("T7", 204, 56, 204, 48);
+rwManager.createSignal("T8", 181, 63, 180, 71);
+rwManager.createSignal("L0", 126, 122, 133, 117);
+rwManager.createSignal("L1", 78, 78, 84, 72);
+rwManager.createSignal("L2", 56, 108, 48, 108);
+rwManager.createSignal("L3", 56, 160, 48, 160);
+rwManager.createSignal("L4", 32, 160, 40, 160);
+rwManager.createSignal("L5", 32, 84, 40, 84);
+rwManager.createSignal("L6", 93, 59, 88, 64);
+rwManager.createSignal("B0", 182, 252, 182, 244);
+rwManager.createSignal("B1", 124, 252, 124, 244);
+rwManager.createSignal("B2", 84, 212, 92, 212);
+rwManager.createSignal("B3", 104, 197, 97, 202);
+rwManager.createSignal("B4", 132, 228, 132, 236);
+
+// A button that prevents deselection of trains where the speed slider is
 cg.Input.createButton({type:"rectangle",width:110,height:30},"noDeselectionZone");
 cg.Input.buttons.noDeselectionZone.transform.x = 90;
 cg.Input.buttons.noDeselectionZone.transform.y = 34;
@@ -464,6 +631,44 @@ cg.settings.input.callbacks.keyDown = (key)=>{
       carriage.Animator.speed += offset;
       carriage.Animator.speed = Math.max(0,Math.min(60,carriage.Animator.speed));
     }
+    let buttonSettings = {
+      "`" : 0,
+      "1" : 1,
+      "2" : 2,
+      "3" : 3,
+      "4" : 4,
+      "5" : 5,
+      "6" : 10,
+      "7" : 15,
+      "8" : 20,
+      "9" : 25,
+      "0" : 30,
+      "-" : 40,
+      "=" : 50,
+      "backspace" : 60
+    }
+
+    if (buttonSettings[key]!==undefined) {
+      for (let carriage of train) {
+        carriage.Animator.speed = buttonSettings[key];
+      }
+    }
+  }
+  // SWITCH BETWEEN TRAINS
+  if (key=="tab") {
+    if (rwManager.selectedTrain>=0) {
+      rwManager.selectedTrain += ChoreoGraph.Input.keyStates.shift ? -1 : 1;
+      if (rwManager.selectedTrain<0) {
+        rwManager.selectedTrain = 12;
+      } else if (rwManager.selectedTrain>12) {
+        rwManager.selectedTrain = 0;
+      }
+    } else {
+      rwManager.selectedTrain = 0;
+    }
+  // DESELECT THE TRAIN
+  } else if (key=="escape") {
+    rwManager.selectedTrain = -1;
   }
 };
 

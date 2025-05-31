@@ -233,6 +233,7 @@ ChoreoGraph.plugin({
       }
 
       createTilemap(tileMapInit={},id=ChoreoGraph.id.get()) {
+        if (this.cg.keys.tilemaps.includes(id)) { id += "-" + ChoreoGraph.id.get(); }
         let newTilemap = new ChoreoGraph.Tilemaps.Tilemap(tileMapInit);
         newTilemap.id = id;
         newTilemap.cg = this.cg;
@@ -243,6 +244,7 @@ ChoreoGraph.plugin({
       };
 
       createTile(tileInit={},id=ChoreoGraph.id.get()) {
+        if (this.cg.keys.tiles.includes(id)) { id += "-" + ChoreoGraph.id.get(); }
         let newTile = new ChoreoGraph.Tilemaps.Tile(tileInit);
         newTile.id = id;
         newTile.cg = this.cg;

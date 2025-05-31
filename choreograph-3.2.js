@@ -196,6 +196,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     };
 
     createCanvas(canvasInit={},id=ChoreoGraph.id.get()) {
+      if (this.keys.canvases.includes(id)) { id += "-" + ChoreoGraph.id.get(); }
       let newCanvas = new ChoreoGraph.Canvas(canvasInit,this);
       newCanvas.id = id;
       newCanvas.cg = this;
@@ -222,6 +223,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       return newCamera;
     };
     createScene(sceneInit={},id=ChoreoGraph.id.get()) {
+      if (this.keys.scenes.includes(id)) { id += "-" + ChoreoGraph.id.get(); }
       let newScene = new ChoreoGraph.Scene();
       newScene.id = id;
       newScene.cg = this;
@@ -231,6 +233,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       return newScene;
     };
     createGraphic(graphicInit={},id=ChoreoGraph.id.get()) {
+      if (this.keys.graphics.includes(id)) { id += "-" + ChoreoGraph.id.get(); }
       let newGraphic = new ChoreoGraph.Graphic(graphicInit,this);
       newGraphic.id = id;
       newGraphic.cg = this;
@@ -239,6 +242,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       return newGraphic;
     };
     createTransform(transformInit={},id=ChoreoGraph.id.get()) {
+      if (this.keys.transforms.includes(id)) { id += "-" + ChoreoGraph.id.get(); }
       let newTransform = new ChoreoGraph.Transform(transformInit,this);
       newTransform.id = id;
       newTransform.cg = this;
@@ -248,6 +252,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       return newTransform;
     };
     createImage(imageInit={},id=ChoreoGraph.id.get()) {
+      if (this.keys.images.includes(id)) { id += "-" + ChoreoGraph.id.get(); }
       let newImage = new ChoreoGraph.Image(imageInit,this);
       newImage.id = id;
       newImage.cg = this;
@@ -256,6 +261,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       return newImage;
     };
     createSequence(sequenceInit={},id=ChoreoGraph.id.get()) {
+      if (this.keys.sequences.includes(id)) { id += "-" + ChoreoGraph.id.get(); }
       let newSequence = new ChoreoGraph.Sequence(sequenceInit,this);
       newSequence.id = id;
       newSequence.cg = this;
@@ -268,6 +274,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       return newSequence;
     };
     createEvent(eventInit={},id=ChoreoGraph.id.get()) {
+      if (this.keys.events.includes(id)) { id += "-" + ChoreoGraph.id.get(); }
       let newEvent = new ChoreoGraph.Event(eventInit,this);
       newEvent.id = id;
       newEvent.cg = this;
@@ -280,6 +287,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       return newEvent;
     };
     createObject(objectInit={},id=ChoreoGraph.id.get()) {
+      if (this.keys.objects.includes(id)) { id += "-" + ChoreoGraph.id.get(); }
       let newObject = new ChoreoGraph.Object(objectInit,this);
       newObject.id = id;
       newObject.cg = this;
@@ -290,7 +298,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
 
     sequenceManager = new class SequenceManager {
       trackers = [];
-  
+
       runningUpdateLoop = false;
       sequenceManagerUpdate(cg) {
         for (let i=0;i<cg.sequenceManager.trackers.length;i++) {
@@ -333,12 +341,28 @@ const ChoreoGraph = new class ChoreoGraphEngine {
   Canvas = class cgCanvas {
     width = 600;
     height = 400;
+    rawWidth = null;
+    rawHeight = null;
 
     keepCursorHidden = false;
     hideDebugOverlays = false;
 
     camera = null;
     parentElement = null;
+    #pixelSize = 1;
+    set pixelSize(value) {
+      this.#pixelSize = value;
+      if (this.rawWidth==null|| this.rawHeight==null) { return; }
+      this.width = this.rawWidth / value;
+      this.height = this.rawHeight / value;
+      this.element.width = this.width;
+      this.element.height = this.height;
+      this.element.style.width = this.rawWidth + "px";
+      this.element.style.height = this.rawHeight + "px";
+    };
+    get pixelSize() {
+      return this.#pixelSize;
+    };
     background = "#fba7b7";
 
     c;
@@ -346,16 +370,22 @@ const ChoreoGraph = new class ChoreoGraphEngine {
 
     constructor(init,cg) {
       ChoreoGraph.applyAttributes(this,init);
-      if (document.getElementsByTagName("canvas")[0].style.width != "") {
-        this.width = element.width;
+      if (this.element.style.width != "") {
+        this.width = this.element.width;
       } else {
         this.element.width = this.width;
       }
-      if (document.getElementsByTagName("canvas")[0].style.height != "") {
-        this.height = element.height;
+      if (this.element.style.height != "") {
+        this.height = this.element.height;
       } else {
         this.element.height = this.height;
       }
+      this.rawHeight = this.height;
+      this.rawWidth = this.width;
+      this.width /= this.pixelSize;
+      this.height /= this.pixelSize;
+      this.element.width = this.width;
+      this.element.height = this.height;
       this.c = this.element.getContext("2d",{alpha:this.background==null});
       this.element.style.imageRendering = "pixelated"; // Remove anti-ailiasing
       this.element.cgCanvas = this;
@@ -366,18 +396,22 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         for (let entry of entries) {
           let cr = entry.contentRect;
           let copyContent = document.createElement("canvas");
-          copyContent.width = cr.width;
-          copyContent.height = cr.height;
+          this.rawWidth = cr.width;
+          this.rawHeight = cr.height;
+          let width = cr.width/this.pixelSize;
+          let height = cr.height/this.pixelSize;
+          copyContent.width = width;
+          copyContent.height = height;
           let ccc = copyContent.getContext("2d");
           if (this.element.width!=0&&this.element.height!=0) {
-            ccc.drawImage(this.element,0,0,cr.width,cr.height);
+            ccc.drawImage(this.element,0,0,width,height);
           }
-          this.element.width = cr.width;
-          this.element.height = cr.height
-          this.width = cr.width;
-          this.height = cr.height;
+          this.element.width = width;
+          this.element.height = height
+          this.width = width;
+          this.height = height;
           if (copyContent.width!=0&&copyContent.height!=0) {
-            this.c.drawImage(copyContent,0,0,cr.width,cr.height);
+            this.c.drawImage(copyContent,0,0,width,height);
           }
         }
       });
@@ -446,6 +480,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     drawGraphic(item) {
       this.c.imageSmoothingEnabled = item.graphic.imageSmoothingEnabled;
       if (item.graphic.manualTransform) {
+        if (this.checkGraphicBoundCull(item)==false) { return; }
         this.c.resetTransform();
         item.graphic.draw(this,item.transform);
       } else {
@@ -463,47 +498,52 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         let flipY = item.transform.flipY;
         let canvasSpaceXAnchor = item.transform.canvasSpaceXAnchor;
         let canvasSpaceYAnchor = item.transform.canvasSpaceYAnchor;
-        
-        let box = 0;
-        let boy = 0;
 
-        if (this.cg.settings.core.frustumCulling&&item.graphic.getBounds!==undefined) {
-          let [bw, bh] = item.graphic.getBounds();
-
-          if (item.transform.r!==0) {
-            let r = -item.transform.r+90;
-            let rad = r*Math.PI/180;
-            let savedbh = bh;
-            bh = Math.abs(bw*Math.cos(rad))+Math.abs(bh*Math.sin(rad));
-            bw = Math.abs(bw*Math.sin(rad))+Math.abs(savedbh*Math.cos(rad));
-
-            let rox = Math.sin(rad)*gax-Math.cos(rad)*gay;
-            let roy = Math.cos(rad)*gax+Math.sin(rad)*gay;
-            box += rox;
-            boy += roy;
-          } else {
-            box += gax;
-            boy += gay;
-          }
-
-          bw *= item.transform.sx;
-          bh *= item.transform.sy;
-          let bx = gx+box;
-          let by = gy+boy;
-          let camera = this.camera;
-          if (camera.cullOverride!==null) { camera = camera.cullOverride; }
-          let cx = camera.x;
-          let cy = camera.y;
-          let cw = this.width/camera.cz;
-          let ch = this.height/camera.cz;
-          
-          if (bx+bw*0.5<cx-cw*0.5||bx-bw*0.5>cx+cw*0.5||by+bh*0.5<cy-ch*0.5||by-bh*0.5>cy+ch*0.5) { return; }
-        }
+        if (this.checkGraphicBoundCull(item)==false) { return; }
 
         ChoreoGraph.transformContext(this.camera,gx,gy,gr,gsx,gsy,CGSpace,flipX,flipY,canvasSpaceXAnchor,canvasSpaceYAnchor);
 
         this.c.globalAlpha = go;
         item.graphic.draw(this.c,gax,gay);
+      }
+    };
+    checkGraphicBoundCull(item) {
+      if (this.cg.settings.core.frustumCulling&&item.graphic.getBounds!==undefined) {
+        let [bw, bh, box, boy] = item.graphic.getBounds();
+
+        let gx = item.transform.x;
+        let gy = item.transform.y;
+        let gax = item.transform.ax;
+        let gay = item.transform.ay;
+        if (item.transform.r!==0) {
+          let r = -item.transform.r+90;
+          let rad = r*Math.PI/180;
+          let savedbh = bh;
+          bh = Math.abs(bw*Math.cos(rad))+Math.abs(bh*Math.sin(rad));
+          bw = Math.abs(bw*Math.sin(rad))+Math.abs(savedbh*Math.cos(rad));
+
+          let rox = Math.sin(rad)*gax-Math.cos(rad)*gay;
+          let roy = Math.cos(rad)*gax+Math.sin(rad)*gay;
+          box += rox;
+          boy += roy;
+        } else {
+          box += gax;
+          boy += gay;
+        }
+
+        bw *= item.transform.sx;
+        bh *= item.transform.sy;
+        let bx = gx+box;
+        let by = gy+boy;
+        let camera = this.camera;
+        if (camera.cullOverride!==null) { camera = camera.cullOverride; }
+        let cx = camera.x;
+        let cy = camera.y;
+        let cw = this.width/camera.cz;
+        let ch = this.height/camera.cz;
+
+        if (bx+bw*0.5<cx-cw*0.5||bx-bw*0.5>cx+cw*0.5||by+bh*0.5<cy-ch*0.5||by-bh*0.5>cy+ch*0.5) { return false; }
+        return true
       }
     }
   };
@@ -527,8 +567,15 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     pixelScale = 1; // Pixels per pixel
 
     // maximum - for dynamic aspect ratios and screen resolutions
-    maximumSize = 500; // The amount of units to be the maximum
     WHRatio = 0.5; // Width:Height Ratio
+    maximumSize = 500; // The amount of units to be the maximum width and height
+    maximumWidth = null; // The amount of units to be the maximum width
+    maximumHeight = null; // The amount of units to be the maximum height
+
+    // minimum - for dynamic aspect ratios and screen resolutions
+    minimumSize = 500; // The amount of units to be the minimum width and height
+    minimumWidth = null; // The amount of units to be the minimum width
+    minimumHeight = null; // The amount of units to be the minimum height
 
     // RETURNS CG SPACE POSITION OF THE TOP LEFT OF THIS CAMERA
     get cx() {
@@ -539,19 +586,29 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       return -this.y+this.canvas.height*0.5;
     };
 
-    // GET ZOOM SCALAR BASED ON SCALE MODE 
+    // GET ZOOM SCALAR BASED ON SCALE MODE
     get cz() {
+      let canvas = this.canvas;
+      if (canvas==null&&this.inactiveCanvas!=null) { canvas = this.inactiveCanvas; }
+      else if (canvas==null) { return this.z; }
       if (this.scaleMode=="pixels") {
-        return this.z*this.pixelScale;
-      } else if (this.scaleMode=="maximum") {
-        let canvas = this.canvas;
-        if (canvas==null&&this.inactiveCanvas!=null) { canvas = this.inactiveCanvas; }
-        else if (canvas==null) { return this.z; }
-        if (canvas==null) { return this.z; }
-        if (canvas.width*(this.WHRatio)>canvas.height*(1-this.WHRatio)) {
-          return this.z*(canvas.width/this.maximumSize);
+        return (this.z*this.pixelScale) / canvas.pixelSize;
+      } else {
+        let width, height;
+        let basedOnWidth = true;
+        if (this.scaleMode=="maximum") {
+          width = this.maximumWidth == null ? this.maximumSize : this.maximumWidth;
+          height = this.maximumHeight == null ? this.maximumSize : this.maximumHeight;
+          basedOnWidth = canvas.width*(this.WHRatio)>canvas.height*(1-this.WHRatio);
+        } else if (this.scaleMode=="minimum") {
+          width = this.minimumWidth == null ? this.minimumSize : this.minimumWidth;
+          height = this.minimumHeight == null ? this.minimumSize : this.minimumHeight;
+          basedOnWidth = canvas.width/canvas.height < width/height;
+        }
+        if (basedOnWidth) {
+          return this.z*(canvas.width/(width))*this.pixelScale;
         } else {
-          return this.z*(canvas.height/this.maximumSize);
+          return this.z*(canvas.height/(height))*this.pixelScale;
         }
       }
     };
@@ -828,28 +885,28 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       if (imageInit.crop!=undefined) { this.unsetCrop = false; }
 
       ChoreoGraph.applyAttributes(this,imageInit);
-  
+
       if (this.file==null) { console.error("Image file not defined for " + this.id); return; };
       if (this.file.includes(".svg")&&this.disableCropping==undefined) { this.disableCropping = true; }
-  
+
       if (this.image==null&&this.canvasOnCanvas) { // Creates a canvas and makes the image get drawn without cropping
         this.image = document.createElement("canvas");
         this.image.width = this.crop[2];
         this.image.height = this.crop[3];
         this.image.style.imageRendering = "pixelated";
-  
+
         this.rawImage = document.createElement("IMG");
         this.rawImage.ctx = this.image.getContext("2d");
         this.rawImage.src = cg.settings.core.baseImagePath + this.file;
         this.rawImage.cgImage = this;
-  
+
         this.rawImage.onload = function() {
           let image = this.cgImage;
           this.ctx.drawImage(this, image.crop[0], image.crop[1], image.crop[2], image.crop[3], 0, 0, image.crop[2], image.crop[3]);
-  
+
           if (image.width==undefined) { image.width = image.crop[2]*image.scale[0]; }
           if (image.height==undefined) { image.height = image.crop[3]*image.scale[1]; }
-  
+
           image.ready = true;
           if (image.onLoad!=null) { image.onLoad(image); }
         }
@@ -857,11 +914,11 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       } else if (this.image==null) {
         this.image = document.createElement("IMG");
         this.image.engId = this.id;
-  
+
         this.image.onload = () => {
           this.rawWidth = this.image.width;
           this.rawHeight = this.image.height;
-  
+
           if (this.unsetCrop) {
             if (this.width==undefined) { this.width = this.rawWidth*this.scale[0]; }
             if (this.height==undefined) { this.height = this.rawHeight*this.scale[1]; }
@@ -870,13 +927,13 @@ const ChoreoGraph = new class ChoreoGraphEngine {
             if (this.width==undefined) { this.width = this.crop[2]*this.scale[0]; }
             if (this.height==undefined) { this.height = this.crop[3]*this.scale[1]; }
           }
-  
+
           this.ready = true;
           for (let callback of this.#onLoads) {
             callback(this);
           }
         }
-  
+
         this.image.onerror = () => { // Reload the image if it fails
           if (this.loadAttempts<3) {
             console.warn("Load failed for " + this.id);
@@ -884,7 +941,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
             this.image.src = cg.settings.core.baseImagePath + this.file;
           } else { console.error("Image failed to load for " + this.id + " at " + this.image.src); return; }
         };
-  
+
         this.image.src = cg.settings.core.baseImagePath + this.file;
       }
 
@@ -1087,12 +1144,12 @@ const ChoreoGraph = new class ChoreoGraphEngine {
   Plugin = class cgPlugin {
     constructor(pluginInit) {
       if (pluginInit.key==undefined) { console.error("Plugin key not defined",pluginInit); return; }
-      
+
       for (let pluginKey in ChoreoGraph.plugins) {
         let plugin = ChoreoGraph.plugins[pluginKey];
         if (plugin.key==pluginInit.key) { console.error("Plugin key already exists",pluginInit.key); return; }
       }
-      
+
       this.name = pluginInit.name;
       this.key = pluginInit.key;
       this.version = pluginInit.version;
@@ -1130,7 +1187,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         this.lineJoin = "round";
         this.miterLimit = 10;
         this.radius = 0;
-  
+
         this.width = 50;
         this.height = 50;
         this.colour = "#ff0000";
@@ -1145,7 +1202,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         if (this.fill) { c.fillStyle = this.colour; c.fill(); } else { c.lineWidth = this.lineWidth; c.strokeStyle = this.colour; c.stroke(); }
       };
       getBounds() {
-        return [this.width,this.height];
+        return [this.width,this.height, 0, 0];
       };
     };
     cg.graphicTypes.arc = new class ArcGraphic {
@@ -1168,7 +1225,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         if (this.fill) { c.fillStyle = this.colour; c.fill(); } else { c.lineWidth = this.lineWidth; c.strokeStyle = this.colour; c.stroke(); }
       };
       getBounds() {
-        return [this.radius*2,this.radius*2];
+        return [this.radius*2,this.radius*2, 0, 0];
       };
     };
     cg.graphicTypes.image = new class ImageGraphic {
@@ -1203,7 +1260,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         }
       };
       getBounds() {
-        return [this.width,this.height];
+        return [this.width,this.height, 0, 0];
       };
     };
   };
@@ -1218,7 +1275,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     let splitcolourTo = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(colourTo);
     if (splitcolourTo!=null) { colourTo = splitcolourTo ? splitcolourTo.map(i => parseInt(i, 16)).slice(1) : null; } else { return colourFrom; }
     let splitcolourFrom = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(colourFrom);
-    if (splitcolourFrom!=null) { colourFrom = splitcolourFrom ? splitcolourFrom.map(i => parseInt(i, 16)).slice(1) : null; } else { return colourFrom; }  
+    if (splitcolourFrom!=null) { colourFrom = splitcolourFrom ? splitcolourFrom.map(i => parseInt(i, 16)).slice(1) : null; } else { return colourFrom; }
     let r = colourTo[0] * amount + colourFrom[0] * (1 - amount);
     let g = colourTo[1] * amount + colourFrom[1] * (1 - amount);
     let b = colourTo[2] * amount + colourFrom[2] * (1 - amount);
@@ -1233,7 +1290,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       return (-(degree-90)*Math.PI)/180;
     }
   };
-  
+
   transformContext(camera,x=0,y=0,r=0,sx=1,sy=1,CGSpace=true,flipX=false,flipY=false,canvasSpaceXAnchor,canvasSpaceYAnchor,ctx=camera.canvas.c,cx=camera.cx,cy=camera.cy,cz=camera.cz,canvasSpaceScale=camera.canvasSpaceScale,w=camera.canvas.width,h=camera.canvas.height,manualScaling=false) {
     let z = 1;
     if (CGSpace) {

@@ -80,7 +80,7 @@ ChoreoGraph.plugin({
       attributes.velocity.x = 0; attributes.velocity.y = 0; attributes.velocity.z = 0;
       return attributes;
     };
-    
+
     FMOD3DAttributes(attributes, x, y, lastX=x, lastY=y) {
       attributes.forward.x = 0; attributes.forward.y = -1; attributes.forward.z = 0;
       attributes.up.x = 0; attributes.up.y = 0; attributes.up.z = 1;
@@ -187,7 +187,7 @@ ChoreoGraph.plugin({
       if (!cgFMOD.FMODReady||cgFMOD.System==undefined) { console.warn("FMOD not ready"); return false; }
       let eventDescription = {};
       cgFMOD.errorCheck(cgFMOD.System.getEvent(eventPath, eventDescription), eventPath);
-    
+
       let eventInstance = {};
       cgFMOD.errorCheck(eventDescription.val.createInstance(eventInstance), eventPath);
       eventInstance = eventInstance.val;
@@ -284,13 +284,13 @@ ChoreoGraph.plugin({
     let cgFMOD = ChoreoGraph.FMOD;
 
     if (cgFMOD.logging) { console.info("Loading FMOD"); }
-    
+
     cgFMOD.FMOD.preRun = function() {
       let cgFMOD = ChoreoGraph.FMOD;
       let folderName = "/";
       let canRead = true;
       let canWrite = false;
-    
+
       for (let bankKey in cgFMOD.banks) {
         if (cgFMOD.logging) { console.info("Preloading bank: " + bankKey); }
         let filename = cgFMOD.banks[bankKey].filename;
@@ -325,7 +325,7 @@ ChoreoGraph.plugin({
         if (cgFMOD.banks[bankKey].autoload==false) { continue; }
         cgFMOD.banks[bankKey].load();
       }
-    
+
       cgFMOD.errorCheck(cgFMOD.System.setListenerAttributes(0, cgFMOD.originAttributes(), null));
       if (cgFMOD.use3D) {
         cgFMOD.errorCheck(cgFMOD.SystemCore.set3DSettings(cgFMOD.dopplerscale, cgFMOD.distancefactor, cgFMOD.rolloffscale));

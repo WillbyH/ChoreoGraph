@@ -334,7 +334,7 @@ ChoreoGraph.ObjectComponents.BlockController = class cgObjectBlockController {
       bc.stop(false);
       return false;
     }
-    
+
     if (oldBlockId!=null) {
       oldBlock.objectCount--;
     }

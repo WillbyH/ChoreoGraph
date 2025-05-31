@@ -106,6 +106,7 @@ ChoreoGraph.plugin({
       };
 
       createButton(buttonInit,id=ChoreoGraph.id.get()) {
+        if (this.cg.keys.buttons.includes(id)) { id += "-" + ChoreoGraph.id.get(); }
         let type = buttonInit.type;
         if (type==undefined) { console.warn("Button type not defined for",id); return; }
         if (buttonInit.scene==undefined) {
@@ -126,6 +127,7 @@ ChoreoGraph.plugin({
       };
 
       createAction(actionInit,id=ChoreoGraph.id.get()) {
+        if (this.cg.keys.actions.includes(id)) { id += "-" + ChoreoGraph.id.get(); }
         let action = new ChoreoGraph.Input.Action(actionInit);
         action.id = id;
         action.cg = this.cg;
@@ -199,7 +201,7 @@ ChoreoGraph.plugin({
 
       canvas = null;
       boundBox = null;
-      
+
       touches = {};
       activeTouches = [];
 
@@ -277,7 +279,7 @@ ChoreoGraph.plugin({
           this.down.any.x = this.x;
           this.down.any.y = this.y;
           this.down[side].x = this.x;
-          this.down[side].x = this.y;
+          this.down[side].y = this.y;
           this.hold.any = true;
           this.hold[side] = true;
           this.impulseDown.any = true;
@@ -299,7 +301,7 @@ ChoreoGraph.plugin({
           this.up.any.y = this.y;
           this.up[side].x = this.x;
           this.up[side].y = this.y;
-          
+
           this.hold.any = false;
           this.hold[side] = false;
           this.impulseUp.any = true;
@@ -447,7 +449,7 @@ ChoreoGraph.plugin({
           cg.settings.input.callbacks.wheel(event);
         }
       }
-      
+
       let key = null;
       if (event.deltaY > 0) {
         key = "mousewheeldown";
@@ -699,7 +701,7 @@ ChoreoGraph.plugin({
       if (sx!=0||sy!=0) {
         cursor.clientX += sen*sx*ChoreoGraph.timeDelta;
         cursor.clientY += sen*sy*ChoreoGraph.timeDelta;
-  
+
         if (emulatedCursor.lockCursorCanvas) {
           if (cursor.clientX<cursor.boundBox.left) { cursor.clientX = cursor.boundBox.left; }
           if (cursor.clientX>cursor.boundBox.right) { cursor.clientX = cursor.boundBox.right; }
@@ -716,7 +718,7 @@ ChoreoGraph.plugin({
           canvas.keepCursorHidden = false;
           canvas.element.style.cursor = cg.settings.core.defaultCursor;
         }
-  
+
         let fakeEvent = new class FakePointerEvent {
           target = ChoreoGraph.Input.lastClickedCanvas.element;
           pointerId = 0;
@@ -936,7 +938,7 @@ ChoreoGraph.plugin({
     circleButton = class cgCircleButton extends this.Button {
       type = "circle";
       radius = 50;
-      
+
       inside(x,y) {
         return Math.sqrt((x-this.x)**2+(y-this.y)**2) < this.radius;
       };
@@ -1179,7 +1181,7 @@ ChoreoGraph.plugin({
     cg.keys.buttons = [];
     cg.keys.actions = [];
     cg.attachSettings("input",{
-      preventSingleTouch : true, // Prevents touches starting on the canvas from scrolling the page, unless you would get trapped
+      preventSingleTouch : false, // Prevents touches starting on the canvas from scrolling the page, unless you would get trapped
       preventContextMenu : false, // Prevents the context menu from appearing on right click
       preventMiddleClick : false, // Prevents the middle mouse button from scrolling the page
       preventCanvasSelection : true, // Prevents the canvas from being selected, mainly for ios safari
@@ -1248,7 +1250,7 @@ ChoreoGraph.plugin({
         get active() { return this.#active; }
       }
     });
-    
+
     if (cg.Develop!==undefined) {
       cg.Develop.interfaceItems.push({
         type : "UIToggleButton",

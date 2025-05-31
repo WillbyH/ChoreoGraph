@@ -18,6 +18,7 @@ ChoreoGraph.plugin({
     };
 
     changedSelectedInstanceHotkey = "ctrl+shift";
+    createInterfaces = true;
 
     instanceObject = class Develop {
       interfaceItems = [];
@@ -129,6 +130,10 @@ ChoreoGraph.plugin({
           originalScale: [1,1],
           originalRotation: 0,
           cursorDownPosition : [0,0],
+        },
+        topLeftText : {
+          lastDrawFrame : -1,
+          countByCanvas : {}
         }
       };
 
@@ -145,6 +150,8 @@ ChoreoGraph.plugin({
             scaleMode : canvas.camera.scaleMode,
             WHRatio : canvas.camera.WHRatio,
             maximumSize : canvas.camera.maximumSize,
+            minimumWidth : canvas.camera.minimumWidth,
+            minimumHeight : canvas.camera.minimumHeight,
             pixelScale : canvas.camera.pixelScale,
             cullOverride : canvas.camera,
             inactiveCanvas : canvas
@@ -286,11 +293,11 @@ ChoreoGraph.plugin({
           function drawCollectionCullBoxes(collection) {
             for (let item of collection) {
               if (item.type=="graphic"&&item.graphic.getBounds!==undefined) {
-                let gx = item.transform.x;
-                let gy = item.transform.y;
+                let [bw, bh, bx, by] = item.graphic.getBounds();
+                let gx = item.transform.x + bx;
+                let gy = item.transform.y + by;
                 let gax = item.transform.ax;
                 let gay = item.transform.ay;
-                let [bw, bh] = item.graphic.getBounds();
                 bw *= item.transform.sx;
                 bh *= item.transform.sy;
                 if (item.transform.r!==0) {
@@ -312,7 +319,7 @@ ChoreoGraph.plugin({
                 let cy = cullCamera.y;
                 let cw = canvas.width/cullCamera.cz;
                 let ch = canvas.height/cullCamera.cz;
-                
+
                 c.strokeStyle = cg.settings.develop.frustumCulling.unculledBoxColour;
                 if (gx+bw*0.5<cx-cw*0.5||gx-bw*0.5>cx+cw*0.5||gy+bh*0.5<cy-ch*0.5||gy-bh*0.5>cy+ch*0.5) {
                   c.strokeStyle = cg.settings.develop.frustumCulling.culledBoxColour;
@@ -351,21 +358,50 @@ ChoreoGraph.plugin({
           average /= cg.Develop.featureData.fps.previous.length;
           let text = Math.round(fps*10)/10+"fps";
 
-          let scale = cg.settings.core.debugCanvasScale;
-          let c = canvas.c;
-          c.resetTransform();
-          c.font = 14*scale+"px Arial";
-          c.fillStyle = "black";
-          c.globalAlpha = 0.3;
-          c.textBaseline = "bottom";
-          c.fillRect(0,0,c.measureText(text).width+10*scale,26*scale);
-          
-          c.globalAlpha = 1;
-          c.fillStyle = "white";
-          c.textAlign = "left";
-          c.textBaseline = "top";
-          c.fillText(text,5*scale,7*scale);
+          cg.Develop.drawTopLeftText(cg,canvas,text);
+          // let scale = cg.settings.core.debugCanvasScale;
+          // c.resetTransform();
+          // c.font = 14*scale+"px Arial";
+          // c.fillStyle = "black";
+          // c.globalAlpha = 0.3;
+          // c.textBaseline = "bottom";
+          // c.fillRect(0,0,c.measureText(text).width+10*scale,26*scale);
+
+          // c.globalAlpha = 1;
+          // c.fillStyle = "white";
+          // c.textAlign = "left";
+          // c.textBaseline = "top";
+          // c.fillText(text,5*scale,7*scale);
         }
+      };
+
+      drawTopLeftText(cg,canvas,text) {
+        let topLeftText = cg.Develop.featureData.topLeftText;
+        if (topLeftText.lastDrawFrame!=ChoreoGraph.frame) {
+          topLeftText.lastDrawFrame = ChoreoGraph.frame;
+          topLeftText.countByCanvas = {};
+        }
+        if (topLeftText.countByCanvas[canvas.id]===undefined) {
+          topLeftText.countByCanvas[canvas.id] = 0;
+        }
+        let c = canvas.c;
+        let scale = cg.settings.core.debugCanvasScale;
+        let height = 26*scale;
+        let yOffset = topLeftText.countByCanvas[canvas.id] * height;
+        c.resetTransform();
+        c.font = 14*scale+"px Arial";
+        c.fillStyle = "black";
+        c.globalAlpha = 0.3;
+        c.textBaseline = "bottom";
+        c.fillRect(0,yOffset,c.measureText(text).width+10*scale,height);
+
+        c.globalAlpha = 1;
+        c.fillStyle = "white";
+        c.textAlign = "left";
+        c.textBaseline = "top";
+        c.fillText(text,5*scale,7*scale+yOffset);
+
+        topLeftText.countByCanvas[canvas.id]++;
       };
 
       overlayObjectAnnotation(cg) {
@@ -427,7 +463,7 @@ ChoreoGraph.plugin({
                 let selectedY = gizmoData.selectedObject.transform.y;
                 distanceFromSelected = Math.sqrt((x - selectedX)**2 + (y - selectedY)**2);
               }
-              
+
               c.lineWidth = 2 * cg.settings.core.debugCGScale / camera.cz;
               c.strokeStyle = colours.unhoveredSelection;
               let distance = Math.sqrt((cursor.x - x)**2 + (cursor.y - y)**2);
@@ -452,7 +488,7 @@ ChoreoGraph.plugin({
         let camera = canvas.camera;
         if (camera===null) { return; }
         let c = canvas.c;
-        
+
         ChoreoGraph.transformContext(camera);
 
         let x = gizmoData.selectedObject.transform.x;
@@ -663,8 +699,9 @@ ChoreoGraph.plugin({
     }
 
     section = document.createElement("section");
-  
+
     generateInterface() {
+      if (!ChoreoGraph.Develop.createInterfaces) { return; }
       let cg = ChoreoGraph.Develop.cg;
 
       ChoreoGraph.Develop.section.innerHTML = "";
@@ -797,6 +834,14 @@ ChoreoGraph.plugin({
     cg.overlayLoops.push(cg.Develop.developOverlayLoop);
   },
 
+  globalStart() {
+    if (ChoreoGraph.Develop.createInterfaces) {
+      ChoreoGraph.Develop.section.style.display = "block";
+    } else {
+      ChoreoGraph.Develop.section.remove();
+    }
+  },
+
   instanceStart(cg) {
     if (cg.Develop.selectedCanvas===null) {
       if (cg.settings.core.defaultCanvas!==null) {
@@ -916,6 +961,7 @@ ChoreoGraph.plugin({
 
   ChoreoGraph.Develop.section.classList.add("develop_section");
   document.body.appendChild(ChoreoGraph.Develop.section);
+  ChoreoGraph.Develop.section.style.display = "none";
 
   document.addEventListener("wheel", ChoreoGraph.Develop.wheel, {passive: false});
   document.addEventListener("pointerdown", function(event){
