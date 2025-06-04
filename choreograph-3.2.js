@@ -27,6 +27,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     images = {};
     sequences = {};
     events = {};
+    paths = {};
     objects = {};
 
     keys = {
@@ -39,6 +40,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       images : [],
       sequences : [],
       events : [],
+      paths : [],
       objects : []
     };
 
@@ -285,6 +287,12 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         this.processLoops.push(this.eventManager.eventManagerUpdate);
       }
       return newEvent;
+    };
+    createPath(path,id=ChoreoGraph.id.get()) {
+      if (this.keys.paths.includes(id)) { id += "-" + ChoreoGraph.id.get(); }
+      this.paths[id] = path;
+      this.keys.paths.push(id);
+      return path;
     };
     createObject(objectInit={},id=ChoreoGraph.id.get()) {
       if (this.keys.objects.includes(id)) { id += "-" + ChoreoGraph.id.get(); }
@@ -756,8 +764,14 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       }
     };
     processObjects() {
-      for (let object of this.objects) {
-        object.update(this);
+      if (this.objects.length===0 && this.cg.keys.scenes.length===1) {
+        for (let id of this.cg.keys.objects) {
+          this.cg.objects[id].update(this);
+        }
+      } else {
+        for (let object of this.objects) {
+          object.update(this);
+        }
       }
     };
     addToBuffer(graphic,transform,collection=null) {

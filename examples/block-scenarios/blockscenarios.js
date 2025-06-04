@@ -1,6 +1,7 @@
 const cg = ChoreoGraph.instantiate({
   core : {
-    debugCGScale : 0.8
+    debugCGScale : 0.8,
+    frustumCulling : false
   },
   animationeditor : {
     snapGridSize : 4,
@@ -473,19 +474,19 @@ rwManager.createTrain("topLine",480);
 rwManager.createTrain("outerLoop_bottomLeft",40);
 
 // CREATE THE SIGNALS
-rwManager.createSignal("O0", 151, 132, 144, 127, "-1");
-rwManager.createSignal("O0", 142, 103, 137, 109, "-2");
+rwManager.createSignal("O0", 151, 132, 144, 127, "1");
+rwManager.createSignal("O0", 142, 103, 137, 109, "2");
 rwManager.createSignal("O1", 196, 110, 196, 120);
-rwManager.createSignal("O2", 248, 130, 252, 123, "-1");
-rwManager.createSignal("O2", 268, 116, 260, 116, "-2");
+rwManager.createSignal("O2", 248, 130, 252, 123, "1");
+rwManager.createSignal("O2", 268, 116, 260, 116, "2");
 rwManager.createSignal("O3", 267, 170, 258, 167);
-rwManager.createSignal("O4", 200, 172, 200, 180, "-1");
-rwManager.createSignal("O4", 188, 206, 196, 206, "-2");
+rwManager.createSignal("O4", 200, 172, 200, 180, "1");
+rwManager.createSignal("O4", 188, 206, 196, 206, "2");
 rwManager.createSignal("O5", 154, 170, 149, 177);
-rwManager.createSignal("J0", 212, 214, 204, 214, "-1");
-rwManager.createSignal("J0", 220, 252, 220, 244, "-2");
-rwManager.createSignal("J1", 208, 236, 204, 240, "-1");
-rwManager.createSignal("J1", 184, 227, 188, 233, "-2");
+rwManager.createSignal("J0", 212, 214, 204, 214, "1");
+rwManager.createSignal("J0", 220, 252, 220, 244, "2");
+rwManager.createSignal("J1", 208, 236, 204, 240, "1");
+rwManager.createSignal("J1", 184, 227, 188, 233, "2");
 rwManager.createSignal("R0", 212, 218, 204, 218);
 rwManager.createSignal("R1", 272, 228, 272, 236);
 rwManager.createSignal("R2", 292, 180, 300, 180);

@@ -79,6 +79,14 @@ ChoreoGraph.plugin({
           onActive : (cg) => { cg.settings.develop.objectGizmo.active = true; },
           onInactive : (cg) => { cg.settings.develop.objectGizmo.active = false; }
         });
+        this.interfaceItems.push({
+          type : "UIToggleButton",
+          activeText : "Path Editor",
+          inactiveText : "Path Editor",
+          activated : this.featureData.pathEditor,
+          onActive : (cg) => { cg.Develop.featureData.pathEditor.active = true; ChoreoGraph.Develop.createPathEditorInterface(cg); },
+          onInactive : (cg) => { cg.Develop.featureData.pathEditor.active = false; ChoreoGraph.Develop.hidePathEditorInterface(cg); },
+        });
       };
 
       _selectedCanvas = null;
@@ -136,6 +144,17 @@ ChoreoGraph.plugin({
         topLeftText : {
           lastDrawFrame : -1,
           countByCanvas : {}
+        },
+        pathEditor : {
+          active : false,
+          selectedPath : null,
+          selectedPathIndex : -1,
+          undoBuffer : [],
+          redoBuffer : [],
+          grabbing : false,
+          originalPosition : [],
+          section : null,
+          dropdown : null
         }
       };
 
@@ -789,6 +808,573 @@ ChoreoGraph.plugin({
       }
     };
 
+    hidePathEditorInterface(cg) {
+      let section = cg.Develop.featureData.pathEditor.section;
+      if (section===null) { return; }
+      section.style.display = "none";
+    };
+
+    createPathEditorInterface(cg) {
+      let data = cg.Develop.featureData.pathEditor;
+      let section = data.section;
+      if (section!==null) { section.style.display = "block"; return; }
+      data.section = document.createElement("section");
+      section = data.section;
+      section.style.marginBottom = "20px";
+      ChoreoGraph.Develop.section.prepend(section);
+
+      cg.overlayLoops.push(ChoreoGraph.Develop.pathEditorOverlayLoop);
+
+      // SELECTED PATH DROPDOWN
+      let dropdown = document.createElement("select");
+      data.dropdown = dropdown;
+      dropdown.cg = cg;
+      dropdown.className = "develop_button";
+      section.appendChild(dropdown);
+
+      for (let pathId of cg.keys.paths) {
+        let option = document.createElement("option");
+        option.text = pathId;
+        dropdown.add(option);
+      }
+      let blankOption = document.createElement("option");
+      blankOption.text = "";
+      blankOption.value = "";
+      dropdown.add(blankOption);
+
+      dropdown.onchange = (e) => {
+        let selected = dropdown.value;
+        if (dropdown.value=="") {
+          selected = null;
+        }
+        e.target.cg.Develop.featureData.pathEditor.selectedPath = selected;
+        e.target.cg.Develop.featureData.pathEditor.selectedPathIndex = -1;
+      }
+      dropdown.value = "";
+
+      // CREATE NEW PATH BUTTON
+      let createNewButton = document.createElement("button");
+      createNewButton.innerHTML = "Create New Path";
+      createNewButton.classList.add("develop_button");
+      createNewButton.classList.add("btn_action");
+      createNewButton.cg = cg;
+      createNewButton.onclick = (e) => {
+        let newPathId = ChoreoGraph.id.get();
+        cg.createPath([], newPathId);
+        let option = document.createElement("option");
+        option.text = newPathId;
+        data.dropdown.add(option);
+        data.dropdown.value = newPathId;
+        data.selectedPath = newPathId;
+        data.selectedPathIndex = -1;
+      }
+      section.appendChild(createNewButton);
+
+      let trackTypeAdding = document.createElement("div");
+      trackTypeAdding.style.display = "inline-block";
+      section.appendChild(trackTypeAdding);
+
+      // UNDO BUTTON
+      let undoButton = document.createElement("button");
+      undoButton.innerHTML = "Undo";
+      undoButton.classList.add("develop_button");
+      undoButton.classList.add("btn_action");
+      undoButton.cg = cg;
+      undoButton.onclick = (e) => {
+        ChoreoGraph.Develop.pathEditorUndo(e.target.cg);
+      }
+      section.appendChild(undoButton);
+
+      // REDO BUTTON
+      let redoButton = document.createElement("button");
+      redoButton.innerHTML = "Redo";
+      redoButton.classList.add("develop_button");
+      redoButton.classList.add("btn_action");
+      redoButton.cg = cg;
+      redoButton.onclick = (e) => {
+        ChoreoGraph.Develop.pathEditorRedo(e.target.cg);
+      }
+      section.appendChild(redoButton);
+
+      // REVERSE BUTTON
+      let reverseButton = document.createElement("button");
+      reverseButton.innerHTML = "Reverse";
+      reverseButton.classList.add("develop_button");
+      reverseButton.classList.add("btn_action");
+      reverseButton.cg = cg;
+      reverseButton.onclick = (e) => {
+        let selectedId = e.target.cg.Develop.featureData.pathEditor.selectedPath;
+        if (selectedId===null) { return; }
+        e.target.cg.paths[selectedId].reverse();
+      }
+      section.appendChild(reverseButton);
+
+      // SEPARATOR
+      let separator = document.createElement("div");
+      separator.style.borderLeft = "1px solid white";
+      separator.style.height = "10px";
+      separator.style.display = "inline-block";
+      separator.style.margin = "0px 2px";
+      section.appendChild(separator);
+
+      // GENERIC COPY BUTTON
+      let copyButton = document.createElement("button");
+      copyButton.innerHTML = "Copy";
+      copyButton.classList.add("develop_button");
+      copyButton.classList.add("btn_action");
+      copyButton.cg = cg;
+      copyButton.onclick = (e) => {
+        ChoreoGraph.Develop.pathEditorCopy(e.target.cg);
+      }
+      section.appendChild(copyButton);
+
+      // COPY POINT ARRAY BUTTON
+      let copyArrayButton = document.createElement("button");
+      copyArrayButton.innerHTML = "Copy Point[]";
+      copyArrayButton.classList.add("develop_button");
+      copyArrayButton.classList.add("btn_action");
+      copyArrayButton.cg = cg;
+      copyArrayButton.onclick = (e) => {
+        ChoreoGraph.Develop.pathEditorCopy(e.target.cg,"array");
+      }
+      section.appendChild(copyArrayButton);
+
+      // COPY POINT DICTIONARY BUTTON
+      let copyDictButton = document.createElement("button");
+      copyDictButton.innerHTML = "Copy Point{}";
+      copyDictButton.classList.add("develop_button");
+      copyDictButton.classList.add("btn_action");
+      copyDictButton.cg = cg;
+      copyDictButton.onclick = (e) => {
+        ChoreoGraph.Develop.pathEditorCopy(e.target.cg,"dict");
+      }
+      section.appendChild(copyDictButton);
+
+      // COPY PATH BUTTON
+      let copyPathButton = document.createElement("button");
+      copyPathButton.innerHTML = "Copy Path";
+      copyPathButton.classList.add("develop_button");
+      copyPathButton.classList.add("btn_action");
+      copyPathButton.cg = cg;
+      copyPathButton.onclick = (e) => {
+        ChoreoGraph.Develop.pathEditorCopy(e.target.cg,"path");
+      }
+      section.appendChild(copyPathButton);
+
+      // COPY FUNCTION BUTTON
+      let copyFunctionButton = document.createElement("button");
+      copyFunctionButton.innerHTML = "Copy Function";
+      copyFunctionButton.classList.add("develop_button");
+      copyFunctionButton.classList.add("btn_action");
+      copyFunctionButton.cg = cg;
+      copyFunctionButton.onclick = (e) => {
+        ChoreoGraph.Develop.pathEditorCopy(e.target.cg,"function");
+      }
+      section.appendChild(copyFunctionButton);
+    };
+
+    pathEditorOverlayLoop(cg) {
+      if (!cg.Develop.featureData.pathEditor.active) { return; }
+      // ALL PATHS
+      if (cg.Input===undefined) { return; }
+      let camera = cg.Input.cursor.canvas.camera;
+      if (camera.canvas===null) { return; }
+      ChoreoGraph.transformContext(camera);
+      let c = camera.canvas.c;
+      let colours = cg.settings.develop.pathEditor.colours;
+      let size = cg.settings.core.debugCanvasScale / camera.cz;
+
+      function getSidesAndPoints(path) {
+        let points = [];
+        let aSides = [];
+        let bSides = [];
+        let alternate = false;
+        let lastPoint = null;
+        for (let point of path) {
+          points.push(point);
+          if (lastPoint!==null) {
+            if (alternate) {
+              aSides.push([lastPoint,point]);
+            } else {
+              bSides.push([lastPoint,point]);
+            }
+            alternate = !alternate;
+          }
+          lastPoint = point;
+        }
+        return [points,aSides,bSides];
+      }
+
+      // SELECTED PATH
+      let data = cg.Develop.featureData.pathEditor;
+      let selectedPathId = data.selectedPath;
+      let selectedPathIndex = data.selectedPathIndex;
+
+      // DRAW ALL PATHS
+      let points = [];
+      let aSides = [];
+      let bSides = [];
+
+      for (let pathId of cg.keys.paths) {
+        if (pathId!=selectedPathId&&selectedPathId!=null) { continue; }
+        let [newPoints, newASides, newBSides] = getSidesAndPoints(cg.paths[pathId]);
+        points.push(...newPoints);
+        aSides.push(...newASides);
+        bSides.push(...newBSides);
+      }
+
+      c.lineWidth = 2 * size;
+
+      c.strokeStyle = colours.lineA;
+      c.beginPath();
+      for (let point of aSides) {
+        c.moveTo(point[0][0],point[0][1]);
+        c.lineTo(point[1][0],point[1][1]);
+      }
+      c.stroke();
+      c.strokeStyle = colours.lineB;
+      c.beginPath();
+      for (let point of bSides) {
+        c.moveTo(point[0][0],point[0][1]);
+        c.lineTo(point[1][0],point[1][1]);
+      }
+      c.stroke();
+      c.fillStyle = colours.point;
+      c.beginPath();
+      for (let point of points) {
+        c.moveTo(point[0],point[1]);
+        c.arc(point[0],point[1],selectedPathId==null?1:5,0,Math.PI*2);
+      }
+      c.fill();
+
+      let settings = cg.settings.develop.pathEditor;
+      let grabDistance = settings.grabDistance * cg.settings.core.debugCanvasScale / camera.cz;
+      let grabbing = data.grabbing;
+      let cursor = cg.Input.cursor;
+
+      let path = cg.paths[selectedPathId];
+      if (path===undefined) {
+        let closestPath = null;
+        let closestDistance = Infinity;
+        let closestPathIndex = -1;
+        for (let pathId of cg.keys.paths) {
+          for (let point of cg.paths[pathId]) {
+            let distance = Math.sqrt((point[0]-cg.Input.cursor.x)**2 + (point[1]-cg.Input.cursor.y)**2);
+            if (distance<closestDistance) {
+              closestDistance = distance;
+              closestPath = pathId;
+              closestPathIndex = cg.paths[pathId].indexOf(point);
+            }
+          }
+        }
+        if (closestDistance<grabDistance) {
+          c.beginPath();
+          c.strokeStyle = colours.selected;
+          c.lineWidth = 4 * size;
+          for (let point of cg.paths[closestPath]) {
+            c.lineTo(point[0],point[1]);
+          }
+          c.stroke();
+          if (cursor.impulseDown.any) {
+            data.selectedPath = closestPath;
+            data.selectedPathIndex = closestPathIndex;
+            data.dropdown.value = closestPath;
+          }
+        }
+        return;
+      }
+
+      let clickType = null;
+      // POINT CHECK
+      let closestPoint = null;
+      let closestDistance = Infinity;
+      for (let i=0;i<path.length;i++) {
+        let distance = Math.sqrt((path[i][0]-cursor.x)**2 + (path[i][1]-cursor.y)**2);
+        if (distance<closestDistance) {
+          closestDistance = distance;
+          closestPoint = i;
+        }
+      }
+      if (closestDistance<grabDistance) {
+        clickType = "point";
+      }
+
+      // INSERT CENTRE CHECK
+      let closestSide = null;
+      let closestSideDistance = Infinity;
+      let insertCentreX = 0;
+      let insertCentreY = 0;
+      if (clickType==null) {
+        for (let i=0;i<path.length-1;i++) {
+          let from = path[i];
+          let to = path[i+1];
+          let centre = [(from[0]+to[0])/2,(from[1]+to[1])/2];
+          let distance = Math.sqrt((centre[0]-cursor.x)**2 + (centre[1]-cursor.y)**2);
+          if (distance<closestSideDistance) {
+            closestSideDistance = distance;
+            closestSide = i;
+            insertCentreX = centre[0];
+            insertCentreY = centre[1];
+          }
+        }
+        if (closestSideDistance<grabDistance) {
+          clickType = "insert";
+        }
+      }
+      if (clickType==null) {
+        clickType = "add";
+      }
+
+      if (ChoreoGraph.Input.keyStates[cg.settings.develop.freeCam.hotkey]) {
+        clickType = null;
+      }
+
+      function snapX(x) {
+        let gridSize = cg.settings.develop.pathEditor.snapGridSize;
+        let offset = cg.settings.develop.pathEditor.snapXOffset;
+        let snappedX = Math.round((x+offset)/gridSize)*gridSize - offset;
+        return snappedX;
+      };
+      function snapY(y) {
+        let gridSize = cg.settings.develop.pathEditor.snapGridSize;
+        let offset = cg.settings.develop.pathEditor.snapYOffset;
+        let snappedY = Math.round((y+offset)/gridSize)*gridSize - offset;
+        return snappedY;
+      };
+      function magnetic(oldX,oldY,newX,newY) {
+        if (!ChoreoGraph.Input.keyStates[cg.settings.develop.pathEditor.hotkeys.magnetic]) {
+          return [newX,newY];
+        }
+        let magneticAngle = cg.settings.develop.pathEditor.magneticAngle * Math.PI / 180;
+        let dx = newX - oldX;
+        let dy = newY - oldY;
+        let angle = Math.atan2(dy,dx);
+        let magnitude = Math.sqrt(dx*dx + dy*dy);
+        let snappedAngle = Math.round(angle/magneticAngle)*magneticAngle;
+        let snappedX = oldX + Math.cos(snappedAngle) * magnitude;
+        let snappedY = oldY + Math.sin(snappedAngle) * magnitude;
+        return [snappedX,snappedY];
+      }
+
+      // SELECTED POINT OVERLAY
+      if (selectedPathIndex!=-1) {
+        let selectedPoint = path[selectedPathIndex];
+        c.beginPath();
+        c.strokeStyle = colours.selected;
+        c.arc(selectedPoint[0],selectedPoint[1],8*size,0,Math.PI*2);
+        c.stroke();
+      }
+
+      // CLICK TYPE AFFORDANCES
+      if (!grabbing) {
+        if (clickType=="add") {
+          let newPoint = [snapX(cursor.x),snapY(cursor.y)];
+          if (path.length>0) {
+            newPoint = magnetic(path[path.length-1][0],path[path.length-1][1],snapX(cursor.x),snapY(cursor.y))
+          }
+          if (path.length==0) {
+            c.beginPath();
+            c.fillStyle = colours.new;
+            c.arc(newPoint[0],newPoint[1],5*size,0,Math.PI*2);
+            c.fill();
+          } else {
+            c.beginPath();
+            c.strokeStyle = colours.new;
+            c.moveTo(path[path.length-1][0],path[path.length-1][1]);
+            c.lineTo(newPoint[0],newPoint[1]);
+            c.stroke();
+          }
+        } else if (clickType=="point") {
+          c.beginPath();
+          c.fillStyle = "black";
+          c.globalAlpha = 0.4;
+          c.arc(path[closestPoint][0],path[closestPoint][1],5*size,0,Math.PI*2);
+          c.fill();
+          c.globalAlpha = 1;
+        } else if (clickType=="insert") {
+          c.beginPath();
+          c.strokeStyle = colours.point;
+          c.arc(insertCentreX,insertCentreY,5*size,0,Math.PI*2);
+          c.stroke();
+        }
+      } else {
+        if (ChoreoGraph.Input.keyStates[cg.settings.develop.pathEditor.hotkeys.magnetic]) {
+          c.beginPath();
+          c.strokeStyle = colours.magnetic;
+          c.moveTo(data.originalPosition[0],data.originalPosition[1]);
+          let x = snapX(cursor.x);
+          let y = snapY(cursor.y);
+          if (data.selectedPathIndex!=-1) {
+            let newPoint = magnetic(data.originalPosition[0],data.originalPosition[1],x,y);
+            x = newPoint[0];
+            y = newPoint[1];
+          }
+          c.lineTo(x,y);
+          c.stroke();
+        }
+      }
+
+      // MODIFICATION
+      function appendUndo() {
+        let clone = [];
+        for (let point of path) {
+          clone.push([point[0],point[1]]);
+        }
+        data.undoBuffer.push(clone);
+        data.redoBuffer.length = 0;
+      }
+      if (cursor.impulseDown.any) {
+        if (clickType=="add") {
+          appendUndo();
+          if (path.length==0) {
+            path.push([snapX(cursor.x),snapY(cursor.y)]);
+          } else {
+            path.push(magnetic(path[path.length-1][0],path[path.length-1][1],snapX(cursor.x),snapY(cursor.y)));
+          }
+          data.selectedPathIndex = path.length-1;
+        } else if (clickType=="point") {
+          data.selectedPathIndex = closestPoint;
+          if (cursor.impulseDown.middle) {
+            appendUndo();
+            path.splice(data.selectedPathIndex,1);
+            data.selectedPathIndex = path.length-1;
+          } else {
+            appendUndo();
+            data.originalPosition = [path[closestPoint][0],path[closestPoint][1]];
+            data.grabbing = true;
+          }
+        } else if (clickType=="insert") {
+          appendUndo();
+          let newPoint = [snapX(insertCentreX),snapY(insertCentreY)];
+          path.splice(closestSide+1,0,newPoint);
+          data.selectedPathIndex = closestSide+1;
+          data.originalPosition = [newPoint[0],newPoint[1]];
+          data.grabbing = true;
+        }
+      }
+      if (grabbing&&cursor.impulseUp.any) {
+        data.grabbing = false;
+      } else if (grabbing) {
+        let dx = cursor.x - cursor.down.any.x;
+        let dy = cursor.y - cursor.down.any.y;
+        let originalX = data.originalPosition[0];
+        let originalY = data.originalPosition[1];
+        let newPoint = magnetic(originalX,originalY,snapX(originalX + dx),snapY(originalY + dy));
+        path[data.selectedPathIndex] = newPoint;
+      }
+
+      let hotkeys = cg.settings.develop.pathEditor.hotkeys;
+      let lastKey = ChoreoGraph.Input.lastKeyDown;
+      if (ChoreoGraph.Input.lastKeyDownFrame!=ChoreoGraph.frame) { lastKey = null; }
+
+      // DELETE
+      if (hotkeys.delete==lastKey) {
+        if (data.selectedPathIndex!=-1) {
+          appendUndo();
+          path.splice(data.selectedPathIndex,1);
+          data.selectedPathIndex = path.length-1;
+        }
+
+      } else if (hotkeys.copy==lastKey) {
+        ChoreoGraph.Develop.pathEditorCopy(cg);
+
+      } else if (hotkeys.undo==lastKey) {
+        ChoreoGraph.Develop.pathEditorUndo(cg);
+
+      } else if (hotkeys.redo==lastKey) {
+        ChoreoGraph.Develop.pathEditorRedo(cg);
+      }
+    };
+
+    pathEditorUndo(cg) {
+      let data = cg.Develop.featureData.pathEditor;
+      let selectedPathId = data.selectedPath;
+      if (selectedPathId===null) { return; }
+      let path = cg.paths[selectedPathId];
+      if (path===undefined) { return; }
+      if (data.undoBuffer.length==0) { return; }
+
+      let clone = [];
+      for (let point of path) {
+        clone.push([point[0],point[1]]);
+      }
+      data.redoBuffer.push(clone);
+
+      let lastState = data.undoBuffer.pop();
+      if (lastState!==undefined) {
+        cg.paths[selectedPathId] = lastState;
+        data.selectedPathIndex = lastState.length-1;
+      }
+    };
+
+    pathEditorRedo(cg) {
+      let data = cg.Develop.featureData.pathEditor;
+      let selectedPathId = data.selectedPath;
+      if (selectedPathId===null) { return; }
+      let path = cg.paths[selectedPathId];
+      if (path===undefined) { return; }
+      if (data.redoBuffer.length==0) { return; }
+
+      let clone = [];
+      for (let point of path) {
+        clone.push([point[0],point[1]]);
+      }
+      data.undoBuffer.push(clone);
+
+      let nextState = data.redoBuffer.pop();
+      if (nextState!==undefined) {
+        cg.paths[selectedPathId] = nextState;
+        data.selectedPathIndex = nextState.length-1;
+      }
+    };
+
+    pathEditorCopy(cg,type=null) {
+      let data = cg.Develop.featureData.pathEditor;
+      let selectedPathId = data.selectedPath;
+      if (selectedPathId===null) { return; }
+      let path = cg.paths[selectedPathId];
+      if (path===undefined) { return; }
+
+      function round(number) {
+        let rounding = cg.settings.develop.pathEditor.rounding;
+        return Math.round(number*Math.pow(10,rounding))/Math.pow(10,rounding);
+      }
+
+      if (type==null) {
+        if (path.length==0) {
+          alert("Path is empty, nothing to copy.");
+          return;
+        } else if (path.length==1) {
+          type = "array";
+        } else {
+          type = "path";
+        }
+      }
+
+      let text = "";
+      if (type=="array") {
+        for (let i=0;i<path.length;i++) {
+          text += round(path[i][0]) + "," + round(path[i][1]);
+          if (i<path.length-1) { text += ","; }
+        }
+      } else if (type=="dict") {
+        text = "x:" + round(path[0][0]) + ",y:" + round(path[0][1]);
+      } else if (type=="path") {
+        for (let i=0;i<path.length;i++) {
+          text += "[" + round(path[i][0]) + "," + round(path[i][1]) + "]";
+          if (i<path.length-1) { text += ","; }
+        }
+      } else if (type=="function") {
+        text = "cg.createPath([";
+        for (let i=0;i<path.length;i++) {
+          text += "[" + round(path[i][0]) + "," + round(path[i][1]) + "]";
+          if (i<path.length-1) { text += ","; }
+        }
+        text += '],"' + selectedPathId + '")';
+      }
+      navigator.clipboard.writeText(text);
+    };
+
     UIToggleButton = class UIToggleButton {
       constructor(init,cg) {
         this.cg = cg;
@@ -876,8 +1462,7 @@ ChoreoGraph.plugin({
         active : false,
         unculledBoxColour : "#59eb38",
         culledBoxColour : "#eb3838",
-        frustumColour : "#5c38eb",
-        cgid : cg.id
+        frustumColour : "#5c38eb"
       },
       objectGizmo : {
         active : false,
@@ -904,6 +1489,28 @@ ChoreoGraph.plugin({
         maxWidth : 100,
         keySet : ["id"],
         removeText : []
+      },
+      pathEditor : {
+        snapGridSize : 1,
+        snapXOffset : 0,
+        snapYOffset : 0,
+        rounding : 2,
+        grabDistance : 20,
+        magneticAngle : 45,
+        colours : {
+          lineA : "#ff0000",
+          lineB : "#0000ff",
+          point : "#00ff00",
+          new : "#ffffff",
+          selected : "#ffff00"
+        },
+        hotkeys : {
+          copy : "c",
+          undo : "z",
+          redo : "y",
+          delete : "x",
+          magnetic : "ctrl"
+        }
       }
     });
     cg.Develop = new ChoreoGraph.Develop.instanceObject(cg);

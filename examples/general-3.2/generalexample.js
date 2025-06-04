@@ -180,6 +180,8 @@ cg.scenes.main.addObject(cg.createObject({},"GB_1")
 .attach("Graphic",{graphic:simpleCircle,collection:"stuff"})
 .attach("BlockController",{group:"blockGroupB"}));
 
+cg.createPath([[100,200],[400,350]],"pathId");
+
 cg.Input.createAction({keys:["w","up","conleftup","condpadup","conrightup",cg.Input.buttons.dummy]},"forward");
 cg.Input.createAction({keys:["s","down","conleftdown","condpaddown","conrightdown"]},"backward");
 cg.Input.createAction({keys:["a","left","conleftleft","condpadleft","conrightleft"]},"left");
