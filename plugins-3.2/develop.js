@@ -130,6 +130,8 @@ ChoreoGraph.plugin({
           originalScale: [1,1],
           originalRotation: 0,
           cursorDownPosition : [0,0],
+          modifiedObjects : {},
+          lastTopTextFramee : -1
         },
         topLeftText : {
           lastDrawFrame : -1,
@@ -359,19 +361,6 @@ ChoreoGraph.plugin({
           let text = Math.round(fps*10)/10+"fps";
 
           cg.Develop.drawTopLeftText(cg,canvas,text);
-          // let scale = cg.settings.core.debugCanvasScale;
-          // c.resetTransform();
-          // c.font = 14*scale+"px Arial";
-          // c.fillStyle = "black";
-          // c.globalAlpha = 0.3;
-          // c.textBaseline = "bottom";
-          // c.fillRect(0,0,c.measureText(text).width+10*scale,26*scale);
-
-          // c.globalAlpha = 1;
-          // c.fillStyle = "white";
-          // c.textAlign = "left";
-          // c.textBaseline = "top";
-          // c.fillText(text,5*scale,7*scale);
         }
       };
 
@@ -449,35 +438,37 @@ ChoreoGraph.plugin({
           c.font = 6*cg.settings.core.debugCGScale+"px Arial";
           c.textAlign = "center";
           c.fillStyle = cg.settings.develop.objectAnnotation.textColour;
-          for (let scene of camera.scenes) {
-            for (let object of scene.objects) {
-              if (gizmoData.selectedObject===object) { continue; }
-              let x = object.transform.x;
-              let y = object.transform.y;
+          if (gizmoData.grabMode=="") {
+            for (let scene of camera.scenes) {
+              for (let object of scene.objects) {
+                if (gizmoData.selectedObject===object) { continue; }
+                let x = object.transform.x;
+                let y = object.transform.y;
 
-              let grabDistance = 20 * cg.settings.core.debugCGScale / camera.cz;
+                let grabDistance = 20 * cg.settings.core.debugCGScale / camera.cz;
 
-              let distanceFromSelected = Infinity;
-              if (gizmoData.selectedObject!==null&&gizmoData.selectedScene==scene) {
-                let selectedX = gizmoData.selectedObject.transform.x;
-                let selectedY = gizmoData.selectedObject.transform.y;
-                distanceFromSelected = Math.sqrt((x - selectedX)**2 + (y - selectedY)**2);
-              }
-
-              c.lineWidth = 2 * cg.settings.core.debugCGScale / camera.cz;
-              c.strokeStyle = colours.unhoveredSelection;
-              let distance = Math.sqrt((cursor.x - x)**2 + (cursor.y - y)**2);
-              if (distanceFromSelected < 70 * cg.settings.core.debugCGScale / camera.cz) { grabDistance /= 3.5; }
-              if (distance < grabDistance) {
-                c.strokeStyle = colours.hoveredSelection;
-                if (cursor.impulseUp.any||cursor.impulseDown.any) {
-                  gizmoData.selectedObject = object;
-                  gizmoData.selectedScene = scene;
+                let distanceFromSelected = Infinity;
+                if (gizmoData.selectedObject!==null&&gizmoData.selectedScene==scene) {
+                  let selectedX = gizmoData.selectedObject.transform.x;
+                  let selectedY = gizmoData.selectedObject.transform.y;
+                  distanceFromSelected = Math.sqrt((x - selectedX)**2 + (y - selectedY)**2);
                 }
+
+                c.lineWidth = 2 * cg.settings.core.debugCGScale / camera.cz;
+                c.strokeStyle = colours.unhoveredSelection;
+                let distance = Math.sqrt((cursor.x - x)**2 + (cursor.y - y)**2);
+                if (distanceFromSelected < 70 * cg.settings.core.debugCGScale / camera.cz) { grabDistance /= 3.5; }
+                if (distance < grabDistance) {
+                  c.strokeStyle = colours.hoveredSelection;
+                  if (cursor.impulseUp.any||cursor.impulseDown.any) {
+                    gizmoData.selectedObject = object;
+                    gizmoData.selectedScene = scene;
+                  }
+                }
+                c.beginPath();
+                c.arc(x,y,grabDistance,0,Math.PI*2);
+                c.stroke();
               }
-              c.beginPath();
-              c.arc(x,y,grabDistance,0,Math.PI*2);
-              c.stroke();
             }
           }
         }
@@ -506,9 +497,66 @@ ChoreoGraph.plugin({
           }
         }
 
+        function modified() {
+          let object = gizmoData.selectedObject;
+          let ids = Object.keys(gizmoData.modifiedObjects);
+
+          function round(number) {
+            let rounding = gizmoSettings.rounding;
+            return Math.round(number*Math.pow(10,rounding))/Math.pow(10,rounding);
+          }
+
+          if (ids.indexOf(gizmoData.selectedObject.id)<0) {
+            gizmoData.modifiedObjects[gizmoData.selectedObject.id] = {
+              translate : gizmoData.mode == "translate",
+              scale : gizmoData.mode == "scale",
+              rotate : gizmoData.mode == "rotate"
+            };
+          } else {
+            gizmoData.modifiedObjects[gizmoData.selectedObject.id][gizmoData.mode] = true;
+
+            if (gizmoData.lastTopTextFramee!=ChoreoGraph.frame) {
+              let text;
+              if (gizmoData.mode == "translate") {
+                text = round(object.transform.x) + "," + round(object.transform.y);
+              } else if (gizmoData.mode == "scale") {
+                text = round(object.transform.sx) + "," + round(object.transform.sy);
+              } else if (gizmoData.mode == "rotate") {
+                text = Math.floor(object.transform.r);
+              }
+              canvas.c.save();
+              gizmoData.lastTopTextFramee = ChoreoGraph.frame;
+              cg.Develop.drawTopLeftText(cg,canvas,text);
+              canvas.c.restore();
+            }
+          }
+
+          let div = document.getElementById("develop_gizmo_dump");
+          div.innerHTML = "";
+          for (let id of ids) {
+            let object = cg.objects[id];
+            let span = document.createElement("span");
+            span.style.fontFamily = "monospace";
+            span.innerText = id + " ";
+            if (gizmoData.modifiedObjects[id].translate) {
+              span.innerText += "x,y: " + round(object.transform.x) + "," + round(object.transform.y) + "  ";
+            }
+            if (gizmoData.modifiedObjects[id].scale) {
+              span.innerText += "sx,sy: " + round(object.transform.sx) + "," + round(object.transform.sy) + "  ";
+            }
+            if (gizmoData.modifiedObjects[id].rotate) {
+              span.innerText += "r: " + Math.floor(object.transform.r);
+            }
+            div.appendChild(span);
+            div.appendChild(document.createElement("br"));
+          }
+        }
+
         let cursor = cg.Input.canvasCursors[canvas.id];
         let handSize = gizmoSize * 1;
         let armLength = gizmoSize * 3;
+
+        // TRANSLATE MODE
         if (gizmoData.mode=="translate") {
           let curX = cursor.x;
           let curY = cursor.y;
@@ -537,15 +585,27 @@ ChoreoGraph.plugin({
           let dx = cursor.x - gizmoData.cursorDownPosition[0];
           let dy = cursor.y - gizmoData.cursorDownPosition[1];
           if (gizmoData.grabMode=="xAxis"||gizmoData.grabMode=="multiAxis") {
-            gizmoData.selectedObject.transform.x = gizmoData.originalPosition[0] + dx;
+            let x = gizmoData.originalPosition[0] + dx;
+            if (ChoreoGraph.Input.keyStates[gizmoSettings.hotkeySnap]) {
+              x += gizmoSettings.snapXOffset;
+              x = Math.round(x/gizmoSettings.positionSnap)*gizmoSettings.positionSnap;
+            }
+            gizmoData.selectedObject.transform.x = x;
+            modified();
           }
           if (gizmoData.grabMode=="yAxis"||gizmoData.grabMode=="multiAxis") {
-            gizmoData.selectedObject.transform.y = gizmoData.originalPosition[1] + dy;
+            let y = gizmoData.originalPosition[1] + dy;
+            if (ChoreoGraph.Input.keyStates[gizmoSettings.hotkeySnap]) {
+              y += gizmoSettings.snapYOffset;
+              y = Math.round(y/gizmoSettings.positionSnap)*gizmoSettings.positionSnap;
+            }
+            gizmoData.selectedObject.transform.y = y;
+            modified();
           }
 
           c.strokeStyle = colours.gizmoOther;
           c.lineWidth = handSize/4;
-          if (cursorHoverMultiAxis) { c.globalAlpha = 0.5; }
+          if (cursorHoverMultiAxis&&gizmoData.grabMode=="") { c.globalAlpha = 0.5; }
           c.beginPath();
           c.rect(x,y-handSize,handSize,handSize);
           c.stroke();
@@ -553,7 +613,7 @@ ChoreoGraph.plugin({
           c.fillStyle = colours.gizmoX;
           c.strokeStyle = colours.gizmoX;
           c.globalAlpha = 1;
-          if (cursorHoverXAxis) { c.globalAlpha = 0.5; }
+          if (cursorHoverXAxis&&gizmoData.grabMode=="") { c.globalAlpha = 0.5; }
           c.beginPath();
           c.moveTo(x,y);
           c.lineTo(x+armLength,y);
@@ -563,7 +623,7 @@ ChoreoGraph.plugin({
           c.lineTo(x+armLength,y);
           c.stroke();
           c.globalAlpha = 1;
-          if (cursorHoverYAxis) { c.globalAlpha = 0.5; }
+          if (cursorHoverYAxis&&gizmoData.grabMode=="") { c.globalAlpha = 0.5; }
           c.fillStyle = colours.gizmoY;
           c.strokeStyle = colours.gizmoY;
           c.beginPath();
@@ -574,6 +634,8 @@ ChoreoGraph.plugin({
           c.lineTo(x+(handSize/3),y-armLength);
           c.lineTo(x,y-armLength);
           c.stroke();
+
+        // SCALE MODE
         } else if (gizmoData.mode=="scale") {
           let curX = cursor.x;
           let curY = cursor.y;
@@ -605,14 +667,16 @@ ChoreoGraph.plugin({
           let originalY = gizmoData.originalScale[1];
           if (gizmoData.grabMode=="xAxis"||gizmoData.grabMode=="multiAxis") {
             gizmoData.selectedObject.transform.sx = originalX*(((curX-downPosX)/handSize)+1);
+            modified();
           }
           if (gizmoData.grabMode=="yAxis"||gizmoData.grabMode=="multiAxis") {
             gizmoData.selectedObject.transform.sy = originalY*(((-(curY-downPosY))/handSize)+1);
+            modified();
           }
 
           c.strokeStyle = colours.gizmoOther;
           c.lineWidth = handSize/4;
-          if (cursorHoverMultiAxis) { c.globalAlpha = 0.5; }
+          if (cursorHoverMultiAxis&&gizmoData.grabMode=="") { c.globalAlpha = 0.5; }
           c.beginPath();
           c.rect(x,y-handSize,handSize,handSize);
           c.stroke();
@@ -620,7 +684,7 @@ ChoreoGraph.plugin({
           c.fillStyle = colours.gizmoX;
           c.strokeStyle = colours.gizmoX;
           c.globalAlpha = 1;
-          if (cursorHoverXAxis) { c.globalAlpha = 0.5; }
+          if (cursorHoverXAxis&&gizmoData.grabMode=="") { c.globalAlpha = 0.5; }
           c.beginPath();
           c.moveTo(x,y);
           c.lineTo(x+armLength,y);
@@ -628,7 +692,7 @@ ChoreoGraph.plugin({
           c.lineTo(x+armLength,y);
           c.stroke();
           c.globalAlpha = 1;
-          if (cursorHoverYAxis) { c.globalAlpha = 0.5; }
+          if (cursorHoverYAxis&&gizmoData.grabMode=="") { c.globalAlpha = 0.5; }
           c.fillStyle = colours.gizmoY;
           c.strokeStyle = colours.gizmoY;
           c.beginPath();
@@ -637,6 +701,8 @@ ChoreoGraph.plugin({
           c.rect(x-(handSize/6),y-armLength,handSize/3,handSize/3);
           c.lineTo(x,y-armLength);
           c.stroke();
+
+        // ROTATE MODE
         } else if (gizmoData.mode=="rotate") {
           let circleRadius = gizmoSize * 2;
 
@@ -665,11 +731,12 @@ ChoreoGraph.plugin({
               rotation += 360;
             }
             gizmoData.selectedObject.transform.r = rotation;
+            modified();
           }
 
           c.strokeStyle = colours.gizmoOther;
           c.lineWidth = gizmoSize/2;
-          if (hoverCircle) { c.globalAlpha = 0.5; }
+          if (hoverCircle&&gizmoData.grabMode=="") { c.globalAlpha = 0.5; }
           c.beginPath();
           c.arc(x,y,circleRadius,0,Math.PI*2);
           c.stroke();
@@ -699,12 +766,18 @@ ChoreoGraph.plugin({
     }
 
     section = document.createElement("section");
+    infoDump = document.createElement("div");
 
     generateInterface() {
       if (!ChoreoGraph.Develop.createInterfaces) { return; }
       let cg = ChoreoGraph.Develop.cg;
-
       ChoreoGraph.Develop.section.innerHTML = "";
+
+      ChoreoGraph.Develop.section.appendChild(ChoreoGraph.Develop.infoDump);
+      let gizmoDump = document.createElement("div");
+      gizmoDump.id = "develop_gizmo_dump";
+      ChoreoGraph.Develop.infoDump.appendChild(gizmoDump)
+
       if (ChoreoGraph.instances.length>1) {
         let selectedInstanceDiv = document.createElement("div");
         selectedInstanceDiv.innerText = "Selected Instance: "+cg.id;
@@ -809,8 +882,12 @@ ChoreoGraph.plugin({
       objectGizmo : {
         active : false,
         hotkeySwitchMode : "x",
-        hotkeySnap : "shift",
-        rotationSnap: 30,
+        hotkeySnap : "ctrl",
+        rounding : 2,
+        rotationSnap : 30,
+        positionSnap : 1,
+        snapXOffset : 0,
+        snapYOffset : 0,
         colours : {
           unhoveredSelection : "#ff0000",
           hoveredSelection : "#0000ff",
