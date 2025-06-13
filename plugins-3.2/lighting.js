@@ -53,7 +53,11 @@ ChoreoGraph.plugin({
             for (let lightId of cg.keys.lights) {
               let light = cg.Lighting.lights[lightId];
               let bounds = light.getBounds();
-              c.strokeStyle = "green";
+              if (light.occlude) {
+                c.strokeStyle = "green";
+              } else {
+                c.strokeStyle = "paleturquoise";
+              }
               c.lineWidth = 2 * scale;
               c.beginPath();
               c.rect(light.transform.x - bounds[0] * 0.5 + bounds[2], light.transform.y - bounds[1] * 0.5 + bounds[3], bounds[0], bounds[1]);
@@ -65,6 +69,7 @@ ChoreoGraph.plugin({
           if (cg.settings.lighting.debug.occluders) {
             for (let occluderId of cg.keys.occluders) {
               let occluder = cg.Lighting.occluders[occluderId];
+              ChoreoGraph.transformContext(canvas.camera,occluder.transform.x,occluder.transform.y);
               c.strokeStyle = "grey";
               c.lineWidth = 2 * scale;
               c.beginPath();
@@ -362,7 +367,7 @@ ChoreoGraph.plugin({
       });
     };
 
-    cg.graphicTypes.lighting = new class lighting {
+    cg.graphicTypes.lighting = new class LightingGraphic {
       setup(init,cg) {
         this.manualTransform = true;
 
@@ -391,6 +396,7 @@ ChoreoGraph.plugin({
 
         this.detections = [];
         this.raycastCount = 0; // For debugging
+        this.culledRayCount = 0;
         this.sideRayPrecision = 0.0001;
 
         this.occlude = function(x,y,width,height,boundXOffset,boundYOffset) {
@@ -412,10 +418,6 @@ ChoreoGraph.plugin({
           let lxMax = x+halfWidth+boundXOffset;
           let lyMin = y-halfHeight+boundYOffset;
           let lyMax = y+halfHeight+boundYOffset;
-          points.push([lxMin,lyMin]);
-          points.push([lxMax,lyMin]);
-          points.push([lxMax,lyMax]);
-          points.push([lxMin,lyMax]);
 
           // GET POINTS AND SIDES FROM ALL OCCLUDERS
           let sxMin = lxMin;
@@ -435,7 +437,9 @@ ChoreoGraph.plugin({
               sxMax = Math.max(xMax,sxMax);
               syMin = Math.min(yMin,syMin);
               syMax = Math.max(yMax,syMax);
-              sidesToCheck.push(side);
+              let oox = occluder.transform.x;
+              let ooy = occluder.transform.y;
+              sidesToCheck.push([side[0]+oox,side[1]+ooy,side[2]+oox,side[3]+ooy,side[4],side[5],xMin+oox,xMax+oox,yMin+ooy,yMax+ooy]);
               let sideRayPrecision = this.sideRayPrecision;
               function addPoint(point) {
                 points.push(point);
@@ -454,6 +458,11 @@ ChoreoGraph.plugin({
               }
             }
           };
+          if (points.length===0) { return; }
+          points.push([sxMin,syMin]);
+          points.push([sxMax,syMin]);
+          points.push([sxMax,syMax]);
+          points.push([sxMin,syMax]);
           sidesToCheck.push([sxMin,syMin,sxMax,syMin]);
           sidesToCheck.push([sxMax,syMin,sxMax,syMax]);
           sidesToCheck.push([sxMax,syMax,sxMin,syMax]);
@@ -473,7 +482,7 @@ ChoreoGraph.plugin({
               let x2Max = Math.max(x,point[0]);
               let y2Min = Math.min(y,point[1]);
               let y2Max = Math.max(y,point[1]);
-              if (x1Min>x2Max||x1Max<x2Min||y1Min>y2Max||y1Max<y2Min) { continue; }
+              if (x1Min>x2Max||x1Max<x2Min||y1Min>y2Max||y1Max<y2Min) { this.culledRayCount++; continue; }
 
               // RAYCAST INTERCEPTION TEST
               let intercept = ChoreoGraph.Lighting.calculateInterception(side[0],side[1],side[2],side[3],x,y,point[0],point[1]);
@@ -502,7 +511,6 @@ ChoreoGraph.plugin({
         };
 
         this.aabbLightGraphic = function(lightBounds, graphicBounds, light, transform) {
-          // console.log(lightBounds, graphicBounds, transform);
           let lx = light.transform.x + lightBounds[2];
           let ly = light.transform.y + lightBounds[3];
           let gxmin = transform.x - graphicBounds[0] * 0.5 + graphicBounds[2];
@@ -519,10 +527,9 @@ ChoreoGraph.plugin({
 
           // RAYCAST COUNT DEBUG
           if (cg.settings.lighting.debug.raycastCount&&cg.Develop!=undefined) {
-            let text = this.raycastCount + " raycasts";
+            let text = this.raycastCount + " raycasts" + (this.culledRayCount>0 ? " (" + this.culledRayCount + " culled)" : "");
             cg.Develop.drawTopLeftText(cg,canvas,text);
           }
-          ChoreoGraph.transformContext(canvas.camera);
           c.globalAlpha = 1;
 
           // ACTIVE SIDES DEBUG
@@ -536,6 +543,7 @@ ChoreoGraph.plugin({
               }
             }
             for (let light of lights) {
+              if (!light.occlude) { continue; }
               let x = light.transform.x;
               let y = light.transform.y;
               let bounds = light.getBounds();
@@ -547,6 +555,7 @@ ChoreoGraph.plugin({
               let lyMax = y+halfHeight+bounds[3];
               c.beginPath();
               for (let occluder of occluders) {
+                ChoreoGraph.transformContext(canvas.camera,occluder.transform.x,occluder.transform.y);
                 for (let i=0;i<occluder.sidesBuffer.length;i++) {
                   let side = occluder.sidesBuffer[i];
                   let xMin = occluder.transform.x + side[6];
@@ -564,6 +573,8 @@ ChoreoGraph.plugin({
               c.stroke();
             }
           }
+
+          ChoreoGraph.transformContext(canvas.camera);
 
           for (let detects of this.detections) {
             // CLIP SHAPE DEBUG
@@ -601,7 +612,6 @@ ChoreoGraph.plugin({
                 c.lineTo(detect[2]+size, detect[3]);
                 c.moveTo(detect[2], detect[3]-size);
                 c.lineTo(detect[2], detect[3]+size);
-                // c.arc(detect[2], detect[3], 10 * scale, 0, 2 * Math.PI);
                 c.strokeStyle = ["red","orange","yellow","green","blue","indigo","violet"][i%7];
                 c.stroke();
                 i++;
@@ -653,6 +663,7 @@ ChoreoGraph.plugin({
 
         // DRAW OCCLUDED LIGHTS
         this.raycastCount = 0;
+        this.culledRayCount = 0;
         this.detections.length = 0;
         let lights = this.lights;
         if (this.lights.length === 0) {

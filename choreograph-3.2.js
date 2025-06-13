@@ -2,7 +2,10 @@ const ChoreoGraph = new class ChoreoGraphEngine {
   VERSION = "3.2.0";
   instances = [];
   settings = {
-    maxFPS : Infinity
+    maxFPS : Infinity,
+    pauseWhenUnfocused : false, // Pause when document.hasFocus() is false
+    pauseWhenOffscreen : false, // Pause when any cgCanvas is offscreen
+    pauseLoop : false
   };
 
   started = false;
@@ -91,6 +94,17 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         return this.cameras[this.keys.cameras[0]];
       } else {
         console.warn("No default canvas with a camera on instance:",this.id);
+        return null;
+      }
+    }
+
+    get scene() {
+      if (this.settings.core.defaultCanvas !== null && this.settings.core.defaultCanvas.camera !== null) {
+        return this.settings.core.defaultCanvas.camera.scenes[0];
+      } else if (this.keys.scenes.length===1) {
+        return this.scenes[this.keys.scenes[0]];
+      } else {
+        console.warn("No default canvas with a scene on instance:",this.id);
         return null;
       }
     }
@@ -400,6 +414,15 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     };
 
     setupParentElement(parentElement) {
+      this.rawHeight = parentElement.offsetHeight;
+      this.rawWidth = parentElement.offsetWidth;
+      let width = this.rawWidth / this.pixelSize;
+      let height = this.rawHeight / this.pixelSize;
+      this.element.width = width;
+      this.element.height = height;
+      this.width = width;
+      this.height = height;
+
       let ro = new ResizeObserver(entries => {
         for (let entry of entries) {
           let cr = entry.contentRect;
@@ -421,6 +444,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
           if (copyContent.width!=0&&copyContent.height!=0) {
             this.c.drawImage(copyContent,0,0,width,height);
           }
+          ChoreoGraph.forceNextFrame();
         }
       });
       ro.observe(parentElement);
@@ -457,6 +481,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       c.restore();
     };
     setCamera(camera) {
+      if (camera===undefined) { console.warn("Camera is undefined in cgCanvas.setCamera"); return; }
       if (this.camera !== null) {
         this.camera.canvas = null;
       }
@@ -1239,7 +1264,50 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         if (this.fill) { c.fillStyle = this.colour; c.fill(); } else { c.lineWidth = this.lineWidth; c.strokeStyle = this.colour; c.stroke(); }
       };
       getBounds() {
-        return [this.radius*2,this.radius*2, 0, 0];
+        return [this.radius*2, this.radius*2, 0, 0];
+      };
+    };
+    cg.graphicTypes.polygon = new class PolygonGraphic {
+      setup(init,cg) {
+        this.fillBeforeStroke = true;
+        this.fill = true;
+        this.stroke = true;
+        this.closePath = true;
+        this.lineWidth = 1;
+        this.lineCap = "round";
+
+        this.path = [];
+
+        this.fillColour = "#ff0000";
+        this.strokeColour = "#00ff00";
+      };
+      draw(c,ax,ay) {
+        c.beginPath();
+        for (let i=0;i<this.path.length;i++) {
+          let point = this.path[i];
+          c.lineTo(point[0]+ax,point[1]+ay);
+        }
+        if (this.closePath) { c.closePath(); }
+        if (this.fill&&this.fillBeforeStroke) { c.fillStyle = this.fillColour; c.fill(); }
+        if (this.stroke) { c.lineWidth = this.lineWidth; c.strokeStyle = this.strokeColour; c.stroke(); }
+        if (this.fill&&!this.fillBeforeStroke) { c.fillStyle = this.fillColour; c.fill(); }
+      };
+      getBounds() {
+        let minX = Infinity;
+        let minY = Infinity;
+        let maxX = -Infinity;
+        let maxY = -Infinity;
+        for (let point of this.path) {
+          if (point[0]<minX) { minX = point[0]; }
+          if (point[0]>maxX) { maxX = point[0]; }
+          if (point[1]<minY) { minY = point[1]; }
+          if (point[1]>maxY) { maxY = point[1]; }
+        }
+        let width = maxX-minX;
+        let height = maxY-minY;
+        let offsetX = minX+width/2;
+        let offsetY = minY+height/2;
+        return [width, height, offsetX, offsetY];
       };
     };
     cg.graphicTypes.image = new class ImageGraphic {
@@ -1305,7 +1373,19 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     }
   };
 
-  transformContext(camera,x=0,y=0,r=0,sx=1,sy=1,CGSpace=true,flipX=false,flipY=false,canvasSpaceXAnchor,canvasSpaceYAnchor,ctx=camera.canvas.c,cx=camera.cx,cy=camera.cy,cz=camera.cz,canvasSpaceScale=camera.canvasSpaceScale,w=camera.canvas.width,h=camera.canvas.height,manualScaling=false) {
+  transformContext(camera,x=0,y=0,r=0,sx=1,sy=1,CGSpace=true,flipX=false,flipY=false,canvasSpaceXAnchor,canvasSpaceYAnchor,ctx=camera?.canvas.c,cx=camera?.cx,cy=camera?.cy,cz=camera?.cz,canvasSpaceScale=camera?.canvasSpaceScale,w=camera?.canvas.width,h=camera?.canvas.height,manualScaling=false) {
+    if (camera===undefined&&ChoreoGraph.instances.length===1&&ChoreoGraph.instances[0].keys.cameras.length===1) {
+      camera = ChoreoGraph.instances[0].cameras[ChoreoGraph.instances[0].keys.cameras[0]];
+      if (camera.canvas==null) { return; }
+      ctx = camera.canvas.c;
+      cx = camera.cx;
+      cy = camera.cy;
+      cz = camera.cz;
+      canvasSpaceScale = camera.canvasSpaceScale;
+      w = camera.canvas.width;
+      h = camera.canvas.height;
+    }
+    if (camera==undefined) { return; }
     let z = 1;
     if (CGSpace) {
       z = cz;
@@ -1388,20 +1468,49 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     this.loop();
   };
 
-  loop() {
+  forceNextFrame() {
+    ChoreoGraph.loop(false);
+  }
+
+  loop(continuous=true) {
     ChoreoGraph.now = new Date();
     ChoreoGraph.nowint = ChoreoGraph.now.getTime();
     ChoreoGraph.timeDelta = performance.now() - ChoreoGraph.lastPerformanceTime;
     for (let loop of ChoreoGraph.globalBeforeLoops) { loop(this); }
-    const skipFrame = ((1000/ChoreoGraph.timeDelta>ChoreoGraph.settings.maxFPS||(!document.hasFocus()&&ChoreoGraph.settings.pauseWhenUnfocused)));
+
+    let pauseBecauseOffscreen = false;
+    if (ChoreoGraph.settings.pauseWhenOffscreen) {
+      pauseBecauseOffscreen = true;
+      for (let cg of ChoreoGraph.instances) {
+        for (let canvasId of cg.keys.canvases) {
+          let canvas = cg.canvases[canvasId];
+          const rect = canvas.element.getBoundingClientRect();
+          if (rect.top < window.innerHeight &&
+              rect.left < window.innerWidth &&
+              rect.bottom > 0 &&
+              rect.right > 0) {
+            pauseBecauseOffscreen = false;
+            break;
+          }
+        }
+      }
+    }
+
+    const skipFrame = (1000/ChoreoGraph.timeDelta>ChoreoGraph.settings.maxFPS
+      || (!document.hasFocus()&&ChoreoGraph.settings.pauseWhenUnfocused)
+      || ChoreoGraph.settings.pauseLoop
+      || pauseBecauseOffscreen)
+      && continuous;
+
     if (!skipFrame) {
       ChoreoGraph.lastPerformanceTime = performance.now();
       for (let cg of ChoreoGraph.instances) {
         cg.timeDelta = ChoreoGraph.timeDelta*cg.settings.core.timeScale;
         cg.loop();
       }
+      for (let loop of ChoreoGraph.globalAfterLoops) { loop(this); }
     }
-    for (let loop of ChoreoGraph.globalAfterLoops) { loop(this); }
-    ChoreoGraph.frame = requestAnimationFrame(ChoreoGraph.loop);
+    if (continuous) { ChoreoGraph.frame = requestAnimationFrame(ChoreoGraph.loop); }
+    else { this.frame++; }
   };
 };

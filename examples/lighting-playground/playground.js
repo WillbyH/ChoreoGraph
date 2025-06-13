@@ -7,6 +7,7 @@ const cg = ChoreoGraph.instantiate({
   },
   input : {
     preventDefaultKeys : ["space","up","down"],
+    preventSingleTouch : true,
     controller : {
       emulatedCursor : {
         active : true
@@ -51,33 +52,52 @@ let draggedObject = null;
 function createLight(id,r,g,b) {
   let newObject = cg.createObject({},id);
 
-  let newButton = cg.Input.createButton({type:"circle",object:newObject,radius:80,down:function(button){
+  cg.Input.createButton({type:"circle",object:newObject,transform:newObject.transform,radius:80,down:function(button){
     button.object.downX = button.object.transform.x;
     button.object.downY = button.object.transform.y;
     draggedObject = button.object;
     dragging = true;
   }},id);
-  newButton.transform.parent = newObject.transform;
 
-  let newLight = cg.Lighting.createLight({type:"spot",
+  cg.Lighting.createLight({type:"spot",
     colourR:r,
     colourG:g,
     colourB:b,
     outerRadius:250,
-    innerRadius:5
+    innerRadius:5,
+    transform:newObject.transform,
   },id);
-  newLight.transform.parent = newObject.transform;
 }
 
-function createOccluder() {
-  let newOccluder = cg.Lighting.createOccluder({path:[[259,297],[175,282],[194,206],[273,157],[332,248]]});
+function createOccluder(id,path) {
+  let newObject = cg.createObject({},id);
+
+  let newOccluder = cg.Lighting.createOccluder({path:path,transform:newObject.transform},id);
   cg.graphics.middleLighting.occluders.push(newOccluder);
+
+  let newGraphic = cg.createGraphic({type:"polygon",path:path,fill:false,lineWidth:2,strokeColour:"white"},id);
+  cg.scenes.main.createItem("graphic",{
+    graphic : newGraphic,
+    transform : newObject.transform
+  },id);
+
+  cg.Input.createButton({type:"polygon",object:newObject,graphic:newGraphic,path:path,transform:newObject.transform,down:function(button){
+    button.object.downX = button.object.transform.x;
+    button.object.downY = button.object.transform.y;
+    draggedObject = button.object;
+    dragging = true;
+  },enter:function(button){
+    button.graphic.strokeColour = "yellow";
+  },exit:function(button){
+    button.graphic.strokeColour = "white";
+  }},id);
 }
 
 createLight("athena",255,0,0);
 createLight("linkley",0,255,0);
 createLight("magna",0,0,255);
-createOccluder("cormac");
+createOccluder("cormac",[[259,297],[175,282],[194,206],[273,157],[332,248]]);
+createOccluder("partridge",[[-532,161],[-662,256],[-470,443],[-318,267],[-420,202],[-450,368],[-595,238],[-436,184]]);
 
 cg.Input.createAction({keys:["w","up","condpadup","conrightup"]},"moveUp");
 cg.Input.createAction({keys:["s","down","condpaddown","conrightdown"]},"moveDown");

@@ -311,50 +311,55 @@ ChoreoGraph.plugin({
           let height = canvas.height / cullCamera.cz;
           let width = canvas.width / cullCamera.cz;
           c.strokeRect(-width*0.5,-height*0.5,width,height);
+          
+          function drawCullBox(item) {
+            let [bw, bh, bx, by] = item.graphic.getBounds();
+            let gx = item.transform.x + bx;
+            let gy = item.transform.y + by;
+            let gax = item.transform.ax;
+            let gay = item.transform.ay;
+            bw *= item.transform.sx;
+            bh *= item.transform.sy;
+            if (item.transform.r!==0) {
+              let r = -item.transform.r+90;
+              let rad = r*Math.PI/180;
+              let savedbh = bh;
+              bh = Math.abs(bw*Math.cos(rad))+Math.abs(bh*Math.sin(rad));
+              bw = Math.abs(bw*Math.sin(rad))+Math.abs(savedbh*Math.cos(rad));
+
+              let rox = Math.sin(rad)*gax-Math.cos(rad)*gay;
+              let roy = Math.cos(rad)*gax+Math.sin(rad)*gay;
+              gx += rox;
+              gy += roy;
+            } else {
+              gx += gax;
+              gy += gay;
+            }
+            let cx = cullCamera.x;
+            let cy = cullCamera.y;
+            let cw = canvas.width/cullCamera.cz;
+            let ch = canvas.height/cullCamera.cz;
+
+            c.strokeStyle = cg.settings.develop.frustumCulling.unculledBoxColour;
+            if (gx+bw*0.5<cx-cw*0.5||gx-bw*0.5>cx+cw*0.5||gy+bh*0.5<cy-ch*0.5||gy-bh*0.5>cy+ch*0.5) {
+              c.strokeStyle = cg.settings.develop.frustumCulling.culledBoxColour;
+            }
+
+            ChoreoGraph.transformContext(canvas.camera,gx,gy);
+
+            c.strokeRect(-bw/2,-bh/2,bw,bh);
+          }
+          
           function drawCollectionCullBoxes(collection) {
             for (let item of collection) {
               if (item.type=="graphic"&&item.graphic.getBounds!==undefined) {
-                let [bw, bh, bx, by] = item.graphic.getBounds();
-                let gx = item.transform.x + bx;
-                let gy = item.transform.y + by;
-                let gax = item.transform.ax;
-                let gay = item.transform.ay;
-                bw *= item.transform.sx;
-                bh *= item.transform.sy;
-                if (item.transform.r!==0) {
-                  let r = -item.transform.r+90;
-                  let rad = r*Math.PI/180;
-                  let savedbh = bh;
-                  bh = Math.abs(bw*Math.cos(rad))+Math.abs(bh*Math.sin(rad));
-                  bw = Math.abs(bw*Math.sin(rad))+Math.abs(savedbh*Math.cos(rad));
-
-                  let rox = Math.sin(rad)*gax-Math.cos(rad)*gay;
-                  let roy = Math.cos(rad)*gax+Math.sin(rad)*gay;
-                  gx += rox;
-                  gy += roy;
-                } else {
-                  gx += gax;
-                  gy += gay;
-                }
-                let cx = cullCamera.x;
-                let cy = cullCamera.y;
-                let cw = canvas.width/cullCamera.cz;
-                let ch = canvas.height/cullCamera.cz;
-
-                c.strokeStyle = cg.settings.develop.frustumCulling.unculledBoxColour;
-                if (gx+bw*0.5<cx-cw*0.5||gx-bw*0.5>cx+cw*0.5||gy+bh*0.5<cy-ch*0.5||gy-bh*0.5>cy+ch*0.5) {
-                  c.strokeStyle = cg.settings.develop.frustumCulling.culledBoxColour;
-                }
-
-                ChoreoGraph.transformContext(canvas.camera,gx,gy);
-
-                c.strokeRect(-bw/2,-bh/2,bw,bh);
-
+                drawCullBox(item);
               } else if (item.type=="collection") {
                 drawCollectionCullBoxes(item.children);
               }
             }
           }
+          
           for (let scene of cullCamera.scenes) {
             drawCollectionCullBoxes(scene.drawBuffer);
           }
@@ -420,7 +425,7 @@ ChoreoGraph.plugin({
           if (camera===null) { continue; }
           ChoreoGraph.transformContext(camera);
           let c = canvas.c;
-          c.font = 6*cg.settings.core.debugCGScale+"px Arial";
+          c.font = cg.settings.develop.objectAnnotation.fontSize*cg.settings.core.debugCGScale+"px Arial";
           c.textAlign = "center";
           c.fillStyle = cg.settings.develop.objectAnnotation.textColour;
           for (let scene of camera.scenes) {
@@ -459,7 +464,13 @@ ChoreoGraph.plugin({
           c.fillStyle = cg.settings.develop.objectAnnotation.textColour;
           if (gizmoData.grabMode=="") {
             for (let scene of camera.scenes) {
-              for (let object of scene.objects) {
+              let objects = scene.objects;
+              if (objects.length==0) {
+                for (let objId of cg.keys.objects) {
+                  objects.push(cg.objects[objId]);
+                }
+              }
+              for (let object of objects) {
                 if (gizmoData.selectedObject===object) { continue; }
                 let x = object.transform.x;
                 let y = object.transform.y;
@@ -1488,7 +1499,8 @@ ChoreoGraph.plugin({
         offsetY : 0,
         maxWidth : 100,
         keySet : ["id"],
-        removeText : []
+        removeText : [],
+        fontSize : 6
       },
       pathEditor : {
         snapGridSize : 1,

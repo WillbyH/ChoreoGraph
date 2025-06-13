@@ -1436,7 +1436,7 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
       if (this.processTriggersAndFindTo()===false) { return }
     }
 
-    this.timeBudget = (cg.timeSinceLastFrame*cg.settings.core.timeScale)/1000;
+    this.timeBudget = (scene.cg.timeSinceLastFrame*scene.cg.settings.core.timeScale)/1000;
 
     while (this.timeBudget>0) {
       let timeTillNextKeyFrame = (this.ent-this.playhead)/this.speed;
