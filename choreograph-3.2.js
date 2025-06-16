@@ -56,6 +56,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     graphicTypes = {};
     processLoops = [];
     overlayLoops = [];
+    debugLoops = [];
 
     get cw() {
       if (this.settings.core.defaultCanvas !== null) {
@@ -135,6 +136,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
           resume : null, // resume(ms,cg) runs when the loop is resumed
           loadingLoop : null, // loadingLoop(checkData,cg) runs when the loop is loading
           start : null, // start() runs once when the loop starts
+          resize : null // resize(cgCanvas) runs when a canvas is resized
         }
       });
     };
@@ -181,6 +183,9 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       if (this.settings.core.callbacks.loopAfter!=null) { this.settings.core.callbacks.loopAfter(this); }
 
       for (let loop of this.overlayLoops) {
+        loop(this);
+      }
+      for (let loop of this.debugLoops) {
         loop(this);
       }
     };
@@ -444,6 +449,9 @@ const ChoreoGraph = new class ChoreoGraphEngine {
           if (copyContent.width!=0&&copyContent.height!=0) {
             this.c.drawImage(copyContent,0,0,width,height);
           }
+          if (this.cg.settings.core.callbacks.resize!=null) {
+            this.cg.settings.core.callbacks.resize(this);
+          }
           ChoreoGraph.forceNextFrame();
         }
       });
@@ -541,7 +549,8 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       }
     };
     checkGraphicBoundCull(item) {
-      if (this.cg.settings.core.frustumCulling&&item.graphic.getBounds!==undefined) {
+      cg.c.resetTransform();
+      if (this.cg.settings.core.frustumCulling&&item.graphic.getBounds!==undefined&&item.transform.CGSpace) {
         let [bw, bh, box, boy] = item.graphic.getBounds();
 
         let gx = item.transform.x;
@@ -612,10 +621,20 @@ const ChoreoGraph = new class ChoreoGraphEngine {
 
     // RETURNS CG SPACE POSITION OF THE TOP LEFT OF THIS CAMERA
     get cx() {
+      if (this.canvas==null&&this.inactiveCanvas!=null) {
+        return -this.x+this.inactiveCanvas.width*0.5;
+      } else if (this.canvas==null) {
+        return -this.x+this.cg.settings.core.defaultCanvas.width*0.5;
+      }
       return -this.x+this.canvas.width*0.5;
     };
 
     get cy() {
+      if (this.canvas==null&&this.inactiveCanvas!=null) {
+        return -this.y+this.inactiveCanvas.height*0.5;
+      } else if (this.canvas==null) {
+        return -this.y+this.cg.settings.core.defaultCanvas.height*0.5;
+      }
       return -this.y+this.canvas.height*0.5;
     };
 
@@ -701,6 +720,10 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     createItem(type,init={},id=ChoreoGraph.id.get(),collection=null) {
       if (collection!==null&&this.collections[collection]===undefined) {
         console.warn("Collection with id:",collection,"does not exist");
+        return;
+      }
+      if (this.cg.sceneItems[id]!==undefined) {
+        console.warn("Scene Item with id:",id,"already exists");
         return;
       }
       let newItem;

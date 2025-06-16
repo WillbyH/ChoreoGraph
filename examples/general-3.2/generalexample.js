@@ -38,9 +38,9 @@ cg.createCanvas({element:document.getElementsByTagName("canvas")[0],
 //   clearColor : {r:0,g:0,b:0,a:1}
 // },"shaderCanvas");
 
-// cg.Shaders.canvases.shaderCanvas.addSource({
+// cg.Shaders.shaderCanvases.shaderCanvas.addSource({
 //   source : cg.canvases.main.element,
-//   fragmentShader : `
+//   fragmentShaderCode : `
 //     precision mediump float;
 
 //     varying vec2 texCoords;
@@ -261,6 +261,47 @@ cg.scenes.main.tree.tilemapGraphic.transform.sx = 0.5;
 cg.scenes.main.tree.tilemapGraphic.transform.sy = 0.5;
 cg.scenes.main.tree.tilemapGraphic.transform.x = 200;
 cg.scenes.main.tree.tilemapGraphic.transform.y = 100;
+
+let shaderGraphic = cg.createGraphic({type:"shader",width:250,height:250,drawCallback:function(gl,graphic){
+  gl.uniform1f(graphic.timeLocation, cg.clock/1000);
+}},"shader")
+.createShader(`
+  precision mediump float;
+
+  attribute vec2 position;
+  varying vec2 texCoords;
+
+  void main() {
+    texCoords = (position + 1.0) / 2.0;
+    gl_Position = vec4(position, 0.0, 1.0);
+  }
+`,
+`
+  precision mediump float;
+
+  uniform float time;
+  varying vec2 texCoords;
+
+  void main() {
+    float red = sin(texCoords.x * 3.14 + time) * 0.5 + 0.5;
+    float green = sin(texCoords.y * 3.14 + time) * 0.2 + 0.5;
+    float alpha = 1.0;
+
+    float disFromCentre = length(texCoords - vec2(0.5, 0.5));
+
+    if (disFromCentre < 0.2 || disFromCentre > 0.4) {
+      alpha = 0.0;
+    }
+
+    vec3 colour = vec3(red, green, 0.5);
+
+    gl_FragColor = vec4(colour * alpha, alpha);
+  }
+`,function(gl,graphic){
+  graphic.timeLocation = gl.getUniformLocation(graphic.program, "time");
+});
+
+cg.scenes.main.createItem("graphic",{graphic:shaderGraphic,transform:cg.createTransform({x:200,y:200})},"shaderGraphic");
 
 cg.settings.core.callbacks.loopBefore = () => {
   cg.sceneItems.cursorRectangle.transform.x = cg.Input.cursor.x;

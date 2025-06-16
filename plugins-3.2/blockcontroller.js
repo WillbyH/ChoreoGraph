@@ -221,7 +221,7 @@ ChoreoGraph.plugin({
           this.#active = value;
           if (value&&!this.#cg.BlockController.hasActivatedDebugLoop) {
             this.#cg.BlockController.hasActivatedDebugLoop = true;
-            this.#cg.overlayLoops.push(this.#cg.BlockController.blockControllerDebugLoop);
+            this.#cg.debugLoops.push(this.#cg.BlockController.blockControllerDebugLoop);
           }
         }
         get active() { return this.#active; }

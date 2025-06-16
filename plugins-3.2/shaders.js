@@ -4,6 +4,8 @@ ChoreoGraph.plugin({
   version : "1.0",
 
   globalPackage : new class cgShaders {
+    debug = true;
+
     defaultVertexShaderCode = `
       precision mediump float;
 
@@ -30,44 +32,56 @@ ChoreoGraph.plugin({
       }
     `;
 
+    createVertexAndFragmentShader(gl, vertexShaderCode, fragmentShaderCode) {
+      if (vertexShaderCode===undefined) {
+        vertexShaderCode = ChoreoGraph.Shaders.defaultVertexShaderCode;
+      }
+
+      if (fragmentShaderCode===undefined) {
+        fragmentShaderCode = ChoreoGraph.Shaders.defaultFragmentShaderCode;
+      }
+
+      const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+      gl.shaderSource(vertexShader, vertexShaderCode);
+      gl.compileShader(vertexShader);
+      if (ChoreoGraph.Shaders.debug && gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS) === false) {
+        console.error("Vertex shader compile error:\n" + gl.getShaderInfoLog(vertexShader));
+        return;
+      }
+
+      const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+      gl.shaderSource(fragmentShader, fragmentShaderCode);
+      gl.compileShader(fragmentShader);
+      if (ChoreoGraph.Shaders.debug && gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS) === false) {
+        console.error("Fragment shader compile error:\n" + gl.getShaderInfoLog(fragmentShader));
+        return;
+      }
+
+      return [vertexShader, fragmentShader];
+    }
+
     ShaderCanvasSource = class cgShaderCanvasSource {
-      source = null;
       program = null;
       texture = null;
+      shaderCanvas = null;
+      sourceCanvas = null;
 
-      constructor(init,canvas) {
-        const gl = canvas.gl;
+      lastWidth = 0;
+      lastHeight = 0;
+
+      constructor(init,shaderCanvas) {
+        const gl = shaderCanvas.gl;
+        this.shaderCanvas = shaderCanvas;
+        if (init.source === undefined) {
+          console.error("ShaderCanvasSource requires a source canvas.");
+          return;
+        } else {
+          this.sourceCanvas = init.source;
+          delete init.source;
+        }
 
         // CREATE SHADERS
-        let vertexShaderCode;
-        if (init.vertexShader===undefined) {
-          vertexShaderCode = ChoreoGraph.Shaders.defaultVertexShaderCode;
-        } else {
-          vertexShaderCode = init.vertexShader;
-        }
-
-        let fragmentShaderCode;
-        if (init.fragmentShader===undefined) {
-          fragmentShaderCode = ChoreoGraph.Shaders.defaultFragmentShaderCode;
-        } else {
-          fragmentShaderCode = init.fragmentShader;
-        }
-
-        const vertexShader = gl.createShader(gl.VERTEX_SHADER);
-        gl.shaderSource(vertexShader, vertexShaderCode);
-        gl.compileShader(vertexShader);
-        if (gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS) === false) {
-          console.error("Vertex shader compile error:\n" + gl.getShaderInfoLog(vertexShader));
-          return;
-        }
-
-        const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-        gl.shaderSource(fragmentShader, fragmentShaderCode);
-        gl.compileShader(fragmentShader);
-        if (gl.getShaderParameter(fragmentShader, gl.COMPILE_STATUS) === false) {
-          console.error("Fragment shader compile error:\n" + gl.getShaderInfoLog(fragmentShader));
-          return;
-        }
+        const [vertexShader, fragmentShader] = ChoreoGraph.Shaders.createVertexAndFragmentShader(gl, init.vertexShaderCode, init.fragmentShaderCode);
 
         this.program = gl.createProgram();
         gl.attachShader(this.program, vertexShader);
@@ -75,7 +89,7 @@ ChoreoGraph.plugin({
         gl.linkProgram(this.program);
 
         gl.useProgram(this.program);
-        if (cg.settings.shaders.debug) {
+        if (ChoreoGraph.Shaders.debug) {
           gl.validateProgram(this.program);
           if (gl.getProgramParameter(this.program, gl.VALIDATE_STATUS) === false) {
             console.error("Program validation error:\n" + gl.getProgramInfoLog(this.program));
@@ -97,33 +111,42 @@ ChoreoGraph.plugin({
         this.texture = gl.createTexture();
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, this.texture);
-
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, canvas.width, canvas.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        this.calibrateSize();
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       }
+
+      calibrateSize() {
+        const gl = this.shaderCanvas.gl;
+        this.lastWidth = this.sourceCanvas.width;
+        this.lastHeight = this.sourceCanvas.height;
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.sourceCanvas.width, this.sourceCanvas.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      }
     };
-    Canvas = class cgShadersCanvas {
+    ShaderCanvas = class cgShadersCanvas {
       width = 600;
       height = 400;
 
-      clearColor = {r:1,g:1,b:1,a:1};
+      element = null;
+
+      clearColor = {r:0,g:0,b:0,a:0};
 
       sources = [];
 
       parentElement = null;
+      redrawCanvas = null;
 
       constructor(init,cg) {
         ChoreoGraph.applyAttributes(this,init);
         if (document.getElementsByTagName("canvas")[0].style.width != "") {
-          this.width = element.width;
+          this.width = this.element.width;
         } else {
           this.element.width = this.width;
         }
         if (document.getElementsByTagName("canvas")[0].style.height != "") {
-          this.height = element.height;
+          this.height = this.element.height;
         } else {
           this.element.height = this.height;
         }
@@ -165,13 +188,25 @@ ChoreoGraph.plugin({
         for (let source of this.sources) {
           gl.useProgram(source.program);
           gl.bindTexture(gl.TEXTURE_2D, source.texture);
-          gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, source.source);
+          if (source.lastWidth !== source.sourceCanvas.width || source.lastHeight !== source.sourceCanvas.height) {
+            source.calibrateSize();
+            this.width = source.sourceCanvas.width;
+            this.height = source.sourceCanvas.height;
+          }
+          gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, source.sourceCanvas);
           gl.drawArrays(gl.TRIANGLES, 0, 6);
+        }
+        if (this.redrawCanvas!=null) {
+          let cgCanvas = this.redrawCanvas;
+          cgCanvas.c.resetTransform();
+          cgCanvas.c.drawImage(this.element, 0, 0, this.width, this.height);
         }
       };
     }
     instanceObject = class cgInstanceShaders {
-      canvases = {};
+      shaderCanvases = {};
+
+      updateIndex = -1;
 
       constructor(cg) {
         this.cg = cg;
@@ -179,17 +214,21 @@ ChoreoGraph.plugin({
 
       createCanvas(canvasInit={},id=ChoreoGraph.id.get()) {
         if (this.cg.keys.shaderCanvases.includes(id)) { id += "-" + ChoreoGraph.id.get(); }
-        let newCanvas = new ChoreoGraph.Shaders.Canvas(canvasInit,this);
+        let newCanvas = new ChoreoGraph.Shaders.ShaderCanvas(canvasInit,this);
         newCanvas.id = id;
         newCanvas.cg = this.cg;
-        this.cg.Shaders.canvases[newCanvas.id] = newCanvas;
+        this.cg.Shaders.shaderCanvases[newCanvas.id] = newCanvas;
         this.cg.keys.shaderCanvases.push(newCanvas.id);
         return newCanvas;
       };
 
       updateShaderCanvases(cg) {
+        if (cg.Shaders.updateIndex < cg.overlayLoops.length - 1) {
+          cg.overlayLoops.splice(cg.overlayLoops.indexOf(cg.Shaders.updateShaderCanvases), 1);
+          cg.overlayLoops.push(cg.Shaders.updateShaderCanvases);
+        }
         for (let i=0;i<cg.keys.shaderCanvases.length;i++) {
-          let canvas = cg.Shaders.canvases[cg.keys.shaderCanvases[i]];
+          let canvas = cg.Shaders.shaderCanvases[cg.keys.shaderCanvases[i]];
           canvas.draw();
         }
       };
@@ -200,10 +239,96 @@ ChoreoGraph.plugin({
     cg.Shaders = new ChoreoGraph.Shaders.instanceObject(cg);
     cg.keys.shaderCanvases = [];
 
-    cg.attachSettings("shaders",{
-      debug : false
-    });
-
     cg.overlayLoops.push(cg.Shaders.updateShaderCanvases);
+    cg.Shaders.updateIndex = cg.overlayLoops.indexOf(cg.Shaders.updateShaderCanvases);
+
+    cg.graphicTypes.shader = new class ShaderGraphic {
+      setup(init,cg) {
+        this.width = init.width || 100;
+        this.height = init.height || 100;
+        this.canvas = document.createElement("canvas");
+        this.canvas.width = this.width;
+        this.canvas.height = this.height;
+
+        this.gl = this.canvas.getContext("webgl",{
+          alpha : true,
+          premultiplyAlpha : false,
+          preserveDrawingBuffer : true,
+        });
+
+        if (init.clearColor === undefined) {
+          init.clearColor = {r:0,g:0,b:0,a:0};
+        }
+
+        this.gl.clearColor(init.clearColor.r, init.clearColor.g, init.clearColor.b, init.clearColor.a);
+
+        this.program = null;
+        this.drawCallback = null;
+
+        this.createShader = function(vertexShaderCode, fragmentShaderCode) {
+          const [vertexShader, fragmentShader] = ChoreoGraph.Shaders.createVertexAndFragmentShader(this.gl, vertexShaderCode, fragmentShaderCode);
+
+          this.program = this.gl.createProgram();
+          this.gl.attachShader(this.program, vertexShader);
+          this.gl.attachShader(this.program, fragmentShader);
+          this.gl.linkProgram(this.program);
+
+          this.gl.useProgram(this.program);
+          if (ChoreoGraph.Shaders.debug) {
+            this.gl.validateProgram(this.program);
+            if (this.gl.getProgramParameter(this.program, this.gl.VALIDATE_STATUS) === false) {
+              console.error("Program validation error:\n" + this.gl.getProgramInfoLog(this.program));
+              return;
+            }
+          }
+
+          let triangles = new Float32Array([-1, -1, -1, 1, 1, 1, -1, -1, 1, 1, 1, -1]);
+          const vertexBuffer = this.gl.createBuffer();
+          this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vertexBuffer);
+          this.gl.bufferData(this.gl.ARRAY_BUFFER, triangles, this.gl.STATIC_DRAW);
+          const positionLocation = this.gl.getAttribLocation(this.program, "position");
+          this.gl.vertexAttribPointer(positionLocation, 2, this.gl.FLOAT, false, 0, 0);
+          this.gl.enableVertexAttribArray(positionLocation);
+
+          return this;
+        };
+
+        this.uniforms = {};
+
+        this.declareUniform = function(name) {
+          this.uniforms[name] = this.gl.getUniformLocation(this.program, name);
+        };
+
+        this.setSize = function(width, height) {
+          if (this.width === width && this.height === height) {
+            return;
+          }
+          this.width = width;
+          this.height = height;
+          this.canvas.width = width;
+          this.canvas.height = height;
+          this.gl.viewport(0, 0, width, height);
+          this.gl.scissor(0, 0, width, height);
+        }
+      };
+      draw(c,ax,ay) {
+        if (!this.program) {
+          return;
+        }
+        this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+        this.gl.useProgram(this.program);
+        this.gl.drawArrays(this.gl.TRIANGLES, 0, 6);
+
+        if (this.drawCallback) {
+          this.drawCallback(this.gl, this);
+        }
+
+        c.drawImage(this.canvas, ax-this.width*0.5, ay-this.height*0.5, this.width, this.height);
+      };
+
+      getBounds() {
+        return [this.width,this.height,0,0];
+      };
+    };
   }
 });

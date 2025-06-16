@@ -311,7 +311,7 @@ ChoreoGraph.plugin({
           let height = canvas.height / cullCamera.cz;
           let width = canvas.width / cullCamera.cz;
           c.strokeRect(-width*0.5,-height*0.5,width,height);
-          
+
           function drawCullBox(item) {
             let [bw, bh, bx, by] = item.graphic.getBounds();
             let gx = item.transform.x + bx;
@@ -349,17 +349,17 @@ ChoreoGraph.plugin({
 
             c.strokeRect(-bw/2,-bh/2,bw,bh);
           }
-          
+
           function drawCollectionCullBoxes(collection) {
             for (let item of collection) {
-              if (item.type=="graphic"&&item.graphic.getBounds!==undefined) {
+              if (item.type=="graphic"&&item.graphic.getBounds!==undefined&&item.transform.CGSpace) {
                 drawCullBox(item);
               } else if (item.type=="collection") {
                 drawCollectionCullBoxes(item.children);
               }
             }
           }
-          
+
           for (let scene of cullCamera.scenes) {
             drawCollectionCullBoxes(scene.drawBuffer);
           }
@@ -834,7 +834,7 @@ ChoreoGraph.plugin({
       section.style.marginBottom = "20px";
       ChoreoGraph.Develop.section.prepend(section);
 
-      cg.overlayLoops.push(ChoreoGraph.Develop.pathEditorOverlayLoop);
+      cg.debugLoops.push(ChoreoGraph.Develop.pathEditorOverlayLoop);
 
       // SELECTED PATH DROPDOWN
       let dropdown = document.createElement("select");
@@ -1527,7 +1527,7 @@ ChoreoGraph.plugin({
     });
     cg.Develop = new ChoreoGraph.Develop.instanceObject(cg);
     cg.processLoops.push(cg.Develop.developProcessLoop);
-    cg.overlayLoops.push(cg.Develop.developOverlayLoop);
+    cg.debugLoops.push(cg.Develop.developOverlayLoop);
   },
 
   globalStart() {

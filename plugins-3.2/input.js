@@ -1258,7 +1258,7 @@ ChoreoGraph.plugin({
           this.#active = value;
           if (value&&!this.#cg.Input.hasActivatedDebugLoop) {
             this.#cg.Input.hasActivatedDebugLoop = true;
-            this.#cg.overlayLoops.push(this.#cg.Input.inputDebugLoop);
+            this.#cg.debugLoops.push(this.#cg.Input.inputDebugLoop);
           }
         }
         get active() { return this.#active; }
