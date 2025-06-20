@@ -303,6 +303,15 @@ let shaderGraphic = cg.createGraphic({type:"shader",width:250,height:250,drawCal
 
 cg.scenes.main.createItem("graphic",{graphic:shaderGraphic,transform:cg.createTransform({x:200,y:200})},"shaderGraphic");
 
+cg.Physics.createCollider({type:"rectangle",transformInit:{x:500,y:60}},"rectCollider");
+// cg.Physics.createCollider({type:"rectangle",static:true,transformInit:{x:500,y:60}},"rectCollider");
+cg.Physics.createCollider({type:"circle",transformInit:{x:500,y:200}},"circleCollider");
+cg.Physics.createCollider({type:"circle",trigger:true,transformInit:{x:301,y:300}},"circleCollider");
+// cg.Physics.createCollider({type:"circle",transformInit:{x:502,y:200}},"circleCollider");
+// cg.Physics.createCollider({type:"circle",transformInit:{x:503,y:200}},"circleCollider");
+// cg.Physics.createCollider({type:"point",transformInit:{x:503,y:200}},"circleCollider");
+cg.Physics.createCollider({type:"raycast",dx:100,dy:50,transformInit:{x:203,y:200}},"raycastCollider");
+
 cg.settings.core.callbacks.loopBefore = () => {
   cg.sceneItems.cursorRectangle.transform.x = cg.Input.cursor.x;
   cg.sceneItems.cursorRectangle.transform.y = cg.Input.cursor.y;
@@ -320,6 +329,11 @@ cg.settings.core.callbacks.loopBefore = () => {
 
   // cg.sceneItems.canvasCursorRectangle.transform.x = cg.Input.cursor.canvasX;
   // cg.sceneItems.canvasCursorRectangle.transform.y = cg.Input.cursor.canvasY;
+
+  if (ChoreoGraph.Input.keyStates.g) {
+    cg.Physics.colliders.rectCollider.transform.x = cg.Input.cursor.x;
+    cg.Physics.colliders.rectCollider.transform.y = cg.Input.cursor.y;
+  }
 }
 cg.settings.core.callbacks.loopAfter = () => {
   ChoreoGraph.transformContext(cg.canvases.main.camera);

@@ -171,6 +171,9 @@ ChoreoGraph.plugin({
             scaleMode : canvas.camera.scaleMode,
             WHRatio : canvas.camera.WHRatio,
             maximumSize : canvas.camera.maximumSize,
+            maximumWidth : canvas.camera.maximumWidth,
+            maximumHeight : canvas.camera.maximumHeight,
+            minimumSize : canvas.camera.minimumSize,
             minimumWidth : canvas.camera.minimumWidth,
             minimumHeight : canvas.camera.minimumHeight,
             pixelScale : canvas.camera.pixelScale,
@@ -367,6 +370,7 @@ ChoreoGraph.plugin({
       };
 
       overlayFPS(cg) {
+        ChoreoGraph.settings.storeProcessTime = true;
         for (let canvasId of cg.keys.canvases) {
           let canvas = cg.canvases[canvasId];
           if (canvas.hideDebugOverlays) { continue; }
@@ -383,6 +387,7 @@ ChoreoGraph.plugin({
           }
           average /= cg.Develop.featureData.fps.previous.length;
           let text = Math.round(fps*10)/10+"fps";
+          text += " (" + Math.round(ChoreoGraph.processTime*10)/10 + "ms)";
 
           cg.Develop.drawTopLeftText(cg,canvas,text);
         }

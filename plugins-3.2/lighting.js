@@ -42,10 +42,10 @@ ChoreoGraph.plugin({
         if (!cg.settings.lighting.debug.active) { return; }
         for (let canvasId of cg.keys.canvases) {
           let canvas = cg.canvases[canvasId];
+          if (canvas.hideDebugOverlays) { continue; }
           if (canvas.camera==undefined) { continue; }
           let c = canvas.c;
           let scale = cg.settings.core.debugCGScale / canvas.camera.cz;
-          if (canvas.hideDebugOverlays) { continue; }
           ChoreoGraph.transformContext(canvas.camera);
 
           // LIGHT BOUNDS DEBUG
@@ -99,14 +99,7 @@ ChoreoGraph.plugin({
       feather = 0;
 
       constructor(lightInit,cg) {
-        if (lightInit.transform==undefined) {
-          if (lightInit.transformId==undefined) {
-            this.transform = cg.createTransform();
-          } else {
-            this.transform = cg.createTransform({},lightInit.transformId);
-            delete lightInit.transformId;
-          }
-        }
+        ChoreoGraph.initTransform(cg,this,lightInit);
       }
     };
 
@@ -271,14 +264,7 @@ ChoreoGraph.plugin({
       sidesBuffer = [];
 
       constructor(occluderInit,cg) {
-        if (occluderInit.transform==undefined) {
-          if (occluderInit.transformId==undefined) {
-            this.transform = cg.createTransform();
-          } else {
-            this.transform = cg.createTransform({},occluderInit.transformId);
-            delete occluderInit.transformId;
-          }
-        }
+        ChoreoGraph.initTransform(cg,this,occluderInit);
         ChoreoGraph.applyAttributes(this,occluderInit);
         if (this.path.length>=2) {
           this.calculateSides();

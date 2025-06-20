@@ -814,14 +814,7 @@ ChoreoGraph.plugin({
       scene = null;
 
       constructor(buttonInit,cg) {
-        if (buttonInit.transform===undefined) {
-          if (buttonInit.transformId!=undefined) {
-            this.transform = cg.createTransform();
-          } else {
-            this.transform = cg.createTransform({},buttonInit.transformId);
-            delete buttonInit.transformId;
-          }
-        }
+        ChoreoGraph.initTransform(cg,this,buttonInit);
         if (buttonInit.x!=undefined) { this.transform.x = buttonInit.x; delete buttonInit.x; }
         if (buttonInit.y!=undefined) { this.transform.y = buttonInit.y; delete buttonInit.y; }
         if (buttonInit.canvasSpaceXAnchor!=undefined) { this.transform.canvasSpaceXAnchor = buttonInit.canvasSpaceXAnchor; delete buttonInit.canvasSpaceXAnchor; }

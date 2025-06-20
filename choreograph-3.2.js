@@ -5,7 +5,8 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     maxFPS : Infinity,
     pauseWhenUnfocused : false, // Pause when document.hasFocus() is false
     pauseWhenOffscreen : false, // Pause when any cgCanvas is offscreen
-    pauseLoop : false
+    pauseLoop : false, // Pause the loop
+    storeProcessTime : false, // Saves the milliseconds it takes to process the frame
   };
 
   started = false;
@@ -13,6 +14,8 @@ const ChoreoGraph = new class ChoreoGraphEngine {
   lastPerformanceTime = performance.now();
   now = new Date();
   nowint = new Date().getTime();
+  timeDelta = 0;
+  processTime = -1;
 
   plugins = {};
   globalBeforeLoops = [];
@@ -54,7 +57,9 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     ready = false;
 
     graphicTypes = {};
+
     processLoops = [];
+    predrawLoops = [];
     overlayLoops = [];
     debugLoops = [];
 
@@ -174,6 +179,10 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       }
 
       if (this.settings.core.callbacks.loopBefore!=null) { this.settings.core.callbacks.loopBefore(this); }
+
+      for (let loop of this.predrawLoops) {
+        loop(this);
+      }
 
       for (let canvasId of this.keys.canvases) {
         let canvas = this.canvases[canvasId];
@@ -549,7 +558,6 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       }
     };
     checkGraphicBoundCull(item) {
-      cg.c.resetTransform();
       if (this.cg.settings.core.frustumCulling&&item.graphic.getBounds!==undefined&&item.transform.CGSpace) {
         let [bw, bh, box, boy] = item.graphic.getBounds();
 
@@ -688,14 +696,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     };
 
     constructor(cameraInit,cg) {
-      if (cameraInit.transform===undefined) {
-        if (cameraInit.transformId!=undefined) {
-          this.transform = cg.createTransform();
-        } else {
-          this.transform = cg.createTransform({},cameraInit.transformId);
-          delete cameraInit.transformId;
-        }
-      }
+      ChoreoGraph.initTransform(cg,this,cameraInit);
       this.canvasSpaceScale = cg.settings.core.defaultCanvasSpaceScale;
       if (cameraInit.x!=undefined) { this.transform.x = cameraInit.x; delete cameraInit.x; }
       if (cameraInit.y!=undefined) { this.transform.y = cameraInit.y; delete cameraInit.y; }
@@ -1051,14 +1052,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     transform = null;
 
     constructor(objectInit,cg) {
-      if (objectInit.transform==undefined) {
-        if (objectInit.transformId==undefined) {
-          this.transform = cg.createTransform();
-        } else {
-          this.transform = cg.createTransform({},objectInit.transformId);
-          delete objectInit.transformId;
-        }
-      }
+      ChoreoGraph.initTransform(cg,this,objectInit);
       if (objectInit.deleteTransformOnDelete) {
         this.objectData.deleteTransformOnDelete = true;
         delete objectInit.deleteTransformOnDelete;
@@ -1115,14 +1109,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       deleteTransformOnDelete = true;
 
       constructor(componentInit,object) {
-        if (componentInit.transform==undefined) {
-          if (componentInit.transformId!=undefined) {
-            this.transform = object.cg.createTransform();
-          } else {
-            this.transform = object.cg.createTransform({},componentInit.transformId);
-            delete componentInit.transformId;
-          }
-        }
+        ChoreoGraph.initTransform(object.cg,this,componentInit);
         ChoreoGraph.initObjectComponent(this,componentInit);
         if (this.transform.parent==null) { this.transform.parent = object.transform; }
         if (this.graphic==null) {
@@ -1376,6 +1363,26 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     }
   };
 
+  initTransform(cg,obj,init) {
+    if (init.transform!=undefined) {
+      obj.transform = init.transform;
+      delete init.transform;
+    } else {
+      let transformInit = init.transformInit;
+      if (transformInit!=undefined) {
+        delete init.transformInit;
+      } else {
+        transformInit = {};
+      }
+      if (init.transformId!=undefined) {
+        obj.transform = cg.createTransform(transformInit,init.transformId);
+        delete init.transformId;
+      } else {
+        obj.transform = cg.createTransform(transformInit);
+      }
+    }
+  }
+
   colourLerp(colourFrom, colourTo, amount) {
     let splitcolourTo = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(colourTo);
     if (splitcolourTo!=null) { colourTo = splitcolourTo ? splitcolourTo.map(i => parseInt(i, 16)).slice(1) : null; } else { return colourFrom; }
@@ -1533,6 +1540,11 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       }
       for (let loop of ChoreoGraph.globalAfterLoops) { loop(this); }
     }
+
+    if (ChoreoGraph.settings.storeProcessTime) {
+      ChoreoGraph.processTime = performance.now() - ChoreoGraph.lastPerformanceTime;
+    }
+
     if (continuous) { ChoreoGraph.frame = requestAnimationFrame(ChoreoGraph.loop); }
     else { this.frame++; }
   };

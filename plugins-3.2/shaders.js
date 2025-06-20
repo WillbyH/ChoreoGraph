@@ -111,7 +111,6 @@ ChoreoGraph.plugin({
         this.texture = gl.createTexture();
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, this.texture);
-        this.calibrateSize();
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
@@ -122,6 +121,8 @@ ChoreoGraph.plugin({
         const gl = this.shaderCanvas.gl;
         this.lastWidth = this.sourceCanvas.width;
         this.lastHeight = this.sourceCanvas.height;
+        this.shaderCanvas.width = this.sourceCanvas.width;
+        this.shaderCanvas.height = this.sourceCanvas.height;
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.sourceCanvas.width, this.sourceCanvas.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
       }
     };
@@ -190,8 +191,6 @@ ChoreoGraph.plugin({
           gl.bindTexture(gl.TEXTURE_2D, source.texture);
           if (source.lastWidth !== source.sourceCanvas.width || source.lastHeight !== source.sourceCanvas.height) {
             source.calibrateSize();
-            this.width = source.sourceCanvas.width;
-            this.height = source.sourceCanvas.height;
           }
           gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, source.sourceCanvas);
           gl.drawArrays(gl.TRIANGLES, 0, 6);
