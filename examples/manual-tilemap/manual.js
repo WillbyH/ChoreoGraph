@@ -1,6 +1,9 @@
 const cg = ChoreoGraph.instantiate({
   core : {
     debugCGScale : 0.1
+  },
+  input : {
+    preventDefaultKeys : ["up","down","left","right"]
   }
 });
 
@@ -88,14 +91,38 @@ cg.Tilemaps.tilemaps.main.createChunkedLayer({
     2,2,4,3,5,4,1,1,1,2,
     2,1,4,4,4,4,4,4,4,2,
     2,4,4,2,2,2,4,5,4,2,
-    2,2,2,2,0,2,2,2,2,2,
+    2,2,2,2,0,2,2,2,2,2
+  ]),
+  chunkWidth : 5,
+  chunkHeight : 5,
+  totalWidth : 10,
+  chunksOffsetX : -5,
+  chunksOffsetY : -5
+});
+
+cg.Tilemaps.tilemaps.main.createChunkedLayer({
+  tiles : tiles([
+    0,0,0,0,0,0,0,1,1,1,
+    1,1,1,1,1,1,1,1,0,1,
+    1,0,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,1,1,0,0,1,
+    1,1,0,0,0,0,0,0,0,1,
+    1,0,0,0,0,0,1,1,1,1,
+    1,1,0,1,0,0,0,0,0,1,
+    1,0,0,0,0,0,0,0,0,1,
+    1,0,0,1,1,1,0,0,0,1,
+    1,1,1,1,0,1,1,1,1,1
   ]),
   chunkWidth : 5,
   chunkHeight : 5,
   totalWidth : 10,
   chunksOffsetX : -5,
   chunksOffsetY : -5,
+  layerName : "colliders",
+  layerVisible : false
 });
+
+cg.Physics.createCollidersFromTilemap(cg.Tilemaps.tilemaps.main,1,"wall");
 
 cg.createGraphic({
   type : "tilemap",
@@ -104,6 +131,34 @@ cg.createGraphic({
 },"tilemap");
 
 cg.scenes.main.createItem("graphic",{graphic:cg.graphics.tilemap},"tilemap");
+
+cg.Input.createAction({keys:["w","up"]},"primaryForward");
+cg.Input.createAction({keys:["s","down"]},"primaryBackward");
+cg.Input.createAction({keys:["a","left"]},"primaryLeft");
+cg.Input.createAction({keys:["d","right"]},"primaryRight");
+
+cg.createObject({},"player")
+.attach("Graphic",{
+  graphic:cg.createGraphic({
+    type:"arc",
+    colour:"#000000aa",
+    radius:3,
+  },"player"),
+  transform : cg.createTransform({oy:0.8})
+})
+.attach("Graphic",{
+  graphic:cg.createGraphic({
+    type:"arc",
+    colour:"#ff5555",
+    radius:3,
+  },"player")
+})
+.attach("RigidBody",{
+  collider : cg.Physics.createCollider({
+    type:"circle",
+    radius:3
+  },"player"),
+})
 
 cg.Input.createAction({keys:["i"]},"secondaryForward");
 cg.Input.createAction({keys:["k"]},"secondaryBackward");
@@ -114,6 +169,10 @@ cg.settings.core.callbacks.loopBefore = () => {
   let dir = cg.Input.getActionNormalisedVector("secondaryForward","secondaryBackward","secondaryLeft","secondaryRight");
   cg.cameras.main.transform.x += dir[0]*0.1*cg.timeDelta;
   cg.cameras.main.transform.y += dir[1]*0.1*cg.timeDelta;
+
+  dir = cg.Input.getActionNormalisedVector("primaryForward","primaryBackward","primaryLeft","primaryRight");
+  cg.objects.player.RigidBody.xv = dir[0]*30;
+  cg.objects.player.RigidBody.yv = dir[1]*30;
 };
 
 ChoreoGraph.start();

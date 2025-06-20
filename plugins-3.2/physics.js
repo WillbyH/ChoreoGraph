@@ -175,7 +175,7 @@ ChoreoGraph.plugin({
           c.strokeStyle = style.colours.physics;
           c.fillStyle = style.colours.physics;
         }
-        c.lineWidth = style.outlineWidth * collider.cg.settings.core.defaultCanvasSpaceScale;
+        c.lineWidth = style.outlineWidth * collider.cg.settings.core.debugCGScale;
         return style.opacity;
       };
 
@@ -249,6 +249,106 @@ ChoreoGraph.plugin({
           this.cg.Physics.calibrateCollisionOrder();
         }
         return newCollider;
+      };
+
+      createCollidersFromTilemap(tilemap,layerIndex=0,targetTileId=1,xo=0,yo=0) {
+        if (tilemap===undefined) { console.warn("No Tilemap provided in createCollidersFromTileMap"); return; }
+        let pool = [];
+        for (let chunk of tilemap.chunks) {
+          if (chunk.layers[layerIndex]==undefined) { continue; }
+          for (let t=0;t<chunk.layers[layerIndex].tiles.length;t++) {
+            let tileId = chunk.layers[layerIndex].tiles[t];
+            if (tileId===targetTileId) {
+              let x = t % chunk.width + chunk.x;
+              let y = Math.floor(t / chunk.width) + chunk.y;
+              pool.push(x+","+y);
+            }
+          }
+        }
+        let colliderNumber = 0;
+        let colliderGroupName = tilemap.id;
+        while (pool.length>0) {
+          let biggestArea = 0;
+          let biggestPool = [];
+          let biggestWidth = 0;
+          let biggestHeight = 0;
+          let biggestStart = "";
+          for (let i=0;i<pool.length;i++) { // Go through every tile in the pool and find which has the largest rectangle
+            let start = pool[i];
+            let x = parseInt(start.split(",")[0]);
+            let y = parseInt(start.split(",")[1]);
+            let width = 1;
+            let height = 1;
+            let area = 1;
+            let currentPool = [pool[i]];
+            let found = true;
+            while (found) { // While this tile has its rectangle still growing
+              let foundVertical = true;
+              let foundHorizontal = false;
+              let potentialVertPool = [];
+              let potentialHorPool = [];
+              // Check vertically down
+              for (let j=0;j<width;j++) { // Check below each bottom tile
+                if (pool.indexOf((x+j)+","+(y+height))!=-1) {
+                  potentialVertPool.push((x+j)+","+(y+height));
+                } else {
+                  foundVertical = false;
+                }
+              }
+              if (foundVertical==false) {
+                foundHorizontal = true;
+                for (let j=0;j<height;j++) { // Check to the right of each right tile
+                  if (pool.indexOf((x+width)+","+(y+j))!=-1) {
+                    potentialHorPool.push((x+width)+","+(y+j));
+                  } else {
+                    foundHorizontal = false;
+                  }
+                }
+              }
+              if (foundVertical==false&&foundHorizontal==false) { // If neither direction can be expanded
+                found = false;
+              } else if (foundVertical) { // If the vertical direction can be expanded
+                for (let j=0;j<potentialVertPool.length;j++) {
+                  currentPool.push(potentialVertPool[j]);
+                }
+                height++;
+              } else if (foundHorizontal) { // If the horizontal direction can be expanded
+                for (let j=0;j<potentialHorPool.length;j++) {
+                  currentPool.push(potentialHorPool[j]);
+                }
+                width++;
+              }
+            }
+            area = width*height;
+            if (area>biggestArea) {
+              biggestArea = area;
+              biggestPool = currentPool;
+              biggestWidth = width;
+              biggestHeight = height;
+              biggestStart = start;
+            }
+          }
+          // By this point all the biggest values should have the largest rectangle
+          for (let i=0;i<biggestPool.length;i++) {
+            pool.splice(pool.indexOf(biggestPool[i]),1);
+          }
+          let biggestX = parseInt(biggestStart.split(",")[0]);
+          let biggestY = parseInt(biggestStart.split(",")[1]);
+          let topLeftX = xo - (tilemap.tileWidth*tilemap.width)/2;
+          let topLeftY = yo - (tilemap.tileHeight*tilemap.height)/2;
+          let x = topLeftX + biggestX*tilemap.tileWidth + tilemap.tileWidth/2;
+          let y = topLeftY + biggestY*tilemap.tileHeight + tilemap.tileHeight/2;
+          let cx = x+(tilemap.tileWidth*biggestWidth)/2-tilemap.tileWidth/2;
+          let cy = y+(tilemap.tileHeight*biggestHeight)/2-tilemap.tileHeight/2;
+          this.createCollider({
+            static : true,
+            type : "rectangle",
+            width : tilemap.tileWidth * biggestWidth,
+            height : tilemap.tileHeight * biggestHeight,
+            transformInit : { x: cx, y: cy }
+          }, colliderGroupName + "_" + colliderNumber);
+          colliderNumber++;
+        }
       };
     };
 

@@ -26,6 +26,7 @@ ChoreoGraph.plugin({
       };
 
       createLayer(layerInit={}) {
+        if (layerInit.name===undefined) { delete layerInit.name; }
         let newLayer = new ChoreoGraph.Tilemaps.TilemapLayer();
         ChoreoGraph.applyAttributes(newLayer,layerInit);
         this.layers.push(newLayer);
@@ -49,7 +50,7 @@ ChoreoGraph.plugin({
         const chunkHeight = chunksInit.chunkHeight;
         const totalWidth = chunksInit.totalWidth;
         const layerName = chunksInit.layerName || undefined;
-        const layerVisible = chunksInit.layerVisible || true;
+        const layerVisible = chunksInit.layerVisible == undefined ? true : chunksInit.layerVisible;
 
         if (Math.abs((totalWidth/chunkWidth)%1)>0) {
           console.warn("totalWidth must be a multiple of chunkWidth");
@@ -74,12 +75,25 @@ ChoreoGraph.plugin({
                 chunkTiles.push(tile);
               }
             }
-            this.createChunk({
-              x : chunkSpaceX * chunkWidth + chunksOffsetX,
-              y : chunkSpaceY * chunkHeight + chunksOffsetY,
-              width : chunkWidth,
-              height : chunkHeight
-            }).createLayer({
+            let chunk = null;
+            for (let chunkIndex=0;chunkIndex<this.chunks.length;chunkIndex++) {
+              let chunkCheck = this.chunks[chunkIndex];
+              if (chunkCheck.x == chunkSpaceX * chunkWidth + chunksOffsetX
+                  && chunkCheck.y == chunkSpaceY * chunkHeight + chunksOffsetY
+                  && chunkCheck.width == chunkWidth
+                  && chunkCheck.height == chunkHeight) {
+                chunk = chunkCheck;
+              }
+            }
+            if (chunk==null) {
+              chunk = this.createChunk({
+                x : chunkSpaceX * chunkWidth + chunksOffsetX,
+                y : chunkSpaceY * chunkHeight + chunksOffsetY,
+                width : chunkWidth,
+                height : chunkHeight
+              })
+            }
+            chunk.createLayer({
               tiles : chunkTiles
             });
           }
@@ -97,7 +111,6 @@ ChoreoGraph.plugin({
         if (this.drawBuffer!==null) { return }
         this.drawBuffer = document.createElement("canvas");
         this.drawBufferContext = this.drawBuffer.getContext("2d",{alpha:true});
-        document.body.appendChild(this.drawBuffer);
       }
     };
 
@@ -121,6 +134,10 @@ ChoreoGraph.plugin({
         for (let tileId of newLayer.tiles) {
           if (tileId==null) { continue; }
           let tile = this.tilemap.cg.Tilemaps.tiles[tileId];
+          if (tile==undefined) {
+            console.warn("Tile with id " + tileId + " not found in Tilemap:",this.tilemap.id);
+            continue;
+          }
           function awaitImage(chunk,image) {
             if (chunk.tilemap.awaitedImages.includes(image)) { return; }
             chunk.tilemap.awaitedImages.push(image);
