@@ -287,7 +287,7 @@ ChoreoGraph.plugin({
               c.strokeStyle = cg.settings.develop.cameras.colour;
               let cw = canvas.width/camera.cz;
               let ch = canvas.height/camera.cz;
-              c.lineWidth = 2 * cg.settings.core.debugCGScale / canvas.camera.cz;
+              c.lineWidth = 2 * cg.settings.core.debugCanvasScale / canvas.camera.cz;
               c.beginPath();
               c.rect(-cw*0.5,-ch*0.5,cw,ch)
               c.moveTo(-cw*0.5,-ch*0.5);
