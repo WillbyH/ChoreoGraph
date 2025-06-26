@@ -92,14 +92,16 @@ cg.scenes.exit.createItem("graphic",{
 
 cg.Input.createButton({
   type : "rectangle",
-  CGSpace : false,
-  x : 0,
-  y : 94.5,
   width : 600,
   height : 100,
-  canvasSpaceXAnchor : 0.5,
-  canvasSpaceYAnchor : 0.5,
   scene : cg.scenes.exit,
+  transformInit : {
+    CGSpace : false,
+    x : 0,
+    y : 94.5,
+    canvasSpaceXAnchor : 0.5,
+    canvasSpaceYAnchor : 0.5,
+  },
   down : () => {
     stst.closeExitMenu();
     stst.openTitleScreen();
@@ -108,14 +110,16 @@ cg.Input.createButton({
 
 cg.Input.createButton({
   type : "rectangle",
-  CGSpace : false,
-  x : 0,
-  y : 238.6,
   width : 600,
   height : 100,
-  canvasSpaceXAnchor : 0.5,
-  canvasSpaceYAnchor : 0.5,
   scene : cg.scenes.exit,
+  transformInit : {
+    CGSpace : false,
+    x : 0,
+    y : 238.6,
+    canvasSpaceXAnchor : 0.5,
+    canvasSpaceYAnchor : 0.5,
+  },
   down : () => {
     stst.closeExitMenu();
   }
@@ -205,14 +209,16 @@ cg.scenes.fail.createItem("graphic",{
 
 cg.Input.createButton({
   type : "rectangle",
-  CGSpace : false,
-  x : 0,
-  y : 94.5,
   width : 600,
   height : 100,
-  canvasSpaceXAnchor : 0.5,
-  canvasSpaceYAnchor : 0.5,
   scene : cg.scenes.fail,
+  transformInit : {
+    CGSpace : false,
+    x : 0,
+    y : 94.5,
+    canvasSpaceXAnchor : 0.5,
+    canvasSpaceYAnchor : 0.5
+  },
   down : () => {
     stst.closeFailMenu();
     stst.reset(true);
@@ -221,14 +227,16 @@ cg.Input.createButton({
 
 cg.Input.createButton({
   type : "rectangle",
-  CGSpace : false,
-  x : 0,
-  y : 238.6,
   width : 600,
   height : 100,
-  canvasSpaceXAnchor : 0.5,
-  canvasSpaceYAnchor : 0.5,
   scene : cg.scenes.fail,
+  transformInit : {
+    CGSpace : false,
+    x : 0,
+    y : 238.6,
+    canvasSpaceXAnchor : 0.5,
+    canvasSpaceYAnchor : 0.5
+  },
   down : () => {
     stst.closeFailMenu();
     stst.openTitleScreen();
@@ -429,13 +437,15 @@ cg.scenes.main.addObject(cg.objects.topLeftText);
 
 cg.Input.createButton({
   type : "rectangle",
-  CGSpace : false,
-  x : 400,
-  y : 100,
+  check : "touchAndAlarm",
   width : 800,
   height : 200,
-  check : "touchAndAlarm",
   scene : cg.scenes.main,
+  transformInit : {
+    CGSpace : false,
+    x : 400,
+    y : 100
+  },
   down : () => {
     stst.openFailMenu();
   }
@@ -609,50 +619,58 @@ cg.scenes.title.createItem("graphic",{
 
 cg.Input.createButton({
   type : "rectangle",
-  CGSpace : false,
-  x : -175,
-  y : -70*3,
   width : 250,
   height : 60,
-  canvasSpaceXAnchor : 1,
-  canvasSpaceYAnchor : 1,
-  scene : cg.scenes.title
+  scene : cg.scenes.title,
+  transformInit : {
+    CGSpace : false,
+    x : -175,
+    y : -70*3,
+    canvasSpaceXAnchor : 1,
+    canvasSpaceYAnchor : 1
+  }
 },"masterVolume");
 
 cg.Input.createButton({
   type : "rectangle",
-  CGSpace : false,
-  x : -175,
-  y : -70*2,
+  scene : cg.scenes.title,
   width : 250,
   height : 60,
-  canvasSpaceXAnchor : 1,
-  canvasSpaceYAnchor : 1,
-  scene : cg.scenes.title
+  transformInit : {
+    CGSpace : false,
+    x : -175,
+    y : -70*2,
+    canvasSpaceXAnchor : 1,
+    canvasSpaceYAnchor : 1
+  }
 },"musicVolume");
 
 cg.Input.createButton({
   type : "rectangle",
-  CGSpace : false,
-  x : -175,
-  y : -70,
+  scene : cg.scenes.title,
   width : 250,
   height : 60,
-  canvasSpaceXAnchor : 1,
-  canvasSpaceYAnchor : 1,
-  scene : cg.scenes.title
+  transformInit : {
+    CGSpace : false,
+    x : -175,
+    y : -70,
+    canvasSpaceXAnchor : 1,
+    canvasSpaceYAnchor : 1
+  }
 },"sfxVolume");
 
 stst.isFullscreen = false;
 
 cg.Input.createButton({type:"rectangle",
   CGSpace : false,
-  x : 200,
-  y : -68,
   width : 350,
   height : 60,
-  canvasSpaceYAnchor : 1,
   scene : cg.scenes.title,
+  transformInit : {
+    x : 200,
+    y : -68,
+    canvasSpaceYAnchor : 1
+  },
   down : ()=> {
     stst.isFullscreen = !stst.isFullscreen;
     if (stst.isFullscreen) {

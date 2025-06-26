@@ -7,7 +7,8 @@ const cg = ChoreoGraph.instantiate({
     preventSingleTouch : true
   },
   audio : {
-    // forceMode : "HTMLAudio"
+    // forceMode : "HTMLAudio",
+    baseAudioPath : "audio/",
   },
   input : {
     preventDefaultKeys : ["space","up","down"],
@@ -81,12 +82,12 @@ cg.scenes.main.createItem("graphic",{graphic:cg.graphics.upRectangle},"upRectang
 cg.scenes.main.createItem("graphic",{graphic:cg.graphics.cursorRectangle},"cursorRectangle");
 // cg.scenes.main.createItem("graphic",{graphic:cg.graphics.canvasCursorRectangle},"canvasCursorRectangle");
 
-cg.Input.createButton({type:"rectangle",CGSpace:true,x:500,y:30,width:120,down:function(){
+cg.Input.createButton({type:"rectangle",transformInit:{CGSpace:true,x:500,y:30},width:120,down:function(){
   cg.Audio.masterVolume = cg.Audio.masterVolume==0 ? 1 : 0;
 }},"toggleAudio");
-cg.Input.createButton({type:"rectangle",CGSpace:false,canvasSpaceXAnchor:1,canvasSpaceYAnchor:1,x:-120/2,y:-100/2,width:120},"dummy");
-cg.Input.createButton({type:"circle",CGSpace:false,canvasSpaceXAnchor:0,canvasSpaceYAnchor:1,x:35,y:-35,radius:30},"plastic");
-cg.Input.createButton({type:"polygon",CGSpace:true,x:-200,y:0,path:[[18,-62],[-49,-26],[-48,45],[13,65],[48,27],[30,-15]]},"grumble");
+cg.Input.createButton({type:"rectangle",transformInit:{CGSpace:false,canvasSpaceXAnchor:1,canvasSpaceYAnchor:1,x:-120/2,y:-100/2},width:120},"dummy");
+cg.Input.createButton({type:"circle",transformInit:{CGSpace:false,canvasSpaceXAnchor:0,canvasSpaceYAnchor:1,x:35,y:-35},radius:30},"plastic");
+cg.Input.createButton({type:"polygon",transformInit:{CGSpace:true,x:-200,y:0},path:[[18,-62],[-49,-26],[-48,45],[13,65],[48,27],[30,-15]]},"grumble");
 
 cg.Audio.createSound({source:"magneticPlane.mp3"},"magneticPlane");
 cg.Audio.sounds.magneticPlane.play({allowBuffer:true,loop:true});

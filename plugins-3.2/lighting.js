@@ -52,6 +52,7 @@ ChoreoGraph.plugin({
           if (cg.settings.lighting.debug.lightBounds) {
             for (let lightId of cg.keys.lights) {
               let light = cg.Lighting.lights[lightId];
+              const [lightX,lightY] = light.getPosition();
               let bounds = light.getBounds();
               if (light.occlude) {
                 c.strokeStyle = "green";
@@ -60,7 +61,7 @@ ChoreoGraph.plugin({
               }
               c.lineWidth = 2 * scale;
               c.beginPath();
-              c.rect(light.transform.x - bounds[0] * 0.5 + bounds[2], light.transform.y - bounds[1] * 0.5 + bounds[3], bounds[0], bounds[1]);
+              c.rect(lightX - bounds[0] * 0.5 + bounds[2], lightY - bounds[1] * 0.5 + bounds[3], bounds[0], bounds[1]);
               c.stroke();
             }
           }
@@ -100,7 +101,24 @@ ChoreoGraph.plugin({
 
       constructor(lightInit,cg) {
         ChoreoGraph.initTransform(cg,this,lightInit);
-      }
+      };
+
+      getPosition() {
+        let lx = this.transform.x;
+        let ly = this.transform.y;
+        let lr = this.transform.r;
+        let lax = this.transform.ax;
+        let lay = this.transform.ay;
+        if (lr!=0) {
+          let rad = lr*Math.PI/180;
+          lx += lax*Math.cos(rad) - lay*Math.sin(rad);
+          ly += lax*Math.sin(rad) + lay*Math.cos(rad);
+        } else {
+          lx += lax;
+          ly += lay;
+        }
+        return [lx,ly];
+      };
     };
 
     SpotLight = class extends this.Light {
@@ -131,32 +149,31 @@ ChoreoGraph.plugin({
       }
 
       draw(bc, cc) {
-        let radialData = this.transform.x+"-"+this.transform.y+""+this.innerRadius+""+this.outerRadius+""+this.colourR+""+this.colourG+""+this.colourB;
+        let [lx,ly] = this.getPosition();
+        let radialData = lx+"-"+ly+"-"+this.innerRadius+""+this.outerRadius+""+this.colourR+""+this.colourG+""+this.colourB;
         if (this.lightGradient==undefined||this.lastRadialData!=radialData) {
-          this.lightGradient = bc.createRadialGradient(this.transform.x, this.transform.y, 1, this.transform.x, this.transform.y, this.outerRadius*0.9);
+          this.lightGradient = bc.createRadialGradient(lx, ly, 1, lx, ly, this.outerRadius*0.9);
           this.lightGradient.addColorStop(0, 'rgba(0,0,0,1)');
           this.lightGradient.addColorStop(this.innerRadius/this.outerRadius, 'rgba(0,0,0,1)');
           this.lightGradient.addColorStop(1, 'rgba(0,0,0,0)');
           this.lastRadialData = radialData;
-          this.colourGradient = bc.createRadialGradient(this.transform.x, this.transform.y, 1, this.transform.x, this.transform.y, this.outerRadius*0.96);
+          this.colourGradient = bc.createRadialGradient(lx, ly, 1, lx, ly, this.outerRadius*0.96);
           this.colourGradient.addColorStop(0, `rgba(${this.colourR},${this.colourG},${this.colourB},1)`);
           this.colourGradient.addColorStop(1, `rgba(${this.colourR},${this.colourG},${this.colourB},0)`);
         }
         bc.fillStyle = this.lightGradient;
         bc.globalAlpha = this.brightness;
         bc.beginPath();
-        bc.arc(this.transform.x,this.transform.y,this.outerRadius,this.angleStart,this.angleEnd);
-        bc.lineTo(this.transform.x,this.transform.y);
+        bc.arc(lx,ly,this.outerRadius,this.angleStart,this.angleEnd);
+        bc.lineTo(lx,ly);
         bc.fill();
-        if (this.colourGradient!=null) {
-          cc.globalCompositeOperation = "lighten";
-          cc.fillStyle = this.colourGradient;
-          cc.globalAlpha = this.brightness;
-          cc.beginPath();
-          cc.arc(this.transform.x,this.transform.y,this.outerRadius,this.angleStart,this.angleEnd);
-          cc.lineTo(this.transform.x,this.transform.y);
-          cc.fill();
-        }
+        cc.globalCompositeOperation = "lighten";
+        cc.fillStyle = this.colourGradient;
+        cc.globalAlpha = this.brightness;
+        cc.beginPath();
+        cc.arc(lx,ly,this.outerRadius,this.angleStart,this.angleEnd);
+        cc.lineTo(lx,ly);
+        cc.fill();
       };
 
       getBounds() {
@@ -228,9 +245,10 @@ ChoreoGraph.plugin({
       height = null;
 
       draw(bc, cc) {
+        let [lx,ly] = this.getPosition();
         cc.save();
         cc.globalCompositeOperation = "source-over";
-        cc.translate(this.transform.x, this.transform.y);
+        cc.translate(lx, ly);
         if (this.transform.r!=0) {
           cc.rotate(this.transform.r*Math.PI/180);
         }
@@ -502,9 +520,9 @@ ChoreoGraph.plugin({
           this.cbc.clip();
         };
 
-        this.aabbLightGraphic = function(lightBounds, graphicBounds, light, transform) {
-          let lx = light.transform.x + lightBounds[2];
-          let ly = light.transform.y + lightBounds[3];
+        this.aabbLightGraphic = function(lightBounds, graphicBounds, lx, ly, transform) {
+          lx += lightBounds[2];
+          ly += lightBounds[3];
           let gxmin = transform.x - graphicBounds[0] * 0.5 + graphicBounds[2];
           let gxmax = transform.x + graphicBounds[0] * 0.5 + graphicBounds[2];
           let gymin = transform.y - graphicBounds[1] * 0.5 + graphicBounds[3];
@@ -512,10 +530,10 @@ ChoreoGraph.plugin({
           return !(lx < gxmin || lx > gxmax || ly < gymin || ly > gymax);
         };
 
-        this.aabbLightCamera = function(lightBounds, camera, light) {
+        this.aabbLightCamera = function(lightBounds, camera, lx, ly) {
           if (!camera.cg.settings.core.frustumCulling) { return true; }
-          let bx = light.transform.x + lightBounds[2];
-          let by = light.transform.y + lightBounds[3];
+          let bx = lx + lightBounds[2];
+          let by = ly + lightBounds[3];
           let bw = lightBounds[0];
           let bh = lightBounds[1];
 
@@ -688,12 +706,13 @@ ChoreoGraph.plugin({
           }
         }
         for (let light of lights) {
+          let [lx,ly] = light.getPosition();
           let lightBounds = light.getBounds();
-          if (this.aabbLightGraphic(lightBounds, graphicBounds, light, transform)==false) { continue; }
-          if (this.aabbLightCamera(lightBounds, canvas.camera, light, transform)==false) { continue; }
+          if (this.aabbLightGraphic(lightBounds, graphicBounds, lx, ly, transform)==false) { continue; }
+          if (this.aabbLightCamera(lightBounds, canvas.camera, lx, ly, transform)==false) { continue; }
           this.bbc.save();
           this.cbc.save();
-          if (light.occlude) { this.occlude(light.transform.x,light.transform.y,lightBounds[0],lightBounds[1],lightBounds[2],lightBounds[3]); }
+          if (light.occlude) { this.occlude(lx,ly,lightBounds[0],lightBounds[1],lightBounds[2],lightBounds[3]); }
           if (light.feather==0) {
             this.bbc.filter = "none";
             this.cbc.filter = "none";

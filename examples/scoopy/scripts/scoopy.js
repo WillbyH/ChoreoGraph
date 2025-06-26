@@ -142,11 +142,13 @@ cg.processLoops.push(() => {
 
 cg.Input.createButton({
   type : "circle",
-  CGSpace : false,
   radius : 400,
-  x : 260,
-  y : -260,
   scene : cg.scenes.main,
   check : "touch",
-  canvasSpaceYAnchor : 1
+  transformInit : {
+    CGSpace : false,
+    x : 260,
+    y : -260,
+    canvasSpaceYAnchor : 1
+  }
 },"joystick");

@@ -50,7 +50,12 @@ let dragging = false;
 let draggedObject = null;
 
 function createLight(id,r,g,b) {
-  let newObject = cg.createObject({},id);
+  let newObject = cg.createObject({
+    transformInit : {
+      x : 100*Math.random()-50,
+      y : 100*Math.random()-50
+    }
+  },id);
 
   cg.Input.createButton({type:"circle",object:newObject,transform:newObject.transform,radius:80,down:function(button){
     button.object.downX = button.object.transform.x;

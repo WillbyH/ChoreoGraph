@@ -170,7 +170,7 @@ ChoreoGraph.plugin({
             for (let buttonId of cg.keys.buttons) {
               let button = cg.Input.buttons[buttonId];
               if (!canvas.camera.scenes.includes(button.scene)) { continue; }
-              ChoreoGraph.transformContext(canvas.camera,button.x,button.y,0,1,1,button.CGSpace,false,false,button.canvasSpaceXAnchor,button.canvasSpaceYAnchor);
+              ChoreoGraph.transformContext(canvas.camera,button.x,button.y,0,1,1,button.transform.CGSpace,false,false,button.transform.canvasSpaceXAnchor,button.transform.canvasSpaceYAnchor);
               button.setStyles(canvas);
               button.drawShape(canvas);
             }
@@ -838,6 +838,7 @@ ChoreoGraph.plugin({
       pressed = false;
       check = null;
       cursor = "pointer";
+      allowUpWithNoPress = false;
       allowedButtons = [true,false,true]; // Left Middle Right
       hoverCount = 0;
       hoveredX = 0;
@@ -849,14 +850,33 @@ ChoreoGraph.plugin({
       enter = null;
       exit = null;
 
-      CGSpace = true;
+      get x() {
+        let bx = this.transform.x;
+        let ax = this.transform.ax;
+        let ay = this.transform.ay;
+        let br = this.transform.r;
+        if (br!=0) {
+          let rad = br*Math.PI/180;
+          bx += ax*Math.cos(rad) - ay*Math.sin(rad);
+        } else {
+          bx += ax;
+        }
+        return bx;
+      }
 
-      allowUpWithNoPress = false;
-
-      get x() { return this.transform.x; }
-      get y() { return this.transform.y; }
-      get canvasSpaceXAnchor() { return this.transform.canvasSpaceXAnchor; }
-      get canvasSpaceYAnchor() { return this.transform.canvasSpaceYAnchor; }
+      get y() {
+        let by = this.transform.y;
+        let ax = this.transform.ax;
+        let ay = this.transform.ay;
+        let br = this.transform.r;
+        if (br!=0) {
+          let rad = br*Math.PI/180;
+          by += ax*Math.sin(rad) + ay*Math.cos(rad);
+        } else {
+          by += ay;
+        }
+        return by;
+      }
 
       transform = null;
 
@@ -864,10 +884,6 @@ ChoreoGraph.plugin({
 
       constructor(buttonInit,cg) {
         ChoreoGraph.initTransform(cg,this,buttonInit);
-        if (buttonInit.x!=undefined) { this.transform.x = buttonInit.x; delete buttonInit.x; }
-        if (buttonInit.y!=undefined) { this.transform.y = buttonInit.y; delete buttonInit.y; }
-        if (buttonInit.canvasSpaceXAnchor!=undefined) { this.transform.canvasSpaceXAnchor = buttonInit.canvasSpaceXAnchor; delete buttonInit.canvasSpaceXAnchor; }
-        if (buttonInit.canvasSpaceYAnchor!=undefined) { this.transform.canvasSpaceYAnchor = buttonInit.canvasSpaceYAnchor; delete buttonInit.canvasSpaceYAnchor; }
       };
 
       cursorInside(cursor,onlyPrimaryTouch=false) {
@@ -890,7 +906,7 @@ ChoreoGraph.plugin({
         let hovered = false;
 
         function getPositionInSpace(button,cursor,touch=null) {
-          if (button.CGSpace) {
+          if (button.transform.CGSpace) {
             if (touch!==null) {
               return [cursor.touches[touch].x,cursor.touches[touch].y];
             } else {
@@ -899,8 +915,8 @@ ChoreoGraph.plugin({
           } else {
             let x = touch!==null ? cursor.touches[touch].canvasX : cursor.canvasX;
             let y = touch!==null ? cursor.touches[touch].canvasY : cursor.canvasY;
-            x -= button.canvasSpaceXAnchor*cursor.canvas.width;
-            y -= button.canvasSpaceYAnchor*cursor.canvas.height;
+            x -= button.transform.canvasSpaceXAnchor*cursor.canvas.width;
+            y -= button.transform.canvasSpaceYAnchor*cursor.canvas.height;
             x /= cursor.canvas.camera.canvasSpaceScale;
             y /= cursor.canvas.camera.canvasSpaceScale;
             return [x,y];
@@ -949,7 +965,7 @@ ChoreoGraph.plugin({
 
       drawTitle(canvas) {
         let [cx, cy] = this.getCentre();
-        ChoreoGraph.transformContext(canvas.camera,cx,cy,0,1,1,this.CGSpace,false,false,this.canvasSpaceXAnchor,this.canvasSpaceYAnchor);
+        ChoreoGraph.transformContext(canvas.camera,cx,cy,0,1,1,this.transform.CGSpace,false,false,this.transform.canvasSpaceXAnchor,this.transform.canvasSpaceYAnchor);
         let c = canvas.c;
         let style = canvas.cg.settings.input.debug.buttons.style;
         let debugCanvasScale = canvas.cg.settings.core.debugCanvasScale;

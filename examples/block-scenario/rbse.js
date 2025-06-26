@@ -1,6 +1,7 @@
 const cg = ChoreoGraph.instantiate({
   core : {
     debugCGScale : 0.8,
+    debugCanvasScale : 0.4,
     frustumCulling : false
   },
   animationeditor : {
@@ -428,8 +429,7 @@ const rwManager = new class RailwayManager {
         newCarriage.isBackOfTrain = true;
       }
 
-      let carriageButton = cg.Input.createButton({type:"circle",radius:12},"train_"+trainId+"_carriage_"+carriageIndex+"_button");
-      carriageButton.transform.parent = newCarriage.transform;
+      let carriageButton = cg.Input.createButton({type:"circle",transformInit:{parent:newCarriage.transform},radius:12},"train_"+trainId+"_carriage_"+carriageIndex+"_button");
       carriageButton.trainId = trainId;
 
       cg.scenes.railways.addObject(newCarriage);
@@ -515,9 +515,7 @@ rwManager.createSignal("B3", 104, 197, 97, 202);
 rwManager.createSignal("B4", 132, 228, 132, 236);
 
 // A button that prevents deselection of trains where the speed slider is
-cg.Input.createButton({type:"rectangle",width:110,height:30},"noDeselectionZone");
-cg.Input.buttons.noDeselectionZone.transform.x = 90;
-cg.Input.buttons.noDeselectionZone.transform.y = 34;
+cg.Input.createButton({type:"rectangle",width:110,height:30,transformInit:{x:90,y:34}},"noDeselectionZone");
 
 cg.settings.core.callbacks.loopBefore = ()=>{
   // SET TRAIN HOVER GRAPHIC OPACITY
@@ -581,7 +579,7 @@ cg.settings.core.callbacks.loopAfter = ()=>{
 
       // CREATE A BUTTON FOR EACH NOTCH
       if (cg.Input.buttons[buttonId]==undefined) {
-        cg.Input.createButton({type:"rectangle",width:spacing,height:20,speed:notches[i+1],down:(button)=>{
+        cg.Input.createButton({type:"rectangle",width:spacing,height:20,speed:notches[i+1],transformInit:{x:notchesX + i*spacing + 3,y:notchesY + 2},down:(button)=>{
           if (rwManager.selectedTrain==-1) { return; }
           button.setTrainSpeed(button);
         },enter:(button)=>{
@@ -597,8 +595,6 @@ cg.settings.core.callbacks.loopAfter = ()=>{
             }
           }
         }},buttonId);
-        cg.Input.buttons[buttonId].transform.x = notchesX + i*spacing + 3;
-        cg.Input.buttons[buttonId].transform.y = notchesY + 2;
       }
     }
   }

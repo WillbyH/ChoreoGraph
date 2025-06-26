@@ -578,10 +578,8 @@ const ChoreoGraph = new class ChoreoGraphEngine {
           bh = Math.abs(bw*Math.cos(rad))+Math.abs(bh*Math.sin(rad));
           bw = Math.abs(bw*Math.sin(rad))+Math.abs(savedbh*Math.cos(rad));
 
-          let rox = Math.sin(rad)*gax-Math.cos(rad)*gay;
-          let roy = Math.cos(rad)*gax+Math.sin(rad)*gay;
-          box += rox;
-          boy += roy;
+          box += Math.sin(rad)*gax-Math.cos(rad)*gay;
+          boy += Math.cos(rad)*gax+Math.sin(rad)*gay;
         } else {
           box += gax;
           boy += gay;

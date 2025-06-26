@@ -26,6 +26,23 @@ ChoreoGraph.plugin({
       constructor(colliderInit,cg) {
         this.cg = cg;
       };
+
+      getPosition() {
+        let cx = this.transform.x;
+        let cy = this.transform.y;
+        let cr = this.transform.r;
+        let cax = this.transform.ax;
+        let cay = this.transform.ay;
+        if (cr!=0) {
+          let rad = cr*Math.PI/180;
+          cx += cax*Math.cos(rad) - cay*Math.sin(rad);
+          cy += cax*Math.sin(rad) + cay*Math.cos(rad);
+        } else {
+          cx += cax;
+          cy += cay;
+        }
+        return [cx,cy];
+      };
     };
 
     colliderTypes = {
@@ -354,15 +371,17 @@ ChoreoGraph.plugin({
 
     detections = {
       rectangleRectangle(colliderA, colliderB, getVector) {
-        let x1 = colliderA.transform.x - colliderA.width/2;
-        let y1 = colliderA.transform.y - colliderA.height/2;
-        let x2 = colliderB.transform.x - colliderB.width/2;
-        let y2 = colliderB.transform.y - colliderB.height/2;
+        let [acx,axy] = colliderA.getPosition();
+        let [bcx,bcy] = colliderB.getPosition();
+        let x1 = acx - colliderA.width/2;
+        let y1 = axy - colliderA.height/2;
+        let x2 = bcx - colliderB.width/2;
+        let y2 = bcy - colliderB.height/2;
         let collided = (x1 < x2 + colliderB.width && x1 + colliderA.width > x2 && y1 < y2 + colliderB.height && y1 + colliderA.height > y2);
         let vector = [0,0];
         if (getVector&&collided) {
-          let dx = (colliderA.transform.x - colliderB.transform.x);
-          let dy = (colliderA.transform.y - colliderB.transform.y);
+          let dx = (acx - bcx);
+          let dy = (axy - bcy);
           let overlapX = colliderA.width/2 + colliderB.width/2 - Math.abs(dx);
           let overlapY = colliderA.height/2 + colliderB.height/2 - Math.abs(dy);
           if (overlapX < overlapY) {
@@ -374,8 +393,10 @@ ChoreoGraph.plugin({
         return [collided, vector];
       },
       circleCircle(colliderA, colliderB, getVector) {
-        let dx = colliderA.transform.x - colliderB.transform.x;
-        let dy = colliderA.transform.y - colliderB.transform.y;
+        let [acx,axy] = colliderA.getPosition();
+        let [bcx,bcy] = colliderB.getPosition();
+        let dx = acx - bcx;
+        let dy = axy - bcy;
         let rc = colliderA.radius + colliderB.radius;
         let collided = rc**2 > dx**2 + dy**2;
         let vector = [0,0];
@@ -386,12 +407,10 @@ ChoreoGraph.plugin({
         return [collided, vector];
       },
       circleRectangle(circle, rectangle, getVector) {
-        let rx = rectangle.transform.x;
-        let ry = rectangle.transform.y;
+        let [cx,cy] = circle.getPosition();
+        let [rx,ry] = rectangle.getPosition();
         let hw = rectangle.width * 0.5;
         let hh = rectangle.height * 0.5;
-        let cx = circle.transform.x;
-        let cy = circle.transform.y;
 
         if (rx===cx&&ry===cy) {
           return [true,[0,0]];
@@ -435,10 +454,8 @@ ChoreoGraph.plugin({
         return [collided, vector];
       },
       pointRectangle(point, rectangle, getVector) {
-        let px = point.transform.x;
-        let py = point.transform.y;
-        let rx = rectangle.transform.x;
-        let ry = rectangle.transform.y;
+        let [px,py] = point.getPosition();
+        let [rx,ry] = rectangle.getPosition();
         let hw = rectangle.width * 0.5;
         let hh = rectangle.height * 0.5;
 
@@ -459,8 +476,10 @@ ChoreoGraph.plugin({
         return [collided, vector];
       },
       pointCircle(point, circle, getVector) {
-        let dx = point.transform.x - circle.transform.x;
-        let dy = point.transform.y - circle.transform.y;
+        let [px,py] = point.getPosition();
+        let [cx,cy] = circle.getPosition();
+        let dx = px - cx;
+        let dy = py - cy;
         let collided = dx**2 + dy**2 < circle.radius**2;
         let vector = [0,0];
         if (getVector&&collided) {
@@ -470,10 +489,8 @@ ChoreoGraph.plugin({
         return [collided, vector];
       },
       raycastCircle(raycast, circle) {
-        let rayX = raycast.transform.x;
-        let rayY = raycast.transform.y;
-        let cirX = circle.transform.x;
-        let cirY = circle.transform.y;
+        let [rayX,rayY] = raycast.getPosition();
+        let [cirX,cirY] = circle.getPosition();
         let collided = Math.sqrt((rayX-cirX)**2+(rayY-cirY)**2)<circle.radius;
         let newDistance = 0;
         let newXCollision = rayX;
@@ -518,10 +535,8 @@ ChoreoGraph.plugin({
         return [collided, null];
       },
       raycastRectangle(raycast, rectangle) {
-        let rayX = raycast.transform.x;
-        let rayY = raycast.transform.y;
-        let recX = rectangle.transform.x;
-        let recY = rectangle.transform.y;
+        let [rayX,rayY] = raycast.getPosition();
+        let [recX,recY] = rectangle.getPosition();
         let recHW = rectangle.width*0.5;
         let recHH = rectangle.height*0.5;
         let collided = rayX>recX-recHW&&rayX<recX+recHW&&rayY<recY+recHH&&rayY>recY-recHH; // if the ray is inside the rectangle
@@ -615,8 +630,9 @@ ChoreoGraph.plugin({
       raycast.collidedX = x;
       raycast.collidedY = y;
       if (distance!=0) {
-        raycast.unitVectorX = (x - raycast.transform.x)/distance;
-        raycast.unitVectorY = (y - raycast.transform.y)/distance;
+        let [rx,ry] = raycast.getPosition();
+        raycast.unitVectorX = (x - rx)/distance;
+        raycast.unitVectorY = (y - ry)/distance;
       }
     }
 
@@ -783,8 +799,8 @@ ChoreoGraph.plugin({
           let collider = cg.Physics.colliders[colliderId];
           if (collider.transform===null) { continue; }
           c.save();
-          let trans = collider.transform;
-          ChoreoGraph.transformContext(canvas.camera,trans.x,trans.y);
+          let [cx,cy] = collider.getPosition();
+          ChoreoGraph.transformContext(canvas.camera,cx,cy);
           collider.draw(c);
           c.restore();
         }
@@ -1008,7 +1024,9 @@ ChoreoGraph.ObjectComponents.RigidBody = class cgObjectRidigBody {
 
       let separationVector;
       if ((this.collider.type=="circle"||this.collider.type=="point") && (collider.type=="circle"||collider.type=="point")) {
-        separationVector = [this.collider.transform.x - collider.transform.x, this.collider.transform.y - collider.transform.y];
+        let [acx,acy] = this.collider.getPosition();
+        let [bcx,bcy] = collider.getPosition();
+        separationVector = [acx - bcx, acy - bcy];
       } else {
         separationVector = [this.collider.resolutionVector[0],this.collider.resolutionVector[1]];
       }
