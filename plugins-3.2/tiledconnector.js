@@ -1,0 +1,195 @@
+ChoreoGraph.plugin({
+  name : "TiledConnector",
+  key : "Tiled",
+  version : "1.1",
+
+  globalPackage : new class FMODConnector {
+    instanceObject = class cgInstanceTiledConnector {
+      tileSets = {};
+      tileMaps = [];
+
+      async importTileSetFromFile(dataUrl, callback=null) {
+        let response = await fetch(dataUrl);
+        let data = await response.json();
+        this.importTileSet(data, dataUrl.split("/").pop(), callback);
+      };
+
+      importTileSet(data, id, callback=null) {
+        this.tileSets[id] = data;
+        let imageId;
+        if ("properties" in data) {
+          imageId = data.properties.find(p=>p.name=="cgimage");
+        }
+        if (imageId == undefined) {
+          console.warn("Tiled Tileset missing 'cgimage' custom property. To add this go to the tileset in Tiled, then click on Tileset (in the menu bar) -> Tileset Properties and then add the property in the Custom Properties section.")
+          return;
+        }
+        imageId = imageId.value;
+        let cg = this.cg;
+        if (cg.keys.images.includes(imageId)) {
+          let tiles = [];
+          let TilesetIndex = 0;
+          let cols = Math.floor(data.imagewidth / data.tilewidth);
+          let rows = Math.floor(data.imageheight / data.tileheight);
+          for (let rowi=0; rowi<rows; rowi++) {
+            for (let coli=0; coli<cols; coli++) {
+              let Tile = cg.Tilemaps.createTile({
+                image : cg.images[imageId],
+                imageX : coli * data.tilewidth,
+                imageY : rowi * data.tileheight,
+                width : data.tilewidth,
+                height : data.tileheight,
+                TiledTileset: data.name,
+                TiledTilesetIndex: TilesetIndex,
+              },"Tiled_" + data.name + "_" + TilesetIndex);
+              tiles.push(Tile);
+              TilesetIndex++;
+            }
+          }
+          if (callback) { callback(tiles); }
+        } else {
+          console.warn("No image found for Tiled tileset with id: " + imageId);
+        }
+      };
+
+      async importTileMapFromFile(importData={}, callback=null) {
+        let dataUrl = importData.dataUrl;
+        if (dataUrl==undefined) {
+          dataUrl = importData;
+          if (dataUrl==undefined) {
+            console.warn("dataUrl not found in importTileMapFromFile");
+            return;
+          }
+        } else {
+          delete importData.dataUrl;
+        }
+        if (typeof importData!=="object") {
+          importData = {};
+        }
+        let response = await fetch(dataUrl);
+        importData.data = await response.json();
+        this.importTileMap(importData, callback);
+      };
+
+      importTileMap(importData={},callback=null) {
+        let cg = this.cg;
+        let data = importData.data;
+        if (data==undefined) {
+          console.warn("data not found in importTileMap");
+          return;
+        }
+
+        if (data.orientation!=="orthogonal") {
+          console.warn("TiledConnector and TileMaps only support orthogonal tilemaps.");
+          return;
+        }
+
+        let init = {
+          tileHeight : data.tileheight,
+          tileWidth : data.tilewidth,
+          TiledTileMap : data
+        };
+        if (importData.cache!==undefined) {
+          init.cache = importData.cache;
+        }
+
+        let tilemap = cg.Tilemaps.createTilemap(init,importData.id||"ImportedTiledTileMap");
+
+        // FIND GIDs
+        let gidMap = {};
+        for (let layer of data.layers) {
+          for (let gid of layer.data) {
+            if (gid==0) { continue; }
+            if (gidMap[gid]===undefined) {
+              let tileSetGid = gid;
+              let flipX = false;
+              let flipY = false;
+              let flipDiagonal = false;
+              if (gid>=536870912) { // Handle data in the tile id
+                let bitField = gid.toString(2).padStart(32,"0");
+                flipX = bitField[0]=="1";
+                flipY = bitField[1]=="1";
+                flipDiagonal = bitField[2]=="1";
+                bitField = bitField.substring(0,0) + "0" + bitField.substring(1); // Set first bit to 0
+                bitField = bitField.substring(0,1) + "0" + bitField.substring(2); // Set second bit to 0
+                bitField = bitField.substring(0,2) + "0" + bitField.substring(3); // Set third bit to 0
+                tileSetGid = parseInt(bitField, 2);
+              }
+              let tileSetReference = data.tilesets.find(ts=>ts.firstgid<=tileSetGid);
+              let tileSet = cg.Tiled.tileSets[tileSetReference.source];
+              if (gidMap[gid]!==undefined) { continue; }
+              let tileId = "Tiled_"+tileSet.name+"_"+(tileSetGid-1);
+              let unmodifiedTile = cg.Tilemaps.tiles[tileId];
+              if (flipX) { tileId += "_flipX"; }
+              if (flipY) { tileId += "_flipY"; }
+              if (flipDiagonal) { tileId += "_flipDiagonal"; }
+              let tile;
+              if (!cg.keys.tiles.includes(tileId)) {
+                tile = cg.Tilemaps.createTile({
+                  image : unmodifiedTile.image,
+                  imageX : unmodifiedTile.imageX,
+                  imageY : unmodifiedTile.imageY,
+                  width : unmodifiedTile.width,
+                  height : unmodifiedTile.height,
+                  TiledTileset: unmodifiedTile.TiledTileset,
+                  TiledTilesetIndex: unmodifiedTile.TiledTilesetIndex,
+                  flipX : flipX,
+                  flipY : flipY,
+                  flipDiagonal : flipDiagonal
+                },tileId);
+              } else {
+                tile = unmodifiedTile;
+              }
+              gidMap[gid] = tile;
+            }
+          }
+        }
+
+        function convertLayerData(layerData) {
+          let output = [];
+          for (let gid of layerData) {
+            if (gid==0) {
+              output.push(null);
+            } else {
+              output.push(gidMap[gid].id);
+            }
+          }
+          return output;
+        }
+
+        if (data.layers[0].chunks!=undefined) {
+          // CREATE CHUNKS FROM DATA
+          return;
+        } else {
+          if (importData.autoChunk===undefined) { importData.autoChunk = false; }
+
+          // CREATE AUTO CHUNKED LAYERS
+          if (importData.autoChunk) {
+            for (let layer of data.layers) {
+              tilemap.createChunkedLayer({
+                tiles : convertLayerData(layer.data),
+                chunkWidth : importData.chunkWidth,
+                chunkHeight : importData.chunkWidth,
+                totalWidth : data.width,
+                chunksOffsetX : importData.chunkOffsetX || 0,
+                chunksOffsetY : importData.chunkOffsetY || 0,
+                layerName : layer.name,
+                layerVisible : layer.visible
+              });
+            }
+
+          // CREATE SINGLE CHUNK
+          } else {
+            // just make one massive chunk
+          }
+        }
+        if (callback) { callback(tilemap); }
+      };
+    }
+  },
+
+  instanceConnect(cg) {
+    cg.Tiled = new ChoreoGraph.Tiled.instanceObject(cg);
+    cg.Tiled.cg = cg;
+  }
+});

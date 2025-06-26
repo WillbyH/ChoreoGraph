@@ -1,4 +1,11 @@
-const cg = ChoreoGraph.instantiate();
+const cg = ChoreoGraph.instantiate({
+  core : {
+    assumptions : true
+  },
+  input : {
+    preventSingleTouch : true
+  }
+});
 
 cg.createCamera({
   scaleMode : "minimum",
@@ -17,6 +24,8 @@ let gravityScale = 0;
 let drag = 0.8;
 let grabbedObject = null;
 
+cg.Audio.createSound({source:"boing.mp3"},"boing");
+
 function createBall(id,x,y,colour) {
   let object = cg.createObject({transformInit:{x:x,y:y}},id)
   .attach("RigidBody",{
@@ -25,7 +34,12 @@ function createBall(id,x,y,colour) {
     gravityScale:gravityScale,
     collider : cg.Physics.createCollider({
       type:"circle",
-      radius:50
+      radius:50,
+      isBall:true,
+      collide : (collider) => {
+        if (!collider.isBall) return;
+        cg.Audio.sounds.boing.play();
+      }
     },"circleCollider"+id),
   })
   .attach("Graphic",{
@@ -35,7 +49,7 @@ function createBall(id,x,y,colour) {
       radius:50
     },"circleGraphic"+id)
   });
-  cg.Input.createButton({type:"circle",object:object,transform:object.transform,radius:50,down:function(button){
+  cg.Input.createButton({type:"circle",object:object,cursor:"grab",transform:object.transform,radius:50,down:function(button){
     grabbedObject = button.object
   }},"grab"+id);
 }
@@ -69,7 +83,7 @@ cg.createObject({transformInit:{x:-300,y:200}},"hotel")
     width:100
   },"blueCircleGraphic")
 });
-cg.Input.createButton({type:"rectangle",object:cg.objects.hotel,transform:cg.objects.hotel.transform,height:100,width:100,down:function(button){
+cg.Input.createButton({type:"rectangle",object:cg.objects.hotel,cursor:"grab",transform:cg.objects.hotel.transform,height:100,width:100,down:function(button){
   grabbedObject = button.object
 }},"grabHotel");
 
@@ -90,7 +104,7 @@ cg.createObject({transformInit:{x:300,y:200}},"india")
     radius:5
   },"blueCircleGraphic")
 });
-cg.Input.createButton({type:"rectangle",object:cg.objects.india,transform:cg.objects.india.transform,height:30,width:30,down:function(button){
+cg.Input.createButton({type:"rectangle",object:cg.objects.india,cursor:"grab",transform:cg.objects.india.transform,height:30,width:30,down:function(button){
   grabbedObject = button.object
 }},"grabIndia");
 

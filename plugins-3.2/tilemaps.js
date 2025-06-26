@@ -5,8 +5,6 @@ ChoreoGraph.plugin({
 
   globalPackage : new class cgTilemaps {
     Tilemap = class cgTilemap {
-      width = 0;
-      height = 0;
       tileWidth = 0;
       tileHeight = 0;
       cache = true;
@@ -135,7 +133,7 @@ ChoreoGraph.plugin({
           if (tileId==null) { continue; }
           let tile = this.tilemap.cg.Tilemaps.tiles[tileId];
           if (tile==undefined) {
-            console.warn("Tile with id " + tileId + " not found in Tilemap:",this.tilemap.id);
+            console.warn("Tile with id " + tileId + " not found in createLayer:",this.tilemap.id);
             continue;
           }
           function awaitImage(chunk,image) {
@@ -258,6 +256,8 @@ ChoreoGraph.plugin({
                 this.draw();
               }
             }
+          } else {
+            this.draw();
           }
         }
       };
@@ -509,7 +509,7 @@ ChoreoGraph.plugin({
               for (let layerIndex=0;layerIndex<tilemap.layers.length;layerIndex++) {
                 let layer = tilemap.layers[layerIndex];
                 let chunkLayer = chunk.layers[layerIndex];
-                if (!(layer.visible&&(this.visibleLayers.length==0||this.visibleLayers.includes(layer.name)||this.visibleLayers.includes(chunkLayer.index)))) {
+                if (layer.visible==false||((this.visibleLayers.length>0&&!this.visibleLayers.includes(layer.name))&&(this.visibleLayers.length!==0))) {
                   continue;
                 }
                 xMin = Math.min(xMin,chunkX);
@@ -568,8 +568,8 @@ ChoreoGraph.plugin({
           let bufferHeight = yMax - yMin;
           if (bufferWidth>0||bufferHeight>0) {
             for (let layerIndex=0;layerIndex<chunksToBuffer.length;layerIndex++) {
+              if (chunksToBuffer[layerIndex]==undefined) { continue; }
               let layer = tilemap.layers[layerIndex];
-
               if (bufferRequiresUpdate||chunksToBuffer[layerIndex].length!=this.previousChunksToBuffer[layerIndex]?.length) {
                 layer.initaliseDrawBuffer();
                 if (layer.prevDrawBufferWidth!=bufferWidth||layer.prevDrawBufferHeight!=bufferHeight) {

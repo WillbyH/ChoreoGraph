@@ -58,7 +58,7 @@ ChoreoGraph.plugin({
       }
 
       return [vertexShader, fragmentShader];
-    }
+    };
 
     ShaderCanvasSource = class cgShaderCanvasSource {
       program = null;
@@ -68,6 +68,8 @@ ChoreoGraph.plugin({
 
       lastWidth = 0;
       lastHeight = 0;
+
+      uniforms = {};
 
       constructor(init,shaderCanvas) {
         const gl = shaderCanvas.gl;
@@ -97,6 +99,16 @@ ChoreoGraph.plugin({
           }
         }
 
+        if (init.uniforms !== undefined) {
+          for (let uniformName in init.uniforms) {
+            this.uniforms[uniformName] = gl.getUniformLocation(this.program, uniformName);
+            let type = init.uniforms[uniformName][0];
+            let value = init.uniforms[uniformName][1];
+            gl["uniform"+type](this.uniforms[uniformName], value);
+          }
+          delete init.uniforms;
+        }
+
         // SET UP TEXTURE
         const VERTICES = new Float32Array([-1, -1, -1, 1, 1, 1, -1, -1, 1, 1, 1, -1]);
 
@@ -115,7 +127,7 @@ ChoreoGraph.plugin({
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      }
+      };
 
       calibrateSize() {
         const gl = this.shaderCanvas.gl;
@@ -124,8 +136,9 @@ ChoreoGraph.plugin({
         this.shaderCanvas.width = this.sourceCanvas.width;
         this.shaderCanvas.height = this.sourceCanvas.height;
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.sourceCanvas.width, this.sourceCanvas.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-      }
+      };
     };
+
     ShaderCanvas = class cgShadersCanvas {
       width = 600;
       height = 400;
@@ -136,21 +149,15 @@ ChoreoGraph.plugin({
 
       sources = [];
 
+      gl = null;
+
       parentElement = null;
       redrawCanvas = null;
 
       constructor(init,cg) {
         ChoreoGraph.applyAttributes(this,init);
-        if (document.getElementsByTagName("canvas")[0].style.width != "") {
-          this.width = this.element.width;
-        } else {
-          this.element.width = this.width;
-        }
-        if (document.getElementsByTagName("canvas")[0].style.height != "") {
-          this.height = this.element.height;
-        } else {
-          this.element.height = this.height;
-        }
+        this.element.width = this.width;
+        this.element.height = this.height;
         this.gl = this.element.getContext("webgl");
 
         this.gl.viewport(0, 0, this.width, this.height);
@@ -191,6 +198,11 @@ ChoreoGraph.plugin({
           gl.bindTexture(gl.TEXTURE_2D, source.texture);
           if (source.lastWidth !== source.sourceCanvas.width || source.lastHeight !== source.sourceCanvas.height) {
             source.calibrateSize();
+            this.element.width = source.sourceCanvas.width;
+            this.element.height = source.sourceCanvas.height;
+            this.width = source.sourceCanvas.width;
+            this.height = source.sourceCanvas.height;
+            gl.viewport(0, 0, this.width, this.height);
           }
           gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, source.sourceCanvas);
           gl.drawArrays(gl.TRIANGLES, 0, 6);

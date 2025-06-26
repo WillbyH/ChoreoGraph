@@ -13,6 +13,7 @@ ChoreoGraph.plugin({
 
     soundLoadBuffer = [];
     instanceLoadBuffer = [];
+    busLoadBuffer = [];
     playBuffer = [];
 
     mode = null; // WebAudio or HTMLAudio
@@ -45,7 +46,7 @@ ChoreoGraph.plugin({
       set masterVolume(value) {
         this.#masterVolume = value;
         if (ChoreoGraph.Audio.mode==null) { this.masterVolumeBuffer = value; return; }
-        if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.WEBAUDIO) {
+        if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.WEBAUDIO&&this.masterGain!=null) {
           if (this.cg.settings.audio.masterChangeTime==0) {
             this.masterGain.gain.value = this.#masterVolume;
           } else {
@@ -78,18 +79,35 @@ ChoreoGraph.plugin({
 
       play(playOptionsInit) {
         let options = new ChoreoGraph.Audio.PlayOptions(playOptionsInit,this);
-        this.playWithOptions(options);
+        return this.playWithOptions(options);
       }
 
       playWithOptions(options) {
         let sound = this.sounds[options.id];
         if (sound==undefined) { console.warn("Sound not found:",options.id); return; }
 
+        options.soundInstance = new ChoreoGraph.Audio.SoundInstance({
+          id:options.soundInstanceId,
+          nodes:options.nodes,
+          sound:sound,
+          paused:options.paused,
+          cgAudio:this,
+          playOptions:options
+        });
+
+        if (this.playing[options.soundInstance.id]!=undefined&&this.playing[options.soundInstance.id].started) {
+          this.playing[options.soundInstance.id].stop();
+        }
+
+        this.playing[options.soundInstance.id] = options.soundInstance;
+        sound.instances[options.soundInstance.id] = options.soundInstance;
+
         if ((!ChoreoGraph.Audio.ready||this.ready||!sound.loaded)&&options.allowBuffer) {
           options.allowBuffer = false;
           ChoreoGraph.Audio.playBuffer.push(options);
-          return;
+          return options.soundInstance;
         }
+        options.soundInstance.started = true;
         if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.WEBAUDIO) {
           // SOURCE -> GAIN -> EFFECT NODES -> BUS GAIN -> MASTER GAIN -> DESTINATION
 
@@ -108,60 +126,58 @@ ChoreoGraph.plugin({
           }
 
           if (options.bus!=null) {
-            let bus = this.buses[options.bus.id];
+            let bus = this.buses[options.bus];
             if (bus==undefined) {
-              bus = new ChoreoGraph.Audio.Bus();
-              this.buses[options.bus.id] = bus;
+              bus = new ChoreoGraph.Audio.Bus(options.bus, this.cg);
+              this.buses[options.bus] = bus;
             }
-            lastNode.connect(options.bus.gainNode);
-            lastNode = options.bus.gainNode;
+            lastNode.connect(bus.gainNode);
+            lastNode = bus.gainNode;
           };
 
           lastNode.connect(this.masterGain);
 
           source.start();
 
-          let newSoundInstance = new ChoreoGraph.Audio.SoundInstance({id:options.soundInstanceId,source:source,nodes:options.nodes,sound:sound});
-          newSoundInstance.cgAudio = this;
+          options.soundInstance.source = source;
           if (options.fadeIn!=0) {
-            source.gainNode.gain.setValueAtTime(-1, ChoreoGraph.Audio.ctx.currentTime);
+            source.gainNode.gain.setValueAtTime(0, ChoreoGraph.Audio.ctx.currentTime);
             source.gainNode.gain.linearRampToValueAtTime(options.volume, ChoreoGraph.Audio.ctx.currentTime + options.fadeIn)
           }
-          source.id = newSoundInstance.id;
+          source.id = options.soundInstance.id;
           source.cgAudio = this;
-          this.playing[newSoundInstance.id] = newSoundInstance;
-          sound.instances[newSoundInstance.id] = newSoundInstance;
 
-          newSoundInstance.applyEndListener();
+          if (options.paused) {
+            source.gainNode.gain.cancelScheduledValues(ChoreoGraph.Audio.ctx.currentTime);
+            source.gainNode.gain.setValueAtTime(0, ChoreoGraph.Audio.ctx.currentTime);
+            options.soundInstance.lastPausedState = true;
+          }
 
-          return newSoundInstance;
+          options.soundInstance.applyEndListener();
+
+          return options.soundInstance;
         } else if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.HTMLAUDIO) {
           let source = sound.audio.cloneNode();
           source.play();
           source.loop = options.loop; // Looping
           source.volume = options.volume; // Volume
-          let newSoundInstance = new ChoreoGraph.Audio.SoundInstance({id:options.soundInstanceId,source:source,nodes:options.nodes,sound:sound});
-          newSoundInstance.cgAudio = this;
           if (options.fadeIn!=0) {
             source.volume = 0;
           }
-          newSoundInstance.fadeFrom = 0;
-          newSoundInstance.fadeTo = options.volume;
-          newSoundInstance.fadeStart = ChoreoGraph.nowint;
-          newSoundInstance.fadeEnd = ChoreoGraph.nowint+options.fadeIn*1000;
+          options.soundInstance.fadeFrom = 0;
+          options.soundInstance.fadeTo = options.volume;
+          options.soundInstance.fadeStart = ChoreoGraph.nowint;
+          options.soundInstance.fadeEnd = ChoreoGraph.nowint+options.fadeIn*1000;
           if (this.#masterVolume==0) {
-            newSoundInstance.savedVolume = options.volume;
+            options.soundInstance.savedVolume = options.volume;
             source.volume = 0;
           }
-          source.id = newSoundInstance.id;
+          source.id = options.soundInstance.id;
           source.cgAudio = this;
 
-          newSoundInstance.applyEndListener();
+          options.soundInstance.applyEndListener();
 
-          this.playing[newSoundInstance.id] = newSoundInstance;
-          sound.instances[newSoundInstance.id] = newSoundInstance;
-
-          return newSoundInstance;
+          return options.soundInstance;
         }
       };
 
@@ -176,11 +192,17 @@ ChoreoGraph.plugin({
             delete this.playing[id];
           } else {
             sound.source.gainNode.gain.setValueAtTime(sound.source.gainNode.gain.value, ChoreoGraph.Audio.ctx.currentTime);
-            sound.source.gainNode.gain.linearRampToValueAtTime(-1, ChoreoGraph.Audio.ctx.currentTime + fadeoutSeconds);
-            setTimeout(function(){ sound.source.stop(); delete ChoreoGraph.Audio.playing[id]; }, fadeoutSeconds*1000);
+            sound.source.gainNode.gain.linearRampToValueAtTime(0, ChoreoGraph.Audio.ctx.currentTime + fadeoutSeconds);
+            let cg = sound.cgAudio.cg;
+            if (fadeoutSeconds===0) {
+              sound.source.stop();
+              delete cg.Audio.playing[id];
+            } else {
+              sound.stopTime = ChoreoGraph.Audio.ctx.currentTime + fadeoutSeconds;
+            }
           }
         } else if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.HTMLAUDIO) {
-          if (fadeoutSeconds==0) {
+          if (fadeoutSeconds===0) {
             sound.source.stopped = true;
             sound.source.pause();
             delete this.playing[id];
@@ -189,7 +211,7 @@ ChoreoGraph.plugin({
             sound.fadeTo = 0;
             sound.fadeStart = ChoreoGraph.nowint;
             sound.fadeEnd = ChoreoGraph.nowint+fadeoutSeconds*1000;
-            setTimeout(function(){ sound.source.pause(); delete ChoreoGraph.Audio.playing[id]; }, fadeoutSeconds*1000);
+            sound.stopTime = ChoreoGraph.nowint + fadeoutSeconds*1000;
           }
         }
       };
@@ -259,6 +281,13 @@ ChoreoGraph.plugin({
         }
         this.ready = true;
       };
+
+      declareBus(id) {
+        if (this.buses[id]!=undefined) { console.warn("Bus ID already exists:",id); return; }
+        let bus = new ChoreoGraph.Audio.Bus(id,this.cg);
+        this.buses[id] = bus;
+        ChoreoGraph.Audio.busLoadBuffer.push(bus);
+      }
     };
 
     PlayOptions = class PlayOptions {
@@ -268,6 +297,7 @@ ChoreoGraph.plugin({
       fadeIn = 0; // Seconds
       volume = 1; // 0 - silent  1 - normal  2 - double
       speed = 1; // Multiplier
+      paused = false;
       nodes = [];
       soundInstanceId = null;
       bus = null;
@@ -335,14 +365,33 @@ ChoreoGraph.plugin({
       nodes = [];
       sound = null;
       paused = false;
+      started = false;
       lastPausedState = false;
+
+      stopTime = Infinity;
+      stopped = false;
+      cgAudio = null;
 
       constructor(init={}) {
         ChoreoGraph.applyAttributes(this,init);
         if (this.id==null) { this.id = ChoreoGraph.Audio.nextId; ChoreoGraph.Audio.nextId++; }
       }
       stop(fadeoutSeconds=0) {
-        this.cgAudio.stop(this.id, fadeoutSeconds);
+        this.stopped = true;
+        if (ChoreoGraph.Audio.playBuffer.includes(this.playOptions)) {
+          ChoreoGraph.Audio.playBuffer.splice(ChoreoGraph.Audio.playBuffer.indexOf(this.playOptions), 1);
+        } else {
+          this.cgAudio.stop(this.id, fadeoutSeconds);
+        }
+      }
+      pause() {
+        this.paused = true;
+        this.savedPausedVolume = this.source.gainNode.gain.value;
+        const now = ChoreoGraph.Audio.ctx.currentTime;
+        this.source.gainNode.gain.cancelScheduledValues(now);
+        this.source.gainNode.gain.setValueAtTime(this.source.gainNode.gain.value, now);
+        this.source.gainNode.gain.linearRampToValueAtTime(0, now + cg.settings.audio.pauseFadeTime);
+        this.source.playbackRate.setValueAtTime(0, now + cg.settings.audio.pauseFadeTime);
       }
       applyEndListener() {
         this.source.addEventListener('ended', e => {
@@ -352,18 +401,44 @@ ChoreoGraph.plugin({
             } else if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.HTMLAUDIO) {
               e.target.pause();
             }
+            if (e.target.cgAudio.playing[e.target.id]==undefined) { return; }
             delete e.target.cgAudio.playing[e.target.id].sound.instances[e.target.id];
             delete e.target.cgAudio.playing[e.target.id];
           }
         },{passive: true});
+      }
+      fadeVolume(volume=0.5, time=1) {
+        if (this.started==false) {
+          this.playOptions.volume = volume;
+          return;
+        }
+        const now = ChoreoGraph.Audio.ctx.currentTime;
+        this.source.gainNode.gain.cancelScheduledValues(now);
+        this.source.gainNode.gain.setValueAtTime(this.source.gainNode.gain.value, now);
+        this.source.gainNode.gain.linearRampToValueAtTime(volume, now + time);
       }
     };
 
     Bus = class Bus {
       id = null;
       gainNode = null;
-      constructor() {
-        this.gainNode = ChoreoGraph.Audio.ctx.createGain();
+
+      #volume = 1;
+
+      get volume() { return this.#volume; }
+      set volume(value) {
+        this.#volume = value;
+        if (this.gainNode!=null) { this.gainNode.gain.value = value; }
+      };
+
+      constructor(id,cg) {
+        this.id = id;
+        this.cg = cg;
+
+        if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.WEBAUDIO) {
+          this.gainNode = ChoreoGraph.Audio.ctx.createGain();
+          this.gainNode.connect(this.cg.Audio.masterGain);
+        }
       }
     };
 
@@ -428,7 +503,7 @@ ChoreoGraph.plugin({
     checkSetup() {
       if (this.mode==null&&this.interacted) { this.initContext(); }
       if (this.mode==null) { return false; }
-      if (this.soundLoadBuffer.length+this.instanceLoadBuffer.length+this.playBuffer.length==0) { return true; }
+      if (this.soundLoadBuffer.length+this.instanceLoadBuffer.length+this.playBuffer.length+this.busLoadBuffer.length==0) { return true; }
       else if (this.soundLoadBuffer.length>0) {
         for (let i=0;i<this.soundLoadBuffer.length;i++) {
           let sound = this.soundLoadBuffer[i];
@@ -447,6 +522,16 @@ ChoreoGraph.plugin({
           cgAudio.init();
         });
         this.instanceLoadBuffer = [];
+      } else if (this.busLoadBuffer.length>0) {
+        for (let i=0;i<this.busLoadBuffer.length;i++) {
+          let bus = this.busLoadBuffer[i];
+          if (bus.gainNode==null) {
+            bus.gainNode = ChoreoGraph.Audio.ctx.createGain();
+            bus.gainNode.connect(bus.cg.Audio.masterGain);
+          }
+          this.busLoadBuffer.splice(i,1);
+          i--;
+        }
       } else if (this.playBuffer.length>0) {
         for (let i=0;i<this.playBuffer.length;i++) {
           let options = this.playBuffer[i];
@@ -505,15 +590,13 @@ ChoreoGraph.plugin({
       for (let cg of ChoreoGraph.instances) {
         for (let id in cg.Audio.playing) {
           let soundInstance = cg.Audio.playing[id];
+          if (!soundInstance.started) { continue; }
+
+          // PAUSING
           if (soundInstance.paused!=soundInstance.lastPausedState) {
             if (soundInstance.paused) {
               if (Audio.mode==Audio.WEBAUDIO) {
-                soundInstance.savedPausedVolume = soundInstance.source.gainNode.gain.value;
-                const now = ChoreoGraph.Audio.ctx.currentTime;
-                soundInstance.source.gainNode.gain.cancelScheduledValues(now);
-                soundInstance.source.gainNode.gain.setValueAtTime(soundInstance.source.gainNode.gain.value, now);
-                soundInstance.source.gainNode.gain.linearRampToValueAtTime(0, now + cg.settings.audio.pauseFadeTime);
-                soundInstance.source.playbackRate.setValueAtTime(0, now + cg.settings.audio.pauseFadeTime);
+                soundInstance.pause();
               } else if (Audio.mode==ChoreoGraph.Audio.HTMLAUDIO) {
                 soundInstance.source.pause();
               }
@@ -531,6 +614,19 @@ ChoreoGraph.plugin({
             }
           }
           soundInstance.lastPausedState = soundInstance.paused;
+
+          // STOP AUDIO AFTER FADE OUT DELAYS
+          if (Audio.mode==Audio.WEBAUDIO) {
+            if (soundInstance.stopTime<ChoreoGraph.Audio.ctx.currentTime) {
+              soundInstance.source.stop();
+              delete cg.Audio.playing[id];
+            }
+          } else if (Audio.mode==ChoreoGraph.Audio.HTMLAUDIO) {
+            if (soundInstance.stopTime<ChoreoGraph.nowint) {
+              sound.source.pause();
+              delete ChoreoGraph.Audio.playing[id];
+            }
+          }
         };
       }
     };
@@ -538,7 +634,7 @@ ChoreoGraph.plugin({
 
   instanceConnect(cg) {
     cg.attachSettings("audio",{
-      baseAudioPath : "audio/",
+      baseAudioPath : "",
       forceMode : false, // false, "WebAudio", "HTMLAudio"
       skipURIEncoding : false,
       masterChangeTime : 0.1,

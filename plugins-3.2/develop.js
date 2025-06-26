@@ -464,7 +464,7 @@ ChoreoGraph.plugin({
           let c = canvas.c;
 
           // SELECTION CIRCLES
-          c.font = 6*cg.settings.core.debugCGScale+"px Arial";
+          c.font = 6*cg.settings.core.debugCanvasScale+"px Arial";
           c.textAlign = "center";
           c.fillStyle = cg.settings.develop.objectAnnotation.textColour;
           if (gizmoData.grabMode=="") {
@@ -480,7 +480,7 @@ ChoreoGraph.plugin({
                 let x = object.transform.x;
                 let y = object.transform.y;
 
-                let grabDistance = 20 * cg.settings.core.debugCGScale / camera.cz;
+                let grabDistance = 20 * cg.settings.core.debugCanvasScale / camera.cz;
 
                 let distanceFromSelected = Infinity;
                 if (gizmoData.selectedObject!==null&&gizmoData.selectedScene==scene) {
@@ -489,10 +489,10 @@ ChoreoGraph.plugin({
                   distanceFromSelected = Math.sqrt((x - selectedX)**2 + (y - selectedY)**2);
                 }
 
-                c.lineWidth = 2 * cg.settings.core.debugCGScale / camera.cz;
+                c.lineWidth = 2 * cg.settings.core.debugCanvasScale / camera.cz;
                 c.strokeStyle = colours.unhoveredSelection;
                 let distance = Math.sqrt((cursor.x - x)**2 + (cursor.y - y)**2);
-                if (distanceFromSelected < 70 * cg.settings.core.debugCGScale / camera.cz) { grabDistance /= 3.5; }
+                if (distanceFromSelected < 70 * cg.settings.core.debugCanvasScale / camera.cz) { grabDistance /= 3.5; }
                 if (distance < grabDistance) {
                   c.strokeStyle = colours.hoveredSelection;
                   if (cursor.impulseUp.any||cursor.impulseDown.any) {
@@ -520,7 +520,7 @@ ChoreoGraph.plugin({
         let x = gizmoData.selectedObject.transform.x;
         let y = gizmoData.selectedObject.transform.y;
 
-        let gizmoSize = 20 * cg.settings.core.debugCGScale / camera.cz;
+        let gizmoSize = 20 * cg.settings.core.debugCanvasScale / camera.cz;
 
         if (ChoreoGraph.Input.lastKeyDown==gizmoSettings.hotkeySwitchMode&&ChoreoGraph.Input.lastKeyDownFrame==ChoreoGraph.frame) {
           if (gizmoData.mode=="translate") {
@@ -1059,7 +1059,7 @@ ChoreoGraph.plugin({
       c.beginPath();
       for (let point of points) {
         c.moveTo(point[0],point[1]);
-        c.arc(point[0],point[1],selectedPathId==null?1:5,0,Math.PI*2);
+        c.arc(point[0],point[1],selectedPathId==null?1:5*size,0,Math.PI*2);
       }
       c.fill();
 

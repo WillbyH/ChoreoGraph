@@ -319,6 +319,9 @@ ChoreoGraph.plugin({
         if (this.data.length<2) {
           console.warn("Animation:",this.id,"must be at least 2 keyframes long");
           this.ready = false;
+        } else if (this.data[0][this.timeKey]!=0) {
+          console.warn("Animation:",this.id,"must have the inital frame's time set to 0");
+          this.ready = false;
         } else {
           this.ready = true;
         }
@@ -913,6 +916,9 @@ ChoreoGraph.plugin({
                 frame[0] = Number(this.time);
               }
             }
+            if (frameNumber==0) {
+              frame[0] = 0;
+            }
             data.push(frame);
           }
           return {values:data};
@@ -1388,22 +1394,16 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
   onEnd = null;
 
   triggerTypes = {
-    "s" : (trigger,object,animator) => { animator.speed = trigger[1]; },
-    "e" : (trigger,object,animator) => { animator.ease = trigger[1]; },
-    "c" : (trigger,object,animator) => { eval(trigger[1]) },
-    "v" : (trigger,object,animator) => {
+    "s" : (trigger,object,animator) => { animator.speed = trigger[1]; }, // SPEED
+    "e" : (trigger,object,animator) => { animator.ease = trigger[1]; }, // EASE
+    "c" : (trigger,object,animator) => { eval(trigger[1]) }, // CODE
+    "v" : (trigger,object,animator) => { // VALUE
       trigger[1].reduce((acc, key, index, array) => {
         if (index === array.length - 1) {
           acc[key] = trigger[2];
         }
         return acc[key];
       }, object);
-    },
-    "p" : (trigger,object,animator) => {
-      let output = Array.from(trigger);
-      output.shift();
-      if (output.length==1) { output = output[0]; }
-      console.info(output);
     }
   }
 
@@ -1540,6 +1540,7 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
       return;
     }
     for (let i=0;i<this.connectionData.keys.length;i++) {
+      if (this.connectionData.keys[i]==undefined) { continue; }
       let fromVal = this.from[i];
       let toVal = this.to[i];
 
@@ -1558,6 +1559,7 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
   // Set object values to the to values
   setFinalValues() {
     for (let i=0;i<this.connectionData.keys.length;i++) {
+      if (this.connectionData.keys[i]==undefined) { continue; }
       let keyData = this.connectionData.keys[i];
       keyData.object[keyData.key] = this.to[i];
     }
@@ -1589,11 +1591,36 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
     this.runTriggers = true;
   };
 
+  // Sets the animation back to the start
+  reset() {
+    this.playhead = 0;
+    this.part = 0;
+    this.from = [];
+    this.to = [];
+    this.stt = 0;
+    this.ent = 0;
+    this.setValues();
+  }
+
+  // Starts the current animation from the beginning
+  restart() {
+    this.playhead = 0;
+    this.part = 0;
+    this.from = [];
+    this.to = [];
+    this.stt = 0;
+    this.ent = 0;
+    this.paused = false;
+    this.playing = false;
+    this.setValues();
+  }
+
   initConnection() {
     this.connectionData.initialisedAnimation = this.animation.id;
     this.connectionData.keys = [];
 
-    for (let key of this.animation.keys) {
+    for (let i=0;i<this.animation.keys.length;i++) {
+      let key = this.animation.keys[i];
       let keySet = key.keySet;
       if (keySet=="time") { continue; }
       let keyData = {
@@ -1605,7 +1632,7 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
           keyData.object = keyData.object[keySet[i]];
         }
       }
-      this.connectionData.keys.push(keyData);
+      this.connectionData.keys[i] = keyData;
     }
   };
 

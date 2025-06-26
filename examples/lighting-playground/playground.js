@@ -119,7 +119,7 @@ cg.settings.core.callbacks.loopAfter=()=> {
   cg.cameras.main.transform.y += dir[1] * cg.timeDelta;
 
   if (cg.Input.lastCursorType=="controller") {
-    ChoreoGraph.transformContext(cg.cameras.main);
+    ChoreoGraph.transformContext(cg.canvases.main.camera);
     let c = cg.canvases.main.c;
     c.beginPath();
     c.arc(cg.Input.cursor.x,cg.Input.cursor.y,30,0,Math.PI*2);

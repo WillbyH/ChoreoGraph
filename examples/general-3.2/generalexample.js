@@ -217,14 +217,16 @@ let testTilemap = cg.Tilemaps.createTilemap({
   tileWidth : 100
 },"testTilemap");
 
-let testChunk0 = testTilemap.createChunk({
+testTilemap.createLayer({
+  name : "theLayer"
+})
+
+testTilemap.createChunk({
   x : 0,
   y : 0,
   width : 5,
   height : 5
-});
-
-testChunk0.createLayer({
+}).createLayer({
   tiles : [
     0,0,0,0,0,
     0,1,1,1,null,
@@ -234,14 +236,12 @@ testChunk0.createLayer({
   ]
 });
 
-let testChunk1 = testTilemap.createChunk({
+testTilemap.createChunk({
   x : 5,
   y : 0,
   width : 5,
   height : 5
-});
-
-testChunk1.createLayer({
+}).createLayer({
   tiles : [
     1,1,1,1,1,
     1,0,0,0,0,
@@ -253,7 +253,7 @@ testChunk1.createLayer({
 
 let tilemapGraphic = cg.createGraphic({
   type : "tilemap",
-  tilemap : testTilemap,
+  tilemap : testTilemap
 },"tilemapGraphic");
 
 cg.scenes.main.createItem("graphic",{graphic:tilemapGraphic},"tilemapGraphic");

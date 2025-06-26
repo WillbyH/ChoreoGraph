@@ -134,6 +134,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         frustumCulling : true,
         baseImagePath : "",
         defaultCursor : "default",
+        assumptions : false,
 
         callbacks : {
           loopBefore : null, // loopBefore(cg) runs before canvases are drawn
@@ -175,6 +176,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
 
       for (let sceneId of this.keys.scenes) {
         let scene = this.scenes[sceneId];
+        if (scene.cameras.length==0) { continue; }
         scene.update();
       }
 
@@ -472,6 +474,10 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       return this;
     };
     drawImage(image, x, y, width=image.width, height=image.height, rotation=0, ax=0, ay=0, flipX=false, flipY=false) {
+      if (image==undefined) {
+        console.warn("Image is undefined in cgCanvas.drawImage");
+        return;
+      }
       let c = this.c;
       c.save();
       c.translate(x, y);
@@ -704,8 +710,29 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     };
 
     addScene(scene) {
+      if (this.scenes.includes(scene)) { return; }
       this.scenes.push(scene);
       scene.cameras.push(this);
+    };
+
+    removeScene(scene) {
+      if (this.scenes.includes(scene)==false) { return; }
+      this.scenes.splice(this.scenes.indexOf(scene),1);
+      scene.cameras.splice(scene.cameras.indexOf(this),1);
+    };
+
+    setScene(scene) {
+      for (let scene of this.scenes) {
+        scene.cameras.splice(scene.cameras.indexOf(this),1);
+      }
+      this.scenes = [scene];
+      if (scene.cameras.includes(this)==false) {
+        scene.cameras.push(this);
+      }
+    };
+
+    isSceneOpen(scene) {
+      return this.scenes.includes(scene);
     }
   }
 
@@ -729,7 +756,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       }
       let newItem;
       if (type=="graphic") {
-        if (init.transform===undefined) { init.transform = this.cg.createTransform(); }
+        ChoreoGraph.initTransform(this.cg,init,init);
         newItem = new ChoreoGraph.SceneItem({
           type:"graphic",
           id:id,
@@ -813,7 +840,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       }
     };
     processObjects() {
-      if (this.objects.length===0 && this.cg.keys.scenes.length===1) {
+      if (this.objects.length===0 && this.cg.keys.scenes.length===1 && this.cg.settings.core.assumptions) {
         for (let id of this.cg.keys.objects) {
           this.cg.objects[id].update(this);
         }
@@ -882,12 +909,12 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     oy = 0; // Offset Y
     or = 0; // Offset Rotation
 
-    flipX = false; // Flip X
-    flipY = false; // Flip Y
+    _flipX = false; // Flip X
+    _flipY = false; // Flip Y
 
-    CGSpace = true; // CG Space or Canvas Space
-    canvasSpaceXAnchor = 0; // 0-1
-    canvasSpaceYAnchor = 0; // 0-1
+    _CGSpace = true; // CG Space or Canvas Space
+    _canvasSpaceXAnchor = 0; // 0-1
+    _canvasSpaceYAnchor = 0; // 0-1
 
     parent = null;
 
@@ -907,6 +934,16 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     set r(value) { this._r = value; }
     get o() { if (this.parent===null) { return this._o; } else { return this.parent.o*this._o } }
     set o(value) { this._o = value; }
+    get CGSpace() { if (this.parent===null) { return this._CGSpace; } else { return this.parent.CGSpace; } }
+    set CGSpace(value) { this._CGSpace = value; }
+    get canvasSpaceXAnchor() { if (this.parent===null) { return this._canvasSpaceXAnchor; } else { return this.parent.canvasSpaceXAnchor; } }
+    set canvasSpaceXAnchor(value) { this._canvasSpaceXAnchor = value; }
+    get canvasSpaceYAnchor() { if (this.parent===null) { return this._canvasSpaceYAnchor; } else { return this.parent.canvasSpaceYAnchor; } }
+    set canvasSpaceYAnchor(value) { this._canvasSpaceYAnchor = value; }
+    get flipX() { if (this.parent===null) { return this._flipX; } else { return this.parent.flipX; } }
+    set flipX(value) { this._flipX = value; }
+    get flipY() { if (this.parent===null) { return this._flipY; } else { return this.parent.flipY; } }
+    set flipY(value) { this._flipY = value; }
 
     delete() {
       ChoreoGraph.id.release(this.id);
@@ -1342,8 +1379,18 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         }
         this.width = this.image.width;
         this.height = this.image.height;
+        this.flipX = false;
+        this.flipY = false;
       };
       draw(c,ax,ay) {
+        if (this.flipX) {
+          c.scale(-1, 1);
+          ax = -ax;
+        }
+        if (this.flipY) {
+          c.scale(1, -1);
+          ay = -ay;
+        }
         if (this.image.canvasOnCanvas||this.image.disableCropping) {
           c.drawImage(this.image.image, -(this.width/2)+ax, -(this.height/2)+ay, this.width, this.height);
         } else {
@@ -1355,6 +1402,49 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         return [this.width,this.height, 0, 0];
       };
     };
+    cg.graphicTypes.pointText = new class PointTextGraphic {
+      setup(init,cg) {
+        this.text = "Point Text";
+        this.fontFamily = "Arial";
+        this.fontSize = 20;
+        this.sizeType = "px";
+        this.colour = "#000000";
+        this.textAlign = "left";
+        this.textBaseline = "alphabetic";
+        this.fill = true;
+        this.lineWidth = 1;
+        this.maxWidth = null;
+      };
+      draw(c,ax,ay) {
+        c.font = this.fontSize + this.sizeType + " " + this.fontFamily;
+        c.textAlign = this.textAlign;
+        c.textBaseline = this.textBaseline;
+        if (this.fill) {
+          c.fillStyle = this.colour;
+          if (this.maxWidth!=null) {
+            c.fillText(this.text, ax, ay, this.maxWidth);
+          } else {
+            c.fillText(this.text, ax, ay);
+          }
+        } else {
+          c.strokeStyle = this.colour;
+          c.lineWidth = this.lineWidth;
+          if (this.maxWidth!=null) {
+            c.strokeText(this.text, ax, ay, this.maxWidth);
+          } else {
+            c.strokeText(this.text, ax, ay);
+          }
+        }
+      };
+      getBounds() {
+        if (this.maxWidth!=null) {
+          return [this.maxWidth, this.fontSize, 0, 0];
+        } else {
+          let width = this.cg.canvas.c.measureText(this.text).width;
+          return [width, this.fontSize, 0, 0];
+        }
+      };
+    };
   };
 
   applyAttributes(obj,attributes) {
@@ -1364,6 +1454,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
   };
 
   initTransform(cg,obj,init) {
+    if (obj.transform!==undefined&&obj.transform!==null) { return; }
     if (init.transform!=undefined) {
       obj.transform = init.transform;
       delete init.transform;

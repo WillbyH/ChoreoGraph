@@ -68,6 +68,7 @@ ChoreoGraph.plugin({
           } else {
             this.lastCheckedButtonChecks = ChoreoGraph.frame;
             this.cachedButtonChecks = this.cg.settings.input.callbacks.updateButtonChecks(this.cg);
+            return this.cachedButtonChecks;
           }
         } else {
           return {};
@@ -321,14 +322,14 @@ ChoreoGraph.plugin({
         let cgCanvas = event.target.cgCanvas;
         let cursorEnter = cgCanvas.cg.settings.input.callbacks.cursorEnter;
         if (cursorEnter!==null) {
-          cursorEnter(event,cgCanvas);
+          cursorEnter(event,this);
         }
       };
       exit(event) {
         let cgCanvas = event.target.cgCanvas;
         let cursorLeave = cgCanvas.cg.settings.input.callbacks.cursorLeave;
         if (cursorLeave!==null) {
-          cursorLeave(event,cgCanvas);
+          cursorLeave(event,this);
         }
       };
       cancel(event) {
@@ -599,8 +600,37 @@ ChoreoGraph.plugin({
       return this.controllers[this.selectedController];
     }
 
+    GamePadTypes = {
+      XBOX : {
+        name : "Xbox Controller",
+        buttons : ["A","B","X","Y","Left Bumper","Right Bumper","Left Trigger","Right Trigger","Select","Start","Left Stick","Right Stuck","D-Pad Up","D-Pad Down","D-Pad Left","D-Pad Right"],
+        triggers : ["LT","RT"]
+      },
+      PLAYSTATION : {
+        name : "Playstation Controller",
+        buttons : ["Cross","Circle","Square","Triangle","Left Bumper","Right Bumper","Left Trigger","Right Trigger","Select","Start","Left Stick","Right Stick","D-Pad Up","D-Pad Down","D-Pad Left","D-Pad Right"],
+        triggers : ["L2","R2"]
+      },
+      NINTENDO : {
+        name : "Nintendo Pro Controller",
+        buttons : ["A","B","X","Y","Left Bumper","Right Bumper","Left Trigger","Right Trigger","Minus","Plus","Left Stick","Right Stick","D-Pad Up","D-Pad Down","D-Pad Left","D-Pad Right"],
+        triggers : ["ZL","ZR"]
+      },
+      STEAM : {
+        name : "Steam Controller",
+        buttons : ["A","B","X","Y","Left Bumper","Right Bumper","Left Trigger","Right Trigger","Select","Start","Left Stick","Right Stick","D-Pad Up","D-Pad Down","D-Pad Left","D-Pad Right"],
+        triggers : ["LT","RT"]
+      },
+      UNKNOWN : {
+        name : "Controller",
+        buttons : ["A","B","X","Y","Left Bumper","Right Bumper","Left Trigger","Right Trigger","Select","Start","Left Stick","Right Stuck","D-Pad Up","D-Pad Down","D-Pad Left","D-Pad Right"],
+        triggers : ["LT","RT"]
+      }
+    }
+
     GamePadController = class cgGamePadController {
       connected = true;
+      type = null;
 
       lastButtons = [false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false,false];
 
@@ -608,10 +638,27 @@ ChoreoGraph.plugin({
         if (this.connected==false) { return this.lastGamepad; }
         this.lastGamepad = navigator.getGamepads()[this.lastGamepad.index]
         return this.lastGamepad;
-      }
+      };
+
+      guessType() {
+        let name = this.gamepad.id.toLowerCase();
+        if (name.includes("xbox")) {
+          this.type = ChoreoGraph.Input.GamePadTypes.XBOX;
+        } else if (name.includes("playstation")||name.includes("dualshock")||name.includes("dualsense")) {
+          this.type = ChoreoGraph.Input.GamePadTypes.PLAYSTATION;
+        } else if (name.includes("nintendo")||name.includes("pro controller")) {
+          this.type = ChoreoGraph.Input.GamePadTypes.NINTENDO;
+        } else if (name.includes("steam")||name.includes("valve")) {
+          this.type = ChoreoGraph.Input.GamePadTypes.STEAM;
+        } else {
+          this.type = ChoreoGraph.Input.GamePadTypes.UNKNOWN;
+        }
+      };
 
       constructor(event) {
         this.lastGamepad = event.gamepad;
+
+        this.guessType();
 
         if (ChoreoGraph.Input.selectedController===null) {
           ChoreoGraph.Input.selectedController = this.lastGamepad.index;
@@ -793,6 +840,8 @@ ChoreoGraph.plugin({
       cursor = "pointer";
       allowedButtons = [true,false,true]; // Left Middle Right
       hoverCount = 0;
+      hoveredX = 0;
+      hoveredY = 0;
 
       // Callbacks
       down = null;
@@ -863,18 +912,23 @@ ChoreoGraph.plugin({
             const [x, y] = getPositionInSpace(this,cursor);
             if (this.inside(x,y)) {
               hovered = true;
+              this.setHoveredPositions(x,y);
             }
           } else {
             for (let touch of cursor.activeTouches) {
               const [x, y] = getPositionInSpace(this,cursor,touch);
               if (this.inside(x,y)) {
                 hovered = true;
+                this.setHoveredPositions(x,y);
               }
             }
           }
         } else {
           const [x, y] = getPositionInSpace(this,cursor);
           hovered = this.inside(x,y);
+          if (hovered) {
+            this.setHoveredPositions(x,y);
+          }
         }
         return hovered;
       };
@@ -899,12 +953,14 @@ ChoreoGraph.plugin({
         let c = canvas.c;
         let style = canvas.cg.settings.input.debug.buttons.style;
         let debugCanvasScale = canvas.cg.settings.core.debugCanvasScale;
+        c.save();
         c.globalAlpha = 1;
         c.textAlign = "center";
         c.textBaseline = "middle";
         c.font = style.fontSize*debugCanvasScale+"px "+style.fontFamily;
         c.fillStyle = style.textColour;
         c.fillText(this.id, 0, 0);
+        c.restore();
       };
     };
 
@@ -924,6 +980,11 @@ ChoreoGraph.plugin({
       getCentre() {
         return [this.x,this.y];
       };
+
+      setHoveredPositions(x,y) {
+        this.hoveredX = (x - this.transform.x + (this.width*0.5)) / this.width;
+        this.hoveredY = (y - this.transform.y + (this.height*0.5)) / this.height;
+      };
     };
 
     circleButton = class cgCircleButton extends this.Button {
@@ -942,6 +1003,11 @@ ChoreoGraph.plugin({
 
       getCentre() {
         return [this.x,this.y];
+      };
+
+      setHoveredPositions(x,y) {
+        this.hoveredX = ((x - this.transform.x) / this.radius)*0.5 + 0.5;
+        this.hoveredY = ((y - this.transform.y) / this.radius)*0.5 + 0.5;
       };
     };
 
@@ -989,6 +1055,18 @@ ChoreoGraph.plugin({
         y /= this.path.length;
         return [this.x+x,this.y+y];
       };
+
+      setHoveredPositions(x,y) {
+        let left, right, top, bottom;
+        for (let point of this.path) {
+          if (left===undefined||point[0]<left) { left = point[0]; }
+          if (right===undefined||point[0]>right) { right = point[0]; }
+          if (top===undefined||point[1]<top) { top = point[1]; }
+          if (bottom===undefined||point[1]>bottom) { bottom = point[1]; }
+        }
+        this.hoveredX = ((x - this.transform.x) - left) / (right - left);
+        this.hoveredY = ((y - this.transform.y) - top) / (bottom - top);
+      };
     };
 
     updateButtons(canvas,event,special=false) {
@@ -1002,7 +1080,7 @@ ChoreoGraph.plugin({
             break;
           }
         }
-        if (!isRelevant) { continue; }
+        if (!isRelevant && button.pressed === false && button.hovered === false) { continue; }
         if (button.cursorInside(cg.Input.canvasCursors[canvas.id],special=="down")) {
           if (!button.hovered) {
             button.hovered = true;
@@ -1065,6 +1143,7 @@ ChoreoGraph.plugin({
           let button = cg.Input.buttons[buttonId];
           if (button.hovered) {
             button.hovered = false;
+            button.pressed = false;
             button.exitTime = ChoreoGraph.nowint;
             button.hoverCount = 0;
             cg.Input.hoveredButtons = 0;
@@ -1220,11 +1299,11 @@ ChoreoGraph.plugin({
       callbacks : {
         keyDown : null, // keyDown(keyName,event) when any known key is pressed it will activate this function
         keyUp : null, // keyUp(keyName,event) when any known key is released it will activate this function
-        cursorUp : null, // cursorUp(event,canvas)
-        cursorDown : null, // cursorDown(event,canvas)
-        cursorMove : null, // cursorMove(event,canvas)
-        cursorEnter : null, // cursorEnter(event,canvas) when the cursor enters a canvas
-        cursorLeave : null, // cursorLeave(event,canvas) when the cursor exits a canvas
+        cursorUp : null, // cursorUp(event,cursor)
+        cursorDown : null, // cursorDown(event,cursor)
+        cursorMove : null, // cursorMove(event,cursor)
+        cursorEnter : null, // cursorEnter(event,cursor) when the cursor enters a canvas
+        cursorLeave : null, // cursorLeave(event,cursor) when the cursor exits a canvas
         wheel : null, // wheel(event) when the mouse wheel is used
         buttonClicked : null, // buttonClicked(buttonName,event) when a button is clicked
         updateButtonChecks : null // updateButtonChecks(cg) for ChoreoGraph to request button checks

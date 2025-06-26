@@ -82,7 +82,7 @@ ChoreoGraph.plugin({
               c.beginPath();
               for (let i=0;i<occluder.path.length;i++) {
                 c.moveTo(occluder.path[i][0], occluder.path[i][1]);
-                c.arc(occluder.path[i][0], occluder.path[i][1], 5, 0, 2 * Math.PI);
+                c.arc(occluder.path[i][0], occluder.path[i][1], 5 * scale, 0, 2 * Math.PI);
               }
               c.fillStyle = "white";
               c.fill();
@@ -106,9 +106,9 @@ ChoreoGraph.plugin({
     SpotLight = class extends this.Light {
       type = "spot";
       penumbra = 0; // 0-1
-      colourR = null;
-      colourG = null;
-      colourB = null;
+      colourR = 255;
+      colourG = 255;
+      colourB = 255;
       innerRadius = 20;
       outerRadius = 150;
 
@@ -119,6 +119,17 @@ ChoreoGraph.plugin({
       angleStart = 0;
       angleEnd = 0;
 
+      constructor(lightInit,cg) {
+        if (lightInit.hexColour !== undefined) {
+          let hex = lightInit.hexColour;
+          lightInit.colourR = parseInt(hex.slice(1,3),16);
+          lightInit.colourG = parseInt(hex.slice(3,5),16);
+          lightInit.colourB = parseInt(hex.slice(5,7),16);
+          delete lightInit.hexColour;
+        }
+        super(lightInit,cg);
+      }
+
       draw(bc, cc) {
         let radialData = this.transform.x+"-"+this.transform.y+""+this.innerRadius+""+this.outerRadius+""+this.colourR+""+this.colourG+""+this.colourB;
         if (this.lightGradient==undefined||this.lastRadialData!=radialData) {
@@ -127,24 +138,19 @@ ChoreoGraph.plugin({
           this.lightGradient.addColorStop(this.innerRadius/this.outerRadius, 'rgba(0,0,0,1)');
           this.lightGradient.addColorStop(1, 'rgba(0,0,0,0)');
           this.lastRadialData = radialData;
-          if (this.colourR!=null) {
-            this.colourGradient = bc.createRadialGradient(this.transform.x, this.transform.y, 1, this.transform.x, this.transform.y, this.outerRadius*0.96);
-            this.colourGradient.addColorStop(0.9, `rgba(${this.colourR},${this.colourG},${this.colourB},1)`);
-            this.colourGradient.addColorStop(1, `rgba(${this.colourR},${this.colourG},${this.colourB},0)`);
-          }
+          this.colourGradient = bc.createRadialGradient(this.transform.x, this.transform.y, 1, this.transform.x, this.transform.y, this.outerRadius*0.96);
+          this.colourGradient.addColorStop(0, `rgba(${this.colourR},${this.colourG},${this.colourB},1)`);
+          this.colourGradient.addColorStop(1, `rgba(${this.colourR},${this.colourG},${this.colourB},0)`);
         }
-        bc.globalCompositeOperation = "destination-out";
         bc.fillStyle = this.lightGradient;
-        // bc.fillStyle = "white";
         bc.globalAlpha = this.brightness;
         bc.beginPath();
         bc.arc(this.transform.x,this.transform.y,this.outerRadius,this.angleStart,this.angleEnd);
         bc.lineTo(this.transform.x,this.transform.y);
         bc.fill();
-        if (this.colourR!=null) {
+        if (this.colourGradient!=null) {
           cc.globalCompositeOperation = "lighten";
           cc.fillStyle = this.colourGradient;
-          // bc.fillStyle = this.colour;
           cc.globalAlpha = this.brightness;
           cc.beginPath();
           cc.arc(this.transform.x,this.transform.y,this.outerRadius,this.angleStart,this.angleEnd);
@@ -506,6 +512,29 @@ ChoreoGraph.plugin({
           return !(lx < gxmin || lx > gxmax || ly < gymin || ly > gymax);
         };
 
+        this.aabbLightCamera = function(lightBounds, camera, light) {
+          if (!camera.cg.settings.core.frustumCulling) { return true; }
+          let bx = light.transform.x + lightBounds[2];
+          let by = light.transform.y + lightBounds[3];
+          let bw = lightBounds[0];
+          let bh = lightBounds[1];
+
+          let cw = camera.canvas.width;
+          let ch = camera.canvas.height;
+          if (camera.cullOverride!==null) { camera = camera.cullOverride; }
+          let cx = camera.x;
+          let cy = camera.y;
+          cw /= camera.cz;
+          ch /= camera.cz;
+
+          let hbw = bw * 0.5;
+          let hbh = bh * 0.5;
+          let hcw = cw * 0.5;
+          let hch = ch * 0.5;
+
+          return (cx - hcw < bx + hbw && cx + hcw > bx - hbw && cy - hch < by + hbh && cy + hch > by - hbh);
+        }
+
         this.drawDebug = function(canvas,lights) {
           let c = canvas.c;
           let cg = canvas.cg;
@@ -661,28 +690,30 @@ ChoreoGraph.plugin({
         for (let light of lights) {
           let lightBounds = light.getBounds();
           if (this.aabbLightGraphic(lightBounds, graphicBounds, light, transform)==false) { continue; }
+          if (this.aabbLightCamera(lightBounds, canvas.camera, light, transform)==false) { continue; }
           this.bbc.save();
           this.cbc.save();
           if (light.occlude) { this.occlude(light.transform.x,light.transform.y,lightBounds[0],lightBounds[1],lightBounds[2],lightBounds[3]); }
           if (light.feather==0) {
             this.bbc.filter = "none";
+            this.cbc.filter = "none";
           } else {
-            this.bbc.filter = "blur(" + light.feather*canvas.camera.z + "px)";
+            this.bbc.filter = "blur(" + light.feather*canvas.camera.cz + "px)";
+            this.cbc.filter = "blur(" + light.feather*canvas.camera.cz + "px)";
           }
           light.draw(this.bbc,this.cbc);
           this.bbc.restore();
           this.cbc.restore();
         }
 
-        let c = canvas.c;
-        c.globalAlpha = 1;
-        c.resetTransform();
-
-        c.globalCompositeOperation = "source-over";
-        c.drawImage(this.colourBufferCanvas,0,0);
-        c.globalCompositeOperation = "multiply";
-        c.drawImage(this.brightnessBufferCanvas,0,0);
-        c.globalCompositeOperation = "source-over";
+        this.bbc.resetTransform();
+        this.bbc.globalCompositeOperation = "source-atop";
+        this.bbc.drawImage(this.colourBufferCanvas,0,0);
+        canvas.c.globalAlpha = 1;
+        canvas.c.resetTransform();
+        canvas.c.globalCompositeOperation = "multiply";
+        canvas.c.drawImage(this.brightnessBufferCanvas,0,0);
+        canvas.c.globalCompositeOperation = "source-over";
 
         if (cg.settings.lighting.debug.active) { this.drawDebug(canvas,lights); }
       };

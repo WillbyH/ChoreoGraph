@@ -124,20 +124,21 @@ ChoreoGraph.plugin({
 
       draw(c) {
         this.cg.Physics.setDebugStyles(this,c);
+        let size = this.cg.settings.core.debugCGScale;
         c.beginPath();
-        c.moveTo(-this.unitVectorY*10, this.unitVectorX*10);
-        c.lineTo(-this.unitVectorY*-10, this.unitVectorX*-10);
+        c.moveTo(-this.unitVectorY*10*size, this.unitVectorX*10*size);
+        c.lineTo(-this.unitVectorY*-10*size, this.unitVectorX*-10*size);
         c.moveTo(0, 0);
         if (this.collided) {
           let x = this.unitVectorX*this.collidedDistance;
           let y = this.unitVectorY*this.collidedDistance;
           c.lineTo(x, y);
-          c.moveTo(x, y+6);
-          c.lineTo(x, y-6);
-          c.moveTo(6+x, y);
-          c.lineTo(-6+x, y);
+          c.moveTo(x, y+6*size);
+          c.lineTo(x, y-6*size);
+          c.moveTo(6*size+x, y);
+          c.lineTo(-6*size+x, y);
           c.stroke();
-          c.setLineDash([5, 5]);
+          c.setLineDash([5*size, 5*size]);
           c.beginPath();
           c.moveTo(x, y);
           c.lineTo(this.dx,this.dy)
@@ -206,6 +207,7 @@ ChoreoGraph.plugin({
             collider.affiliations.push(comparison);
             comparison.affiliations.push(collider);
             if (collider.trigger || comparison.trigger) {
+              if (collider.static || comparison.static) { continue; } // Don't compare static colliders with triggers
               this.triggerCollisionOrder.push([collider, comparison]);
             } else {
               if (collider.manual || comparison.manual) { continue; } // Don't physics compare excluded colliders
@@ -251,14 +253,14 @@ ChoreoGraph.plugin({
         return newCollider;
       };
 
-      createCollidersFromTilemap(tilemap,layerIndex=0,targetTileId=1,xo=0,yo=0) {
+      createCollidersFromTilemap(tilemap,layerIndex=0,targetTileId,xo=0,yo=0) {
         if (tilemap===undefined) { console.warn("No Tilemap provided in createCollidersFromTileMap"); return; }
         let pool = [];
         for (let chunk of tilemap.chunks) {
           if (chunk.layers[layerIndex]==undefined) { continue; }
           for (let t=0;t<chunk.layers[layerIndex].tiles.length;t++) {
             let tileId = chunk.layers[layerIndex].tiles[t];
-            if (tileId===targetTileId) {
+            if (tileId===targetTileId||(tileId!=null&&targetTileId===undefined)) {
               let x = t % chunk.width + chunk.x;
               let y = Math.floor(t / chunk.width) + chunk.y;
               pool.push(x+","+y);
@@ -334,10 +336,8 @@ ChoreoGraph.plugin({
           }
           let biggestX = parseInt(biggestStart.split(",")[0]);
           let biggestY = parseInt(biggestStart.split(",")[1]);
-          let topLeftX = xo - (tilemap.tileWidth*tilemap.width)/2;
-          let topLeftY = yo - (tilemap.tileHeight*tilemap.height)/2;
-          let x = topLeftX + biggestX*tilemap.tileWidth + tilemap.tileWidth/2;
-          let y = topLeftY + biggestY*tilemap.tileHeight + tilemap.tileHeight/2;
+          let x = biggestX*tilemap.tileWidth + tilemap.tileWidth/2;
+          let y = biggestY*tilemap.tileHeight + tilemap.tileHeight/2;
           let cx = x+(tilemap.tileWidth*biggestWidth)/2-tilemap.tileWidth/2;
           let cy = y+(tilemap.tileHeight*biggestHeight)/2-tilemap.tileHeight/2;
           this.createCollider({
@@ -633,8 +633,8 @@ ChoreoGraph.plugin({
       if (collided) {
         colliderA.collided = true;
         colliderB.collided = true;
-        if (!colliderA.collided && colliderA.collide !== null) { colliderA.collide(colliderB, vector); }
-        if (!colliderB.collided && colliderB.collide !== null) { colliderB.collide(colliderA, vector); }
+        if (colliderA.collide !== null) { colliderA.collide(colliderB, vector); }
+        if (colliderB.collide !== null) { colliderB.collide(colliderA, vector); }
       } else {
         if (colliderA.collidedFrame !== ChoreoGraph.frame) { colliderA.collided = false; }
         if (colliderB.collidedFrame !== ChoreoGraph.frame) { colliderB.collided = false; }
