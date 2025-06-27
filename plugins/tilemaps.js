@@ -509,7 +509,7 @@ ChoreoGraph.plugin({
               for (let layerIndex=0;layerIndex<tilemap.layers.length;layerIndex++) {
                 let layer = tilemap.layers[layerIndex];
                 let chunkLayer = chunk.layers[layerIndex];
-                if (layer.visible==false||((this.visibleLayers.length>0&&!this.visibleLayers.includes(layer.name))&&(this.visibleLayers.length!==0))) {
+                if (chunkLayer==undefined||layer.visible==false||((this.visibleLayers.length>0&&!this.visibleLayers.includes(layer.name))&&(this.visibleLayers.length!==0))) {
                   continue;
                 }
                 xMin = Math.min(xMin,chunkX);

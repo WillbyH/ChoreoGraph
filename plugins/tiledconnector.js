@@ -21,7 +21,7 @@ ChoreoGraph.plugin({
           imageId = data.properties.find(p=>p.name=="cgimage");
         }
         if (imageId == undefined) {
-          console.warn("Tiled Tileset missing 'cgimage' custom property. To add this go to the tileset in Tiled, then click on Tileset (in the menu bar) -> Tileset Properties and then add the property in the Custom Properties section.")
+          console.warn("Tiled Tileset missing 'cgimage' custom property. To add this go to the tileset in Tiled, then click on Tileset (in the menu bar) -> Tileset Properties and then add the property in the Custom Properties section. Set the value to the id of the image the tileset uses.")
           return;
         }
         imageId = imageId.value;
@@ -46,6 +46,7 @@ ChoreoGraph.plugin({
               TilesetIndex++;
             }
           }
+          this.tileSets[id].tiles = tiles;
           if (callback) { callback(tiles); }
         } else {
           console.warn("No image found for Tiled tileset with id: " + imageId);
@@ -97,50 +98,65 @@ ChoreoGraph.plugin({
 
         // FIND GIDs
         let gidMap = {};
+
+        function mapGid(gid) {
+          if (gid==0) { return; }
+          if (gidMap[gid]===undefined) {
+            let tileSetGid = gid;
+            let flipX = false;
+            let flipY = false;
+            let flipDiagonal = false;
+            if (gid>=536870912) { // Handle data in the tile id
+              let bitField = gid.toString(2).padStart(32,"0");
+              flipX = bitField[0]=="1";
+              flipY = bitField[1]=="1";
+              flipDiagonal = bitField[2]=="1";
+              bitField = bitField.substring(0,0) + "0" + bitField.substring(1); // Set first bit to 0
+              bitField = bitField.substring(0,1) + "0" + bitField.substring(2); // Set second bit to 0
+              bitField = bitField.substring(0,2) + "0" + bitField.substring(3); // Set third bit to 0
+              tileSetGid = parseInt(bitField, 2);
+            }
+            let tileSetReference = data.tilesets.find(ts=>ts.firstgid<=tileSetGid);
+            let tileSet = cg.Tiled.tileSets[tileSetReference.source];
+            if (gidMap[gid]!==undefined) { return; }
+            let tileId = "Tiled_"+tileSet.name+"_"+(tileSetGid-1);
+            let unmodifiedTile = cg.Tilemaps.tiles[tileId];
+            if (flipX) { tileId += "_flipX"; }
+            if (flipY) { tileId += "_flipY"; }
+            if (flipDiagonal) { tileId += "_flipDiagonal"; }
+            let tile;
+            if (!cg.keys.tiles.includes(tileId)) {
+              tile = cg.Tilemaps.createTile({
+                image : unmodifiedTile.image,
+                imageX : unmodifiedTile.imageX,
+                imageY : unmodifiedTile.imageY,
+                width : unmodifiedTile.width,
+                height : unmodifiedTile.height,
+                TiledTileset: unmodifiedTile.TiledTileset,
+                TiledTilesetIndex: unmodifiedTile.TiledTilesetIndex,
+                flipX : flipX,
+                flipY : flipY,
+                flipDiagonal : flipDiagonal
+              },tileId);
+            } else {
+              tile = unmodifiedTile;
+            }
+            gidMap[gid] = tile;
+          }
+        }
+
         for (let layer of data.layers) {
-          for (let gid of layer.data) {
-            if (gid==0) { continue; }
-            if (gidMap[gid]===undefined) {
-              let tileSetGid = gid;
-              let flipX = false;
-              let flipY = false;
-              let flipDiagonal = false;
-              if (gid>=536870912) { // Handle data in the tile id
-                let bitField = gid.toString(2).padStart(32,"0");
-                flipX = bitField[0]=="1";
-                flipY = bitField[1]=="1";
-                flipDiagonal = bitField[2]=="1";
-                bitField = bitField.substring(0,0) + "0" + bitField.substring(1); // Set first bit to 0
-                bitField = bitField.substring(0,1) + "0" + bitField.substring(2); // Set second bit to 0
-                bitField = bitField.substring(0,2) + "0" + bitField.substring(3); // Set third bit to 0
-                tileSetGid = parseInt(bitField, 2);
+          if (data.infinite) {
+            for (let chunk of layer.chunks) {
+              for (let gid of chunk.data) {
+                mapGid(gid);
               }
-              let tileSetReference = data.tilesets.find(ts=>ts.firstgid<=tileSetGid);
-              let tileSet = cg.Tiled.tileSets[tileSetReference.source];
-              if (gidMap[gid]!==undefined) { continue; }
-              let tileId = "Tiled_"+tileSet.name+"_"+(tileSetGid-1);
-              let unmodifiedTile = cg.Tilemaps.tiles[tileId];
-              if (flipX) { tileId += "_flipX"; }
-              if (flipY) { tileId += "_flipY"; }
-              if (flipDiagonal) { tileId += "_flipDiagonal"; }
-              let tile;
-              if (!cg.keys.tiles.includes(tileId)) {
-                tile = cg.Tilemaps.createTile({
-                  image : unmodifiedTile.image,
-                  imageX : unmodifiedTile.imageX,
-                  imageY : unmodifiedTile.imageY,
-                  width : unmodifiedTile.width,
-                  height : unmodifiedTile.height,
-                  TiledTileset: unmodifiedTile.TiledTileset,
-                  TiledTilesetIndex: unmodifiedTile.TiledTilesetIndex,
-                  flipX : flipX,
-                  flipY : flipY,
-                  flipDiagonal : flipDiagonal
-                },tileId);
-              } else {
-                tile = unmodifiedTile;
+            }
+          } else {
+            for (let layer of data.layers) {
+              for (let gid of layer.data) {
+                mapGid(gid);
               }
-              gidMap[gid] = tile;
             }
           }
         }
@@ -157,9 +173,34 @@ ChoreoGraph.plugin({
           return output;
         }
 
-        if (data.layers[0].chunks!=undefined) {
+        if (data.infinite) {
           // CREATE CHUNKS FROM DATA
-          return;
+            for (let layer of data.layers) {
+              tilemap.createLayer({
+                name : layer.name,
+                visible : layer.visible
+              });
+              for (let chunkData of layer.chunks) {
+                let chunk = null;
+                for (let existingChunk of tilemap.chunks) {
+                  if (existingChunk.x===chunkData.x && existingChunk.y===chunkData.y && existingChunk.width===chunkData.width && existingChunk.height===chunkData.height) {
+                    chunk = existingChunk;
+                    break;
+                  }
+                }
+                if (chunk===null) {
+                  chunk = tilemap.createChunk({
+                    x : chunkData.x,
+                    y : chunkData.y,
+                    width : chunkData.width,
+                    height : chunkData.height
+                  })
+                }
+                chunk.createLayer({
+                  tiles : convertLayerData(chunkData.data)
+                });
+              }
+            }
         } else {
           if (importData.autoChunk===undefined) { importData.autoChunk = false; }
 
@@ -180,7 +221,21 @@ ChoreoGraph.plugin({
 
           // CREATE SINGLE CHUNK
           } else {
-            // just make one massive chunk
+            let chunk = tilemap.createChunk({
+              x : importData.offsetX || 0,
+              y : importData.offsetY || 0,
+              width : data.width,
+              height : data.height
+            });
+            for (let layer of data.layers) {
+              tilemap.createLayer({
+                name : layer.name,
+                visible : layer.visible
+              });
+              chunk.createLayer({
+                tiles : convertLayerData(layer.data)
+              });
+            }
           }
         }
         if (callback) { callback(tilemap); }
