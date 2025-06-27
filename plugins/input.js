@@ -1242,15 +1242,19 @@ ChoreoGraph.plugin({
 
     Action = class cgAction {
       keys = [];
-      controllerAxes = [];
 
       cachedValue = 0;
       cachedFrame = -1;
+      lastUpdateValue = 0;
 
       down = null;
       up = null;
 
       constructor(init) {
+        if (init.keys===undefined) {
+          console.warn("cgAction requires 'keys' to be set");
+          return;
+        }
         for (let key of init.keys) {
           if (typeof key == "string") {
             this.keys.push(new ChoreoGraph.Input.ActionKey({main:key}));
@@ -1262,7 +1266,9 @@ ChoreoGraph.plugin({
             this.keys.push(new ChoreoGraph.Input.ActionKey(key));
           }
         }
-      }
+        if (init.down!==undefined) { this.down = init.down; }
+        if (init.up!==undefined) { this.up = init.up; }
+      };
 
       get() {
         if (this.cachedFrame==ChoreoGraph.frame) { return this.cachedValue; }
@@ -1275,7 +1281,30 @@ ChoreoGraph.plugin({
         this.cachedValue = value;
         return value;
       };
+
+      update() {
+        let value = this.get();
+        if (value!=this.lastUpdateValue) {
+          if (value==1) {
+            if (this.down!==null) {
+              this.down(value);
+            }
+          } else if (this.lastUpdateValue==1) {
+            if (this.up!==null) {
+              this.up(value);
+            }
+          }
+          this.lastUpdateValue = value;
+        }
+      };
     };
+
+    actionUpdateLoop(cg) {
+      for (let actionId of cg.keys.actions) {
+        let action = cg.Input.actions[actionId];
+        action.update();
+      }
+    }
   },
 
   instanceConnect(cg) {
@@ -1382,6 +1411,7 @@ ChoreoGraph.plugin({
 
       ChoreoGraph.globalAfterLoops.push(ChoreoGraph.Input.cursorImpulseReset);
       cg.processLoops.push(ChoreoGraph.Input.controllerButtonLoop);
+      cg.processLoops.push(ChoreoGraph.Input.actionUpdateLoop);
       if (cg.settings.input.controller.emulatedCursor.active) {
         cg.processLoops.push(ChoreoGraph.Input.emulatedCursorLoop);
       }

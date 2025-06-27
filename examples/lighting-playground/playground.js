@@ -25,7 +25,7 @@ cg.createCanvas({element:document.getElementsByTagName("canvas")[0],
 }).resizeWithSelf();
 
 cg.cameras.main.scaleMode = "maximum";
-cg.cameras.main.maximumSize = 1400;
+cg.cameras.main.size = 1400;
 cg.cameras.main.transform.x = 0;
 cg.cameras.main.transform.y = 0;
 

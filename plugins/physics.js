@@ -90,6 +90,11 @@ ChoreoGraph.plugin({
         c.stroke();
         c.globalAlpha = opacity;
         c.fill();
+        c.globalAlpha = 1;
+        c.font = 15 * this.cg.settings.core.debugCGScale+"px Arial";
+        c.textBaseline = "middle";
+        c.textAlign = "center";
+        c.fillText(this.groups.join(","), 0, 0);
       };
     };
 
@@ -107,6 +112,11 @@ ChoreoGraph.plugin({
         c.stroke();
         c.globalAlpha = opacity;
         c.fill();
+        c.globalAlpha = 1;
+        c.font = 15 * this.cg.settings.core.debugCGScale+"px Arial";
+        c.textBaseline = "middle";
+        c.textAlign = "center";
+        c.fillText(this.groups.join(","), 0, 0);
       }
     };
 
@@ -224,7 +234,6 @@ ChoreoGraph.plugin({
             collider.affiliations.push(comparison);
             comparison.affiliations.push(collider);
             if (collider.trigger || comparison.trigger) {
-              if (collider.static || comparison.static) { continue; } // Don't compare static colliders with triggers
               this.triggerCollisionOrder.push([collider, comparison]);
             } else {
               if (collider.manual || comparison.manual) { continue; } // Don't physics compare excluded colliders
@@ -270,14 +279,14 @@ ChoreoGraph.plugin({
         return newCollider;
       };
 
-      createCollidersFromTilemap(tilemap,layerIndex=0,targetTileId,xo=0,yo=0) {
+      createCollidersFromTilemap(tilemap,layerIndex=0,targetTileId=null,xo=0,yo=0,groups=[0]) {
         if (tilemap===undefined) { console.warn("No Tilemap provided in createCollidersFromTileMap"); return; }
         let pool = [];
         for (let chunk of tilemap.chunks) {
           if (chunk.layers[layerIndex]==undefined) { continue; }
           for (let t=0;t<chunk.layers[layerIndex].tiles.length;t++) {
             let tileId = chunk.layers[layerIndex].tiles[t];
-            if (tileId===targetTileId||(tileId!=null&&targetTileId===undefined)) {
+            if ((targetTileId!==null&&tileId===targetTileId)||(targetTileId===null&&tileId!==null)) {
               let x = t % chunk.width + chunk.x;
               let y = Math.floor(t / chunk.width) + chunk.y;
               pool.push(x+","+y);
@@ -362,7 +371,8 @@ ChoreoGraph.plugin({
             type : "rectangle",
             width : tilemap.tileWidth * biggestWidth,
             height : tilemap.tileHeight * biggestHeight,
-            transformInit : { x: cx, y: cy }
+            transformInit : { x: cx, y: cy },
+            groups : groups
           }, colliderGroupName + "_" + colliderNumber);
           colliderNumber++;
         }
@@ -988,8 +998,12 @@ ChoreoGraph.ObjectComponents.RigidBody = class cgObjectRidigBody {
           if (this.collider.resolutionVector[0] != 0) { this.xv *= -1; }
           if (this.collider.resolutionVector[1] != 0) { this.yv *= -1; }
         } else {
-          this.xv = 0;
-          this.yv = 0;
+          if (this.collider.resolutionVector[0] > 0 && this.xv < 0 || this.collider.resolutionVector[0] < 0 && this.xv > 0) {
+            this.xv = 0;
+          }
+          if (this.collider.resolutionVector[1] > 0 && this.yv < 0 || this.collider.resolutionVector[1] < 0 && this.yv > 0) {
+            this.yv = 0;
+          }
         }
         resetResolutionVectors(this.collider,collider);
         continue;
