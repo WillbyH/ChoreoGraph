@@ -18,7 +18,7 @@ const cg = ChoreoGraph.instantiate({
 
 cg.createCamera({
   scaleMode : "maximum",
-  maximumSize : 270,
+  size : 270,
 },"main")
 .addScene(cg.createScene({},"title"));
 cg.createScene({},"main");

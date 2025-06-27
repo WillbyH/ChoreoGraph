@@ -23,8 +23,8 @@ cg.createCamera({
   x : 400/2,
   y : 300/2,
   scaleMode : "minimum",
-  minimumWidth : 400,
-  minimumHeight : 300,
+  width : 400,
+  height : 300,
 },"railways")
 .addScene(cg.createScene({},"railways"));
 
@@ -179,11 +179,11 @@ cg.Input.createButton({type:"rectangle",
   down : ()=> {
     cg.graphics.fullscreenToggle.isFullscreen = !cg.graphics.fullscreenToggle.isFullscreen;
     if (cg.graphics.fullscreenToggle.isFullscreen) {
-      cg.cameras.railways.minimumHeight = 320;
-      cg.cameras.railways.minimumWidth = 420;
+      cg.cameras.railways.height = 320;
+      cg.cameras.railways.width = 420;
       document.getElementById("railways").requestFullscreen().catch((e)=>{
-        cg.cameras.railways.minimumHeight = 300;
-        cg.cameras.railways.minimumWidth = 400;
+        cg.cameras.railways.height = 300;
+        cg.cameras.railways.width = 400;
         cg.Input.buttons.fullscreenToggle.transform.x = 100000000;
         cg.sceneItems.fullscreenToggle.transform.x = 100000000;
         alert("Your browser does not support fullscreen")
@@ -197,8 +197,8 @@ cg.Input.createButton({type:"rectangle",
 document.addEventListener("fullscreenchange", (event) => {
   if (!document.fullscreenElement) {
     cg.graphics.fullscreenToggle.isFullscreen = false;
-    cg.cameras.railways.minimumHeight = 300;
-    cg.cameras.railways.minimumWidth = 400;
+    cg.cameras.railways.height = 300;
+    cg.cameras.railways.width = 400;
   }
 });
 

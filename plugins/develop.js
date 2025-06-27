@@ -169,13 +169,9 @@ ChoreoGraph.plugin({
             canvasSpaceScale : canvas.camera.canvasSpaceScale,
             canvas : canvas,
             scaleMode : canvas.camera.scaleMode,
-            WHRatio : canvas.camera.WHRatio,
-            maximumSize : canvas.camera.maximumSize,
-            maximumWidth : canvas.camera.maximumWidth,
-            maximumHeight : canvas.camera.maximumHeight,
-            minimumSize : canvas.camera.minimumSize,
-            minimumWidth : canvas.camera.minimumWidth,
-            minimumHeight : canvas.camera.minimumHeight,
+            size : canvas.camera.size,
+            width : canvas.camera.width,
+            height : canvas.camera.height,
             pixelScale : canvas.camera.pixelScale,
             cullOverride : canvas.camera,
             inactiveCanvas : canvas
@@ -282,6 +278,7 @@ ChoreoGraph.plugin({
             let cameras = byScene[scene.id];
 
             for (let camera of cameras) {
+              c.save();
               if (camera.id==canvas.camera.id) { continue; }
               ChoreoGraph.transformContext(canvas.camera,camera.x,camera.y);
               c.strokeStyle = cg.settings.develop.cameras.colour;
@@ -290,11 +287,25 @@ ChoreoGraph.plugin({
               c.lineWidth = 2 * cg.settings.core.debugCanvasScale / canvas.camera.cz;
               c.beginPath();
               c.rect(-cw*0.5,-ch*0.5,cw,ch)
+              c.stroke();
+              c.lineWidth = 1.5 * cg.settings.core.debugCanvasScale / canvas.camera.cz;
+              c.beginPath();
               c.moveTo(-cw*0.5,-ch*0.5);
               c.lineTo(cw*0.5,ch*0.5);
               c.moveTo(cw*0.5,-ch*0.5);
               c.lineTo(-cw*0.5,ch*0.5);
               c.stroke();
+
+              let scale = cg.settings.core.debugCanvasScale / camera.cz;
+              c.setLineDash([20*scale,10*scale]);
+              c.beginPath();
+              let width = camera.width == null ? camera.size : camera.width;
+              let height = camera.height == null ? camera.size : camera.height;
+              width /= camera.z;
+              height /= camera.z;
+              c.rect(-width*0.5,-height*0.5,width,height);
+              c.stroke();
+              c.restore();
             }
           }
         }

@@ -9,7 +9,7 @@ const cg = ChoreoGraph.instantiate({
 
 cg.createCamera({
   scaleMode : "minimum",
-  minimumSize : 85,
+  size : 85,
 },"main")
 .addScene(cg.createScene({},"main"));
 

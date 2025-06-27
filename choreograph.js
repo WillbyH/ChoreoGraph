@@ -135,6 +135,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         baseImagePath : "",
         defaultCursor : "default",
         assumptions : false,
+        imageSmoothingEnabled : true,
 
         callbacks : {
           loopBefore : null, // loopBefore(cg) runs before canvases are drawn
@@ -614,22 +615,15 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     z = 1; // Zoom
 
     transform = null;
-    scaleMode = "pixels";
     canvasSpaceScale;
 
+    // maximum/minimum - for dynamic aspect ratios and screen resolutions
     // pixels - for maintaining pixel ratios
+    scaleMode = "pixels";
     pixelScale = 1; // Pixels per pixel
-
-    // maximum - for dynamic aspect ratios and screen resolutions
-    WHRatio = 0.5; // Width:Height Ratio
-    maximumSize = 500; // The amount of units to be the maximum width and height
-    maximumWidth = null; // The amount of units to be the maximum width
-    maximumHeight = null; // The amount of units to be the maximum height
-
-    // minimum - for dynamic aspect ratios and screen resolutions
-    minimumSize = 500; // The amount of units to be the minimum width and height
-    minimumWidth = null; // The amount of units to be the minimum width
-    minimumHeight = null; // The amount of units to be the minimum height
+    size = 500;
+    width = null;
+    height = null;
 
     // RETURNS CG SPACE POSITION OF THE TOP LEFT OF THIS CAMERA
     get cx() {
@@ -660,14 +654,12 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       } else {
         let width, height;
         let basedOnWidth = true;
+        width = this.width == null ? this.size : this.width;
+        height = this.height == null ? this.size : this.height;
         if (this.scaleMode=="maximum") {
-          width = this.maximumWidth == null ? this.maximumSize : this.maximumWidth;
-          height = this.maximumHeight == null ? this.maximumSize : this.maximumHeight;
-          basedOnWidth = canvas.width*(this.WHRatio)>canvas.height*(1-this.WHRatio);
+          basedOnWidth = canvas.width > canvas.height * (width / height);
         } else if (this.scaleMode=="minimum") {
-          width = this.minimumWidth == null ? this.minimumSize : this.minimumWidth;
-          height = this.minimumHeight == null ? this.minimumSize : this.minimumHeight;
-          basedOnWidth = canvas.width/canvas.height < width/height;
+          basedOnWidth = canvas.width < canvas.height * (width / height);
         }
         if (basedOnWidth) {
           return this.z*(canvas.width/(width))*this.pixelScale;
@@ -874,9 +866,10 @@ const ChoreoGraph = new class ChoreoGraphEngine {
   Graphic = class cgGraphic {
     type = "";
     manualTransform = false;
-    imageSmoothingEnabled = true;
+    imageSmoothingEnabled;
 
     constructor(graphicInit,cg) {
+      this.imageSmoothingEnabled = cg.settings.core.imageSmoothingEnabled;
       let graphicType = cg.graphicTypes[graphicInit.type];
       if (graphicType!==undefined) {
         this.setup = graphicType.setup;
