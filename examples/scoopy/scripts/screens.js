@@ -662,11 +662,11 @@ cg.Input.createButton({
 stst.isFullscreen = false;
 
 cg.Input.createButton({type:"rectangle",
-  CGSpace : false,
   width : 350,
   height : 60,
   scene : cg.scenes.title,
   transformInit : {
+    CGSpace : false,
     x : 200,
     y : -68,
     canvasSpaceYAnchor : 1
