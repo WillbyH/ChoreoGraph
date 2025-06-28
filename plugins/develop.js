@@ -37,6 +37,7 @@ ChoreoGraph.plugin({
         this.interfaceItems.push({
           type : "UIActionButton",
           text : "Reset FreeCam",
+          id : "develop-reset_freeCam",
           action : (cg) => { cg.Develop.resetFreeCam(); }
         });
         this.interfaceItems.push({
@@ -87,15 +88,26 @@ ChoreoGraph.plugin({
           onActive : (cg) => { cg.Develop.featureData.pathEditor.active = true; ChoreoGraph.Develop.createPathEditorInterface(cg); },
           onInactive : (cg) => { cg.Develop.featureData.pathEditor.active = false; ChoreoGraph.Develop.hidePathEditorInterface(cg); },
         });
+        this.interfaceItems.push({
+          type : "UIInput",
+          placeholder : "evaluation code",
+          id : "develop-eval-input"
+        });
+        this.interfaceItems.push({
+          type : "UIActionButton",
+          text : "Evaluate",
+          action : (cg) => {
+            let code = document.getElementById("develop-eval-input").value;
+            console.info("> %c"+code,"color:#bbb;");
+            console.info(eval(code));
+          }
+        });
       };
 
       _selectedCanvas = null;
       set selectedCanvas(canvas) {
         if (this._selectedCanvas==null||this._selectedCanvas.id != canvas.id) {
           this._selectedCanvas = canvas;
-          // if (ChoreoGraph.Develop.initiated) {
-          //   ChoreoGraph.Develop.generateInterface();
-          // }
         }
       }
       get selectedCanvas() {
@@ -160,6 +172,7 @@ ChoreoGraph.plugin({
 
       enableFreeCam() {
         this.featureData.freeCam.active = true;
+        document.getElementById("develop-reset_freeCam").style.display = "inline-block";
         let canvas = this.cg.Develop.selectedCanvas;
         if (this.featureData.freeCam.canvasData[canvas.id]===undefined) {
           let transform = this.cg.createTransform({x:canvas.camera.transform.x,y:canvas.camera.transform.y},"develop_freeCam-"+canvas.id);
@@ -833,6 +846,8 @@ ChoreoGraph.plugin({
         let newItem = new ChoreoGraph.Develop[item.type](item,this.cg);
         ChoreoGraph.Develop.section.appendChild(newItem.element);
       }
+
+      document.getElementById("develop-reset_freeCam").style.display = "none";
     };
 
     hidePathEditorInterface(cg) {
@@ -1416,6 +1431,9 @@ ChoreoGraph.plugin({
         this.element.developUIData = this;
         this.element.type = "button";
         this.element.classList.add("develop_button");
+        if (init.id!=undefined) {
+          this.element.id = init.id;
+        }
         this.element.onclick = () => {
           if (typeof this.activated=="boolean") {
             this.activated = !this.activated;
@@ -1464,6 +1482,30 @@ ChoreoGraph.plugin({
         this.element.onclick = () => {
           if (this.action!=null) { this.action(this.cg); }
         };
+        if (init.id!=undefined) {
+          this.element.id = init.id;
+        }
+        for (let key in init) {
+          this[key] = init[key];
+        }
+        this.element.innerText = this.text;
+      };
+    };
+
+    UIInput = class UIInput {
+      constructor(init,cg) {
+        this.cg = cg;
+        this.element = document.createElement("input");
+        this.element.developUIData = this;
+        this.element.type = "input";
+        this.element.placeholder = init.placeholder;
+        this.element.classList.add("develop_input");
+        this.element.onclick = () => {
+          if (this.action!=null) { this.action(this.cg); }
+        };
+        if (init.id!=undefined) {
+          this.element.id = init.id;
+        }
         for (let key in init) {
           this[key] = init[key];
         }
@@ -1595,20 +1637,19 @@ ChoreoGraph.plugin({
     .develop_button {
       background: black;
       color: white;
-      margin:5px;
+      margin: 5px;
       border: 3px solid white;
-      padding:10px;
-      border-radius:10px;
+      padding: 10px;
+      border-radius: 10px;
       cursor: pointer;
     }
     .develop_button:hover {
       background: #111;
     }
     .develop_input {
-      font-size: 15px;
-      padding: 6px;
-      border: 2px solid white;
-      border-radius: 5px;
+      border: 3px solid white;
+      border-radius: 10px;
+      padding: 10px;
       background: black;
       color: white;
       font-family: consolas;

@@ -28,7 +28,7 @@ cg.scenes.main.createItem("collection",{},"top");
 
 cg.createCanvas({element:document.getElementsByTagName("canvas")[0],
   background : "peachpuff"
-})
+},"main")
 .resizeWithSelf()
 .setCamera(cg.cameras.main);
 
@@ -83,7 +83,7 @@ cg.createGraphic({
   type : "image",
   image : cg.createImage({
     file : "sheet.png",
-    crop : [7*16+1,5*16+1,16-2,16-1]
+    crop : [6*16+1,7*16+1,16-2,16-1]
   },"playerIdle"),
 },"playerIdle");
 
@@ -99,7 +99,7 @@ cg.createGraphic({
   type : "image",
   image : cg.createImage({
     file : "sheet.png",
-    crop : [6*16+1,6*16+1,16-2,16-1]
+    crop : [7*16+1,7*16+1,16-2,16-1]
   },"playerIdleFear"),
 },"playerIdleFear");
 
@@ -108,8 +108,24 @@ cg.createGraphic({
   image : cg.createImage({
     file : "sheet.png",
     crop : [6*16+1,5*16+1,16-2,16-1]
-  },"playerJump"),
-},"playerJump");
+  },"playerJumpLookDown"),
+},"playerJumpLookDown");
+
+cg.createGraphic({
+  type : "image",
+  image : cg.createImage({
+    file : "sheet.png",
+    crop : [7*16+1,5*16+1,16-2,16-1]
+  },"playerJumpLookUp"),
+},"playerJumpLookUp");
+
+cg.createGraphic({
+  type : "image",
+  image : cg.createImage({
+    file : "sheet.png",
+    crop : [6*16+1,6*16+1,16-2,16-1]
+  },"playerJumpLookForward"),
+},"playerJumpLookForward");
 
 for (let i=0;i<10;i++) {
   let x = Math.floor(i/5) + 6;
@@ -219,13 +235,27 @@ cg.objects.player.animationManager = function(dir) {
     }
   } else {
     this.Animator.animation = null;
-    this.Graphic.graphic = cg.graphics.playerJump;
+    if (this.RigidBody.yv < 0) {
+      this.lastMoveTime = cg.clock;
+      if (Math.abs(this.RigidBody.yv) > 60) {
+        this.Graphic.graphic = cg.graphics.playerJumpLookUp;
+      } else {
+        this.Graphic.graphic = cg.graphics.playerJumpLookForward;
+      }
+    } else {
+      this.lastMoveTime = cg.clock;
+      if (cg.Input.actions.jump.get() == 0) {
+        this.Graphic.graphic = cg.graphics.playerJumpLookDown;
+      } else {
+        this.Graphic.graphic = cg.graphics.playerJumpLookForward;
+      }
+    }
   }
 };
 
 cg.Physics.createCollider({
   type : "rectangle",
-  width : 14,
+  width : 13,
   height : 4,
   trigger : true,
   groups : [2],
@@ -337,7 +367,7 @@ function createFireflies(x,y,r,count) {
         object.Graphic.transform.o = brightness;
         object.light.brightness = brightness;
       }
-    })
+    });
 
     let swarm = {
       playerDistanceFromHome : 0,
@@ -363,5 +393,69 @@ function createFireflies(x,y,r,count) {
 }
 
 createFireflies(100,75,30,10);
+
+// GEMS
+for (let i=0;i<4;i++) {
+  let x = (i%2)*5 + 81;
+  let y = Math.floor(i/2)*6 + 113;
+  cg.createGraphic({
+    type : "image",
+    image : cg.createImage({
+      file : "sheet.png",
+      crop : [x,y,4,5]
+    },"gem" + i),
+  },"gem" + i);
+}
+
+cg.Animation.createAnimationFromPacked("0&sprite=f:7:Graphic,graphic:gem0|gem1|gem2|gem3",{},"gem");
+
+function createGem(x,y) {
+  let gem = cg.createObject({
+    transformInit : {x:x,y:y}
+  },"gem")
+  .attach("Graphic",{
+    graphic : cg.graphics.gem0,
+    collection : "entities"
+  })
+  .attach("Animator",{
+    animation : cg.Animation.animations.gem
+  });
+
+  gem.light = cg.Lighting.createLight({
+    type : "spot",
+    transformInit : {parent:gem.transform},
+    outerRadius : 20,
+    innerRadius : 2,
+    brightness : 1,
+    occlude : false,
+    hexColour : "#78ed87"
+  },"gemLight");
+
+  gem.collider = cg.Physics.createCollider({
+    type : "circle",
+    radius : 10,
+    trigger : true,
+    groups : [1],
+    transformInit : {parent:gem.transform},
+    enter : function() {
+      console.log("collect")
+    }
+  },"gemCollider");
+
+  cg.scenes.main.addObject(gem);
+}
+
+createGem(170,79);
+
+// LEVELS
+class Level {
+  id = "unnamed-level";
+  tilemap;
+  startPosition = [0,0];
+}
+
+function createLevel(init={}) {
+  cg.createScene({},"main")
+}
 
 ChoreoGraph.start();
