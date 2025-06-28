@@ -672,12 +672,12 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     // TURN CANVAS SPACE POINTS INTO CG SPACE POINTS
     getCGSpaceX(x) {
       if (this.canvas==null) { return x; }
-      return x;
+      return x / this.cz + this.x - this.canvas.width*0.5 / this.cz;
     };
 
     getCGSpaceY(y) {
       if (this.canvas==null) { return y; }
-      return y;
+      return y / this.cz + this.y - this.canvas.height*0.5 / this.cz;
     };
 
     // TURN CG SPACE POINTS INTO CANVAS SPACE POINTS
