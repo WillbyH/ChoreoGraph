@@ -20,6 +20,10 @@ cg.createCamera({
 },"main")
 .addScene(cg.createScene({},"main"));
 
+cg.scenes.main.createItem("collection",{},"background");
+cg.scenes.main.createItem("collection",{},"entities");
+cg.scenes.main.createItem("collection",{},"foreground");
+
 cg.createCanvas({element:document.getElementsByTagName("canvas")[0],
   background : "peachpuff"
 })
@@ -39,22 +43,22 @@ cg.Tiled.importTileSetFromFile("tiled/mushroom-set.tsj",() => {
       type : "tilemap",
       tilemap : tilemap,
       debug : false,
-      visibleLayers : ["Background"]
+      visibleLayers : ["Background","Foreground"]
     },"tilemapBackground");
     cg.createGraphic({
       type : "tilemap",
       tilemap : tilemap,
       debug : false,
-      visibleLayers : ["Foreground"]
+      visibleLayers : ["Overlay"]
     },"tilemapForeground");
 
     cg.scenes.main.createItem("graphic",{
       graphic:cg.graphics.tilemapBackground
-    },"tilemapBackground");
+    },"tilemapBackground","background");
     cg.scenes.main.createItem("graphic",{
       graphic:cg.graphics.tilemapForeground
-    },"tilemapForeground");
-    cg.Physics.createCollidersFromTilemap(tilemap,2,null,0,0,[0,2]);
+    },"tilemapForeground","foreground");
+    cg.Physics.createCollidersFromTilemap(tilemap,3,null,0,0,[0,2]);
   });
 });
 
@@ -62,7 +66,7 @@ cg.createGraphic({
   type : "image",
   image : cg.createImage({
     file : "sheet.png",
-    crop : [7*16,5*16,16,16]
+    crop : [7*16+1,5*16+1,16-2,16-1]
   },"playerIdle"),
 },"playerIdle");
 
@@ -70,7 +74,23 @@ cg.createGraphic({
   type : "image",
   image : cg.createImage({
     file : "sheet.png",
-    crop : [6*16,5*16,16,16]
+    crop : [7*16+1,6*16+1,16-2,16-1]
+  },"playerIdleLookUp"),
+},"playerIdleLookUp");
+
+cg.createGraphic({
+  type : "image",
+  image : cg.createImage({
+    file : "sheet.png",
+    crop : [6*16+1,6*16+1,16-2,16-1]
+  },"playerIdleFear"),
+},"playerIdleFear");
+
+cg.createGraphic({
+  type : "image",
+  image : cg.createImage({
+    file : "sheet.png",
+    crop : [6*16+1,5*16+1,16-2,16-1]
   },"playerJump"),
 },"playerJump");
 
@@ -81,14 +101,14 @@ for (let i=0;i<10;i++) {
     type : "image",
     image : cg.createImage({
       file : "sheet.png",
-      crop : [x*16,y*16,16,16]
+      crop : [x*16+1,y*16+1,16-2,16-1]
     },"playerRun" + i),
   },"playerRun" + i);
 }
 
 cg.Animation.createAnimationFromPacked("0&sprite=f:25:Graphic,graphic:playerRun0|playerRun1|playerRun2|playerRun3|playerRun4|playerRun5|playerRun6|playerRun7|playerRun8|playerRun9",{},"playerRun");
 
-cg.Input.createAction({keys:["space","up","w","conactionbottom"],down:()=>{
+cg.Input.createAction({keys:["space","up","w","conactionbottom","condpadup"],down:()=>{
   cg.objects.player.bufferJump = true;
 }},"jump");
 
@@ -102,11 +122,13 @@ cg.scenes.main.addObject(
     canJump : true,
     bufferJump : false,
     lastMoveTime : -Infinity,
+    lastIdleTime : -Infinity,
     transformInit : {x:85,y:125},
   },"player")
   .attach("Graphic",{
     graphic : cg.graphics.playerIdle,
-    transformInit : {oy:-2,flipX:true}
+    transformInit : {oy:-1.5},
+    collection : "entities"
   })
   .attach("RigidBody",{
     gravityScale : 1.5,
@@ -143,7 +165,12 @@ cg.objects.player.movementManager = function(dir) {
   if (cg.Physics.colliders.player.collided) {
     speed = 5;
   }
-  this.RigidBody.xv = dir * speed * cg.timeDelta;
+  let multiplier = 1;
+  if (cg.clock-this.lastIdleTime > 500) {
+    multiplier = ((cg.clock-this.lastIdleTime-500)/1000)*0.5+1;
+    multiplier = Math.min(multiplier,1.5);
+  }
+  this.RigidBody.xv = dir * speed * multiplier * cg.timeDelta;
 };
 
 cg.objects.player.animationManager = function(dir) {
@@ -154,9 +181,17 @@ cg.objects.player.animationManager = function(dir) {
   }
   if (cg.Physics.colliders.player.collided) {
     if (dir==0) {
-      if (cg.clock - this.lastMoveTime > 50) {
+      if (cg.clock - this.lastMoveTime > 70) {
+        this.lastIdleTime = cg.clock;
         this.Animator.animation = null;
-        this.Graphic.graphic = cg.graphics.playerIdle;
+        if (cg.clock - this.lastMoveTime > 3000 && cg.clock - this.lastMoveTime < 4500) {
+          this.Graphic.graphic = cg.graphics.playerIdleLookUp;
+        } else if (cg.clock - this.lastMoveTime > 60000) {
+          this.Graphic.graphic = cg.graphics.playerIdleFear;
+          this.Graphic.transform.ox = (Math.random()-0.5)*0.3;
+        } else {
+          this.Graphic.graphic = cg.graphics.playerIdle;
+        }
       }
     } else {
       this.lastMoveTime = cg.clock;

@@ -234,7 +234,7 @@ ChoreoGraph.plugin({
         if (cg.settings.tilemaps.appendCanvases) {
           document.body.appendChild(this.canvas);
         }
-        this.c = this.canvas.getContext("2d");
+        this.c = this.canvas.getContext("2d",{alpha:true});
 
         for (let i=0;i<this.chunkLayer.tiles.length;i++) {
           if (this.chunkLayer.tiles[i]==null) { continue; }
@@ -339,11 +339,11 @@ ChoreoGraph.plugin({
         let flipXOffset = 0;
         let flipYOffset = 0;
         if (currentFrame.flipX) {
-          flipXOffset = -this.width;
+          flipXOffset = -currentFrame.width;
           c.scale(-1,1);
         }
         if (currentFrame.flipY) {
-          flipYOffset = -this.height;
+          flipYOffset = -currentFrame.height;
           c.scale(1,-1);
         }
         if (currentFrame.flipDiagonal) {
@@ -353,6 +353,7 @@ ChoreoGraph.plugin({
           flipYOffset = savedXOffset;
           c.rotate(Math.PI*0.5);
         }
+        c.clearRect(flipXOffset,flipYOffset,currentFrame.width,currentFrame.height);
         c.drawImage(currentFrame.image.image,currentFrame.imageX,currentFrame.imageY,currentFrame.width,currentFrame.height,flipXOffset,flipYOffset,currentFrame.width,currentFrame.height);
         c.restore();
       }
