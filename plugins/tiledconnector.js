@@ -21,14 +21,16 @@ ChoreoGraph.plugin({
           imageId = data.properties.find(p=>p.name=="cgimage");
         }
         if (imageId == undefined) {
-          console.warn("Tiled Tileset missing 'cgimage' custom property. To add this go to the tileset in Tiled, then click on Tileset (in the menu bar) -> Tileset Properties and then add the property in the Custom Properties section. Set the value to the id of the image the tileset uses.")
+          console.warn("Tiled Tileset missing 'cgimage' custom property. To add this go to the tileset in Tiled, then click on Tileset (in the menu bar) -> Tileset Properties and then add the property in the Custom Properties section. Set the value to the id of the image the tileset uses. If you think you did already, you might have added the property to a tile instead of the full tileset.")
           return;
         }
 
         const animatedGids = [];
-        for (let animatedTileData of data.tiles) {
-          if (animatedTileData.animation && animatedTileData.animation.length > 0) {
-            animatedGids.push(animatedTileData.id);
+        if (data.tiles!=undefined) {
+          for (let animatedTileData of data.tiles) {
+            if (animatedTileData.animation && animatedTileData.animation.length > 0) {
+              animatedGids.push(animatedTileData.id);
+            }
           }
         }
 
@@ -59,19 +61,22 @@ ChoreoGraph.plugin({
             }
           }
 
-          for (let animatedTileData of data.tiles) {
-            let tile = cg.Tilemaps.createAnimatedTile("Tiled_" + data.name + "_" + animatedTileData.id);
-            for (let frameData of animatedTileData.animation) {
-              let frameGid = frameData.tileid;
-              tile.addFrame({
-                image: cg.images[imageId],
-                imageX: (frameGid % cols) * data.tilewidth,
-                imageY: Math.floor(frameGid / cols) * data.tileheight,
-                width: data.tilewidth,
-                height: data.tileheight,
-                duration: frameData.duration / 1000
-              });
-            };
+          if (data.tiles!=undefined) {
+            for (let animatedTileData of data.tiles) {
+              let Tile = cg.Tilemaps.createAnimatedTile("Tiled_" + data.name + "_" + animatedTileData.id);
+              for (let frameData of animatedTileData.animation) {
+                let frameGid = frameData.tileid;
+                Tile.addFrame({
+                  image: cg.images[imageId],
+                  imageX: (frameGid % cols) * data.tilewidth,
+                  imageY: Math.floor(frameGid / cols) * data.tileheight,
+                  width: data.tilewidth,
+                  height: data.tileheight,
+                  duration: frameData.duration / 1000
+                });
+              };
+              tiles.push(Tile);
+            }
           }
 
           this.tileSets[id].cgTiles = tiles;
@@ -144,8 +149,20 @@ ChoreoGraph.plugin({
               bitField = bitField.substring(0,2) + "0" + bitField.substring(3); // Set third bit to 0
               tileSetGid = parseInt(bitField, 2);
             }
-            let tileSetReference = data.tilesets.find(ts=>ts.firstgid<=tileSetGid);
+            let tileSetReference;
+            for (let i=data.tilesets.length-1;i>=0;i--) {
+              let tileSet = data.tilesets[i];
+              if (tileSetGid>=tileSet.firstgid) {
+                tileSetReference = tileSet;
+                break;
+              }
+            }
+            tileSetGid -= tileSetReference.firstgid - 1;
             let tileSet = cg.Tiled.tileSets[tileSetReference.source];
+            if (tileSet===undefined) {
+              console.warn("Tiled tileset with id '" + tileSetReference.source + "' does not exist. Be sure to import the tileset before importing the tilemap.");
+              return;
+            }
             if (gidMap[gid]!==undefined) { return; }
             let tileId = "Tiled_"+tileSet.name+"_"+(tileSetGid-1);
             let unmodifiedTile = cg.Tilemaps.tiles[tileId];

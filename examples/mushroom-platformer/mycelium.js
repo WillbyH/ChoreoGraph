@@ -3,7 +3,8 @@ const cg = ChoreoGraph.instantiate({
     baseImagePath : "images/",
     frustumCulling : false,
     debugCGScale : 0.3,
-    imageSmoothingEnabled : false
+    imageSmoothingEnabled : false,
+    inactiveTime : 100
   },
   physics : {
     gravity : 9.8*16
@@ -23,6 +24,7 @@ cg.createCamera({
 cg.scenes.main.createItem("collection",{},"background");
 cg.scenes.main.createItem("collection",{},"entities");
 cg.scenes.main.createItem("collection",{},"foreground");
+cg.scenes.main.createItem("collection",{},"top");
 
 cg.createCanvas({element:document.getElementsByTagName("canvas")[0],
   background : "peachpuff"
@@ -33,8 +35,22 @@ cg.createCanvas({element:document.getElementsByTagName("canvas")[0],
 cg.createImage({
   file : "sheet.png"
 },"sheet");
+cg.createImage({
+  file : "waterfall.png"
+},"waterfall");
 
 cg.Tiled.importTileSetFromFile("tiled/mushroom-set.tsj",() => {
+  if (Object.keys(cg.Tiled.tileSets).length == 2) {
+    loadTilemap();
+  }
+});
+cg.Tiled.importTileSetFromFile("tiled/waterfall.tsj",() => {
+  if (Object.keys(cg.Tiled.tileSets).length == 2) {
+    loadTilemap();
+  }
+});
+
+function loadTilemap() {
   cg.Tiled.importTileMapFromFile({
     dataUrl : "tiled/testmap.tmj",
     id : "testMap"
@@ -60,8 +76,9 @@ cg.Tiled.importTileSetFromFile("tiled/mushroom-set.tsj",() => {
     },"tilemapForeground","foreground");
     cg.Physics.createCollidersFromTilemap(tilemap,3,null,0,0,[0,2]);
   });
-});
+}
 
+// PLAYER
 cg.createGraphic({
   type : "image",
   image : cg.createImage({
@@ -121,8 +138,8 @@ cg.scenes.main.addObject(
     jumpGravity : 1,
     canJump : true,
     bufferJump : false,
-    lastMoveTime : -Infinity,
-    lastIdleTime : -Infinity,
+    lastMoveTime : 0,
+    lastIdleTime : 0,
     transformInit : {x:85,y:125},
   },"player")
   .attach("Graphic",{
@@ -217,5 +234,134 @@ cg.Physics.createCollider({
     cg.objects.player.canJump = true;
   }
 },"playerGroundDetector");
+
+// LIGHTING
+cg.scenes.main.createItem("graphic",{
+  graphic : cg.createGraphic({type:"lighting",
+    shadowType : ChoreoGraph.Lighting.SHADOW_FULL,
+    shadowColour : "#060004aa"
+  },"lighting"),
+},"lighting","top");
+
+cg.Lighting.createLight({
+  type : "spot",
+  transformInit : {parent:cg.objects.player.transform},
+  outerRadius : 80,
+  innerRadius : 1,
+  brightness : 0.7,
+  occlude : false,
+  hexColour : "#ffdcbd"
+},"player");
+
+for (let position of cg.createPath([[104,141],[136,93],[168,138]],"mushroomGlow")) {
+  cg.Lighting.createLight({
+    type : "spot",
+    transformInit : {x:position[0],y:position[1]},
+    outerRadius : 40,
+    innerRadius : 3,
+    brightness : 1,
+    occlude : false,
+    hexColour : "#7af2ff"
+  });
+}
+
+// FIREFLIES
+let totalFireflies = 0;
+const swarms = [];
+
+cg.createGraphic({
+  type : "arc",
+  radius : 0.3,
+  colour : "#ebff54",
+  fill : true
+},"firefly");
+
+function createFireflies(x,y,r,count) {
+  for (let i=0;i<count;i++) {
+    let theta = Math.random()*2*Math.PI;
+    let firefly = cg.createObject({
+      transformInit : {
+        x : x + Math.cos(theta)*(r*Math.random()-0.5),
+        y : y + Math.sin(theta)*(r*Math.random()-0.5),
+      },
+      target : [x + (Math.random()-0.5)*r, y + (Math.random()-0.5)*r],
+      blinkRate : Math.random()*3000 + 2000,
+      swarmIndex : swarms.length
+    },"firefly" + totalFireflies)
+    .attach("Graphic",{
+      graphic : cg.graphics.firefly,
+      collection : "entities",
+      transformInit : {o:0.3}
+    })
+    .attach("Script",{
+      updateScript : function(object) {
+        let swarm = swarms[object.swarmIndex];
+        if (swarm.lastCalculatedPDFH != ChoreoGraph.frame) {
+          swarm.playerDistanceFromHome = Math.sqrt(
+            (swarm.home[0] - cg.objects.player.transform.x) * (swarm.home[0] - cg.objects.player.transform.x) +
+            (swarm.home[1] - cg.objects.player.transform.y) * (swarm.home[1] - cg.objects.player.transform.y)
+          );
+          swarm.lastCalculatedPDFH = ChoreoGraph.frame;
+        }
+        let distanceFromTarget = Math.sqrt(
+          (object.target[0] - object.transform.x) * (object.target[0] - object.transform.x) +
+          (object.target[1] - object.transform.y) * (object.target[1] - object.transform.y)
+        );
+        if (distanceFromTarget < 1) {
+          let theta = Math.random()*2*Math.PI;
+          object.target = [
+            swarm.home[0] + Math.cos(theta)*(swarm.homeRadius*Math.random()-0.5),
+            swarm.home[1] + Math.sin(theta)*(swarm.homeRadius*Math.random()-0.5),
+          ];
+        } else {
+          let dir = [object.target[0] - object.transform.x, object.target[1] - object.transform.y];
+          let mag = Math.sqrt(dir[0]*dir[0] + dir[1]*dir[1]);
+          if (mag == 0) { return; }
+          dir[0] /= mag;
+          dir[1] /= mag;
+
+          if (cg.timeDelta > cg.settings.core.inactiveTime * 3) { return; }
+          object.transform.x += dir[0] * 0.001 * cg.timeDelta;
+          object.transform.y += dir[1] * 0.001 * cg.timeDelta;
+        }
+        let phase = (cg.clock % object.blinkRate) / object.blinkRate;
+        let brightness;
+        if (phase < 0.5) {
+          brightness = phase * 2;
+        } else {
+          brightness = (1 - phase) * 2;
+        }
+        if (swarm.playerDistanceFromHome < swarm.homeRadius * 2) {
+          brightness *= (swarm.playerDistanceFromHome / swarm.homeRadius * 2) * 0.25;
+        }
+        object.Graphic.transform.o = brightness;
+        object.light.brightness = brightness;
+      }
+    })
+
+    let swarm = {
+      playerDistanceFromHome : 0,
+      lastCalculatedPDFH : -1,
+      home : [x,y],
+      homeRadius : r,
+    }
+    swarms.push(swarm);
+
+    firefly.light = cg.Lighting.createLight({
+      type : "spot",
+      transformInit : {parent:firefly.transform},
+      outerRadius : 3,
+      innerRadius : 2,
+      brightness : 1,
+      occlude : false,
+      hexColour : "#ebff54"
+    },"fireflyLight");
+
+    cg.scenes.main.addObject(firefly)
+    totalFireflies++;
+  }
+}
+
+createFireflies(100,75,30,10);
 
 ChoreoGraph.start();
