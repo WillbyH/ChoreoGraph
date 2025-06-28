@@ -15,14 +15,21 @@ ChoreoGraph.plugin({
       };
 
       importTileSet(data, id, callback=null) {
+        const cg = this.cg;
         this.tileSets[id] = data;
         let imageId;
         if ("properties" in data) {
           imageId = data.properties.find(p=>p.name=="cgimage");
         }
         if (imageId == undefined) {
-          console.warn("Tiled Tileset missing 'cgimage' custom property. To add this go to the tileset in Tiled, then click on Tileset (in the menu bar) -> Tileset Properties and then add the property in the Custom Properties section. Set the value to the id of the image the tileset uses. If you think you did already, you might have added the property to a tile instead of the full tileset.")
-          return;
+          if (cg.keys.images.includes(data.name)) {
+            imageId = data.name;
+          } else {
+            console.warn("Tiled Tileset missing 'cgimage' custom property.\n\nTo add this go to the tileset in Tiled, then click on Tileset (in the menu bar) -> Tileset Properties and then add the property in the Custom Properties section. Set the value to the id of the image the tileset uses.\n\nIf you think you did already, you might have added the property to a tile instead of the full tileset. Alternatively, if the name of the tileset matches the id of the image this will also work.");
+            return;
+          }
+        } else {
+          imageId = imageId.value;
         }
 
         const animatedGids = [];
@@ -34,8 +41,6 @@ ChoreoGraph.plugin({
           }
         }
 
-        imageId = imageId.value;
-        let cg = this.cg;
         if (cg.keys.images.includes(imageId)) {
           let tiles = [];
           let TilesetGid = 0;

@@ -4,12 +4,6 @@
  "imagewidth":64,
  "margin":0,
  "name":"waterfall",
- "properties":[
-        {
-         "name":"cgimage",
-         "type":"string",
-         "value":"waterfall"
-        }],
  "spacing":0,
  "tilecount":8,
  "tiledversion":"1.10.2",
