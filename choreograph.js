@@ -386,6 +386,17 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     keepCursorHidden = false;
     hideDebugOverlays = false;
 
+    #imageRendering = "pixelated"; // Remove anti-aliasing
+    set imageRendering(value) {
+      this.#imageRendering = value;
+      if (this.element!=null) {
+        this.element.style.imageRendering = value;
+      }
+    };
+    get imageRendering() {
+      return this.#imageRendering;
+    };
+
     camera = null;
     parentElement = null;
     #pixelSize = 1;
@@ -426,7 +437,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       this.element.width = this.width;
       this.element.height = this.height;
       this.c = this.element.getContext("2d",{alpha:this.background==null});
-      this.element.style.imageRendering = "pixelated"; // Remove anti-ailiasing
+      this.element.style.imageRendering = this.#imageRendering; // Remove anti-ailiasing
       this.element.cgCanvas = this;
     };
 
@@ -931,9 +942,9 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     set canvasSpaceXAnchor(value) { this._canvasSpaceXAnchor = value; }
     get canvasSpaceYAnchor() { if (this.parent===null) { return this._canvasSpaceYAnchor; } else { return this.parent.canvasSpaceYAnchor; } }
     set canvasSpaceYAnchor(value) { this._canvasSpaceYAnchor = value; }
-    get flipX() { if (this.parent===null) { return this._flipX; } else { return this.parent.flipX; } }
+    get flipX() { if (this.parent===null) { return this._flipX; } else { return this.parent.flipX ^ this._flipX; } }
     set flipX(value) { this._flipX = value; }
-    get flipY() { if (this.parent===null) { return this._flipY; } else { return this.parent.flipY; } }
+    get flipY() { if (this.parent===null) { return this._flipY; } else { return this.parent.flipY ^ this._flipY; } }
     set flipY(value) { this._flipY = value; }
 
     delete() {
