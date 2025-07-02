@@ -43,6 +43,15 @@ ChoreoGraph.plugin({
         }
         return [cx,cy];
       };
+
+      delete() {
+        ChoreoGraph.id.release(this.id);
+        this.cg.keys.colliders = this.cg.keys.colliders.filter(id => id !== this.id);
+        delete this.cg.Physics.colliders[this.id];
+        if (this.cg.ready) {
+          this.cg.Physics.calibrateCollisionOrder();
+        }
+      };
     };
 
     colliderTypes = {
@@ -659,8 +668,8 @@ ChoreoGraph.plugin({
       if (collided) {
         colliderA.collided = true;
         colliderB.collided = true;
-        if (colliderA.collide !== null) { colliderA.collide(colliderB, vector); }
-        if (colliderB.collide !== null) { colliderB.collide(colliderA, vector); }
+        if (colliderA.collide !== null) { colliderA.collide(colliderB, vector, colliderA); }
+        if (colliderB.collide !== null) { colliderB.collide(colliderA, vector, colliderB); }
       } else {
         if (colliderA.collidedFrame !== ChoreoGraph.frame) { colliderA.collided = false; }
         if (colliderB.collidedFrame !== ChoreoGraph.frame) { colliderB.collided = false; }
@@ -781,7 +790,7 @@ ChoreoGraph.plugin({
               continue;
             } else {
               if (collider.enter!==null) {
-                collider.enter(comparison);
+                collider.enter(comparison,collider);
               }
               collider.memory.push(comparison);
             }
@@ -789,7 +798,7 @@ ChoreoGraph.plugin({
           for (let comparison of collider.memory) {
             if (!accounted.includes(comparison)) {
               if (collider.exit!==null) {
-                collider.exit(comparison);
+                collider.exit(comparison,collider);
               }
               collider.memory = collider.memory.filter(c => c.id !== comparison.id);
             }
@@ -906,9 +915,7 @@ ChoreoGraph.ObjectComponents.RigidBody = class cgObjectRidigBody {
       return;
     }
 
-    delete object.cg.transforms[this.collider.transform.id];
-    ChoreoGraph.id.release(this.collider.transform.id);
-    this.collider.transform = object.transform;
+    this.collider.transform.parent = object.transform;
     this.collider.manual = true;
     this.collider.rigidbody = this;
 
@@ -929,11 +936,14 @@ ChoreoGraph.ObjectComponents.RigidBody = class cgObjectRidigBody {
     this.yv += scene.cg.settings.physics.gravity * this.gravityScale * timeDeltaSeconds;
     let dx = this.xv * timeDeltaSeconds;
     let dy = this.yv * timeDeltaSeconds;
-    this.collider.transform.x += dx;
-    this.collider.transform.y += dy;
+    this.collider.transform.parent.x += dx;
+    this.collider.transform.parent.y += dy;
 
-    this.xv *= (1 - this.drag * timeDeltaSeconds);
-    this.yv *= (1 - this.drag * timeDeltaSeconds);
+    if (this.drag !== 0) {
+      const multiplier = 1-(this.drag * timeDeltaSeconds);
+      this.xv *= multiplier;
+      this.yv *= multiplier;
+    }
 
     let resolutions = [];
 
@@ -982,15 +992,19 @@ ChoreoGraph.ObjectComponents.RigidBody = class cgObjectRidigBody {
     for (const [collider,flip] of resolutions) {
       if (collider.static) {
         if (flip) {
-          this.collider.transform.x -= this.collider.resolutionVector[0];
-          this.collider.transform.y -= this.collider.resolutionVector[1];
+          this.collider.transform.parent.x -= this.collider.resolutionVector[0];
+          this.collider.transform.parent.y -= this.collider.resolutionVector[1];
         } else {
-          this.collider.transform.x += this.collider.resolutionVector[0];
-          this.collider.transform.y += this.collider.resolutionVector[1];
+          this.collider.transform.parent.x += this.collider.resolutionVector[0];
+          this.collider.transform.parent.y += this.collider.resolutionVector[1];
         }
       } else {
-        collider.transform.x += collider.resolutionVector[0];
-        collider.transform.y += collider.resolutionVector[1];
+        const totalMass = this.mass + collider.rigidbody.mass;
+        const portion = this.mass / totalMass;
+        collider.transform.parent.x += collider.resolutionVector[0] * portion;
+        collider.transform.parent.y += collider.resolutionVector[1] * portion;
+        this.collider.transform.parent.x -= collider.resolutionVector[0] * (1-portion);
+        this.collider.transform.parent.y -= collider.resolutionVector[1] * (1-portion);
       }
 
       if (collider.rigidbody === undefined) {

@@ -182,7 +182,7 @@ ChoreoGraph.plugin({
       }
     };
 
-    createEventInstance(eventPath,start=false) {
+    createEventInstance(eventPath,start=true) {
       let cgFMOD = ChoreoGraph.FMOD;
       if (!cgFMOD.FMODReady||cgFMOD.System==undefined) { console.warn("FMOD not ready"); return false; }
       let eventDescription = {};

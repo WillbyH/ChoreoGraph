@@ -5,13 +5,19 @@ ChoreoGraph.plugin({
 
   globalPackage : new class FMODConnector {
     instanceObject = class cgInstanceTiledConnector {
+      totalExternalTileSets = 0;
+      totalExternalTileMaps = 0;
+      loadedExternalTileSets = 0;
+      loadedExternalTileMaps = 0;
       tileSets = {};
       tileMaps = [];
 
       async importTileSetFromFile(dataUrl, callback=null) {
+        this.totalExternalTileSets++;
         let response = await fetch(dataUrl);
         let data = await response.json();
         this.importTileSet(data, dataUrl.split("/").pop(), callback);
+        this.loadedExternalTileSets++;
       };
 
       importTileSet(data, id, callback=null) {
@@ -92,6 +98,7 @@ ChoreoGraph.plugin({
       };
 
       async importTileMapFromFile(importData={}, callback=null) {
+        this.totalExternalTileMaps++;
         let dataUrl = importData.dataUrl;
         if (dataUrl==undefined) {
           dataUrl = importData;
@@ -108,6 +115,7 @@ ChoreoGraph.plugin({
         let response = await fetch(dataUrl);
         importData.data = await response.json();
         this.importTileMap(importData, callback);
+        this.loadedExternalTileMaps++;
       };
 
       importTileMap(importData={},callback=null) {
@@ -128,9 +136,9 @@ ChoreoGraph.plugin({
           tileWidth : data.tilewidth,
           TiledTileMap : data
         };
-        if (importData.cache!==undefined) {
-          init.cache = importData.cache;
-        }
+        if (importData.cache!==undefined) { init.cache = importData.cache; }
+        if (importData.chunkOffsetX!==undefined) { init.chunkOffsetX = importData.chunkOffsetX; }
+        if (importData.chunkOffsetY!==undefined) { init.chunkOffsetY = importData.chunkOffsetY; }
 
         let tilemap = cg.Tilemaps.createTilemap(init,importData.id||"ImportedTiledTileMap");
 
@@ -206,7 +214,7 @@ ChoreoGraph.plugin({
                 },tileId);
               }
             } else {
-              tile = unmodifiedTile;
+              tile = cg.Tilemaps.tiles[tileId];
             }
             gidMap[gid] = tile;
           }
@@ -249,16 +257,18 @@ ChoreoGraph.plugin({
               });
               for (let chunkData of layer.chunks) {
                 let chunk = null;
+                let x = chunkData.x + (importData.offsetX || 0);
+                let y = chunkData.y + (importData.offsetY || 0);
                 for (let existingChunk of tilemap.chunks) {
-                  if (existingChunk.x===chunkData.x && existingChunk.y===chunkData.y && existingChunk.width===chunkData.width && existingChunk.height===chunkData.height) {
+                  if (existingChunk.x===x && existingChunk.y===y && existingChunk.width===chunkData.width && existingChunk.height===chunkData.height) {
                     chunk = existingChunk;
                     break;
                   }
                 }
                 if (chunk===null) {
                   chunk = tilemap.createChunk({
-                    x : chunkData.x,
-                    y : chunkData.y,
+                    x : x,
+                    y : y,
                     width : chunkData.width,
                     height : chunkData.height
                   })
@@ -307,11 +317,23 @@ ChoreoGraph.plugin({
         }
         if (callback) { callback(tilemap); }
       };
-    }
+    };
+
+    tilesetLoadCheck(cg) {
+      let pass = cg.Tiled.loadedExternalTileSets === cg.Tiled.totalExternalTileSets;
+      return ["tilesets",pass,cg.Tiled.loadedExternalTileSets,cg.Tiled.totalExternalTileSets];
+    };
+
+    tilemapLoadCheck(cg) {
+      let pass = cg.Tiled.loadedExternalTileMaps === cg.Tiled.totalExternalTileMaps;
+      return ["tilemaps",pass,cg.Tiled.loadedExternalTileMaps,cg.Tiled.totalExternalTileMaps];
+    };
   },
 
   instanceConnect(cg) {
     cg.Tiled = new ChoreoGraph.Tiled.instanceObject(cg);
     cg.Tiled.cg = cg;
+    cg.loadChecks.push(ChoreoGraph.Tiled.tilesetLoadCheck);
+    cg.loadChecks.push(ChoreoGraph.Tiled.tilemapLoadCheck);
   }
 });

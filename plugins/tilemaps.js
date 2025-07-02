@@ -177,6 +177,7 @@ ChoreoGraph.plugin({
       }
 
       createCache() {
+        if (!this.tilemap.layers[this.index].visible) { return; }
         this.cache = new ChoreoGraph.Tilemaps.CachedChunkLayer(this);
       };
 
@@ -222,6 +223,7 @@ ChoreoGraph.plugin({
       animatedTiles = [];
       chunkLayer = null;
       awaitingImages = 0;
+      cached = false;
 
       constructor(chunkLayer) {
         if (chunkLayer==undefined) { console.warn("CachedChunkLayer requires a ChunkLayer"); return; }
@@ -253,16 +255,19 @@ ChoreoGraph.plugin({
             tile.image.onLoad = () => {
               this.awaitingImages--;
               if (this.awaitingImages == 0) {
+                if (this.cached) { return; }
                 this.draw();
               }
             }
           } else {
+            if (this.cached) { return; }
             this.draw();
           }
         }
       };
 
       draw() {
+        this.cached = true;
         let chunk = this.chunkLayer.chunk;
         let cg = chunk.tilemap.cg;
         for (let i=0;i<this.chunkLayer.tiles.length;i++) {

@@ -449,6 +449,12 @@ ChoreoGraph.plugin({
         }
         return this.timeKey;
       };
+
+      delete() {
+        ChoreoGraph.id.release(this.id);
+        this.cg.keys.animations = this.cg.keys.animations.filter(id => id !== this.id);
+        delete this.cg.Animation.animations[this.id];
+      };
     };
 
     PrimaryTrackTypes = {

@@ -119,6 +119,12 @@ ChoreoGraph.plugin({
         }
         return [lx,ly];
       };
+
+      delete() {
+        ChoreoGraph.id.release(this.id);
+        this.cg.keys.lights = this.cg.keys.lights.filter(id => id !== this.id);
+        delete this.cg.Lighting.lights[this.id];
+      };
     };
 
     SpotLight = class extends this.Light {

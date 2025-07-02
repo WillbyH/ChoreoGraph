@@ -311,6 +311,7 @@ ChoreoGraph.plugin({
       source = "";
       blobAudio = null;
       audio = null;
+      downloaded = false;
       loaded = false;
       instances = {};
       cg = null;
@@ -331,6 +332,7 @@ ChoreoGraph.plugin({
 
         let response = await fetch(this.cg.settings.audio.baseAudioPath+source);
         this.blobAudio = await response.blob();
+        this.downloaded = true;
       };
 
       audioContextInit = async () => {
@@ -356,6 +358,12 @@ ChoreoGraph.plugin({
         playOptionsInit.id = this.id;
         let options = new ChoreoGraph.Audio.PlayOptions(playOptionsInit,this.cg.Audio);
         return this.cg.Audio.play(options);
+      };
+
+      delete() {
+        ChoreoGraph.id.release(this.id);
+        this.cg.keys.sounds = this.cg.keys.sounds.filter(id => id !== this.id);
+        delete this.cg.Audio.sounds[this.id];
       };
     };
 
@@ -545,6 +553,21 @@ ChoreoGraph.plugin({
       return true;
     };
 
+    soundLoadCheck(cg) {
+      let pass = true;
+      let count = 0;
+      let total = cg.keys.sounds.length;
+      for (let soundId of cg.keys.sounds) {
+        let sound = cg.Audio.sounds[soundId];
+        if (sound.downloaded) {
+          count++;
+        } else {
+          pass = false;
+        }
+      }
+      return ["sounds",pass,count,total];
+    };
+
     initContext() {
       let force = false;
       for (let cg of ChoreoGraph.instances) {
@@ -640,6 +663,7 @@ ChoreoGraph.plugin({
       masterChangeTime : 0.1,
       pauseFadeTime : 0.1
     });
+    cg.loadChecks.push(ChoreoGraph.Audio.soundLoadCheck);
     cg.keys.sounds = [];
     cg.Audio = new ChoreoGraph.Audio.instanceObject(cg);
     cg.Audio.cg = cg;
