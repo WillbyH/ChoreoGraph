@@ -22,7 +22,6 @@ cg.createCanvas({
 
 let gravityScale = 0;
 let drag = 0.8;
-let grabbedObject = null;
 
 cg.Audio.createSound({source:"boing.mp3"},"boing");
 
@@ -49,9 +48,14 @@ function createBall(id,x,y,colour) {
       radius:50
     },"circleGraphic"+id)
   });
-  cg.Input.createButton({type:"circle",object:object,cursor:"grab",transform:object.transform,radius:50,down:function(button){
-    grabbedObject = button.object
-  }},"grab"+id);
+  cg.Input.createButton({
+    type:"circle",
+    object:object,
+    hoverCursor:"grab",
+    pressCursor:"grabbing",
+    transform:object.transform,
+    radius:50
+  },"grab"+id);
 }
 
 createBall("alpha",200,100,"#517261"); // Green
@@ -83,9 +87,14 @@ cg.createObject({transformInit:{x:-300,y:200}},"hotel")
     width:100
   },"blueCircleGraphic")
 });
-cg.Input.createButton({type:"rectangle",object:cg.objects.hotel,cursor:"grab",transform:cg.objects.hotel.transform,height:100,width:100,down:function(button){
-  grabbedObject = button.object
-}},"grabHotel");
+cg.Input.createButton({
+  type:"rectangle",
+  object:cg.objects.hotel,
+  cursor:"grab",
+  transform:cg.objects.hotel.transform,
+  height:100,
+  width:100
+},"grabHotel");
 
 cg.createObject({transformInit:{x:300,y:200}},"india")
 .attach("RigidBody",{
@@ -104,9 +113,14 @@ cg.createObject({transformInit:{x:300,y:200}},"india")
     radius:5
   },"blueCircleGraphic")
 });
-cg.Input.createButton({type:"rectangle",object:cg.objects.india,cursor:"grab",transform:cg.objects.india.transform,height:30,width:30,down:function(button){
-  grabbedObject = button.object
-}},"grabIndia");
+cg.Input.createButton({
+  type:"rectangle",
+  object:cg.objects.india,
+  cursor:"grab",
+  transform:cg.objects.india.transform,
+  height:30,
+  width:30
+},"grabIndia");
 
 cg.Physics.createCollider({
   static:true,
@@ -147,31 +161,37 @@ cg.Physics.createCollider({
   exit:function(collider) { console.info(collider.id + " exited") }
 },"triggerTest");
 
-cg.settings.input.callbacks.cursorUp = () => {
-  grabbedObject = null;
-};
-
 cg.settings.core.callbacks.loopBefore = () => {
-  if (grabbedObject!==null) {
-    let speed = 5;
-    grabbedObject.RigidBody.xv = (cg.Input.cursor.x - grabbedObject.transform.x) * speed;
-    grabbedObject.RigidBody.yv = (cg.Input.cursor.y - grabbedObject.transform.y) * speed;
+  let speed = 5;
+  for (let buttonId of cg.keys.buttons) {
+    let button = cg.Input.buttons[buttonId];
+    if (button.pressed && button.object) {
+      let cx = cg.Input.cursor.touches[button.cursorId].x;
+      let cy = cg.Input.cursor.touches[button.cursorId].y;
+      button.object.RigidBody.xv = (cx - button.object.transform.x) * speed;
+      button.object.RigidBody.yv = (cy - button.object.transform.y) * speed;
+    }
   }
 };
 
 cg.settings.core.callbacks.loopAfter = () => {
-  if (grabbedObject!==null) {
-    ChoreoGraph.transformContext(cg.canvas.camera);
-    let c = cg.canvas.c;
-    c.beginPath();
-    c.moveTo(cg.Input.cursor.x, cg.Input.cursor.y);
-    c.lineTo(grabbedObject.transform.x, grabbedObject.transform.y);
-    c.strokeStyle = "white";
-    c.lineWidth = 20;
-    c.lineCap = "round";
-    c.globalAlpha = 0.5;
-    c.stroke();
-    c.globalAlpha = 1;
+  for (let buttonId of cg.keys.buttons) {
+    let button = cg.Input.buttons[buttonId];
+    if (button.pressed && button.object) {
+      ChoreoGraph.transformContext(cg.canvas.camera);
+      let cx = cg.Input.cursor.touches[button.cursorId].x;
+      let cy = cg.Input.cursor.touches[button.cursorId].y;
+      let c = cg.canvas.c;
+      c.beginPath();
+      c.moveTo(cx, cy);
+      c.lineTo(button.object.transform.x, button.object.transform.y);
+      c.strokeStyle = "white";
+      c.lineWidth = 20;
+      c.lineCap = "round";
+      c.globalAlpha = 0.5;
+      c.stroke();
+      c.globalAlpha = 1;
+    }
   }
 };
 
