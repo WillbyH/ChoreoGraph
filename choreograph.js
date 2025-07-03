@@ -366,7 +366,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
             if (typeof part == "string") {
               if (tracker.sequence.callbacks[part]!=null) { tracker.sequence.callbacks[part](tracker); }
             } else if (typeof part == "number") {
-              tracker.ent = cg.clock+(part*1000);
+              tracker.ent = cg.clock+part;
             }
             tracker.part++;
           }
@@ -383,9 +383,8 @@ const ChoreoGraph = new class ChoreoGraphEngine {
           if (event.ent<cg.clock) {
             if (event.end!=null) { event.end(event); }
             if (event.loop) {
-              event.timeDebt = cg.clock-event.ent;
-              event.stt = cg.clock;
-              event.ent = cg.clock+(event.duration*1000)-event.timeDebt;
+              event.stt = event.ent;
+              event.ent = event.stt+event.duration;
             } else {
               ChoreoGraph.id.release(event.id);
               cg.keys.events.splice(cg.keys.events.indexOf(event.id),1);
@@ -1134,8 +1133,9 @@ const ChoreoGraph = new class ChoreoGraphEngine {
 
     delete() {
       ChoreoGraph.id.release(this.id);
-      this.cg.keys.events = this.cg.keys.events.filter(id => id !== this.id);
-      delete this.cg.events[this.id];
+      this.cg.sequenceManager.trackers = this.cg.sequenceManager.trackers.filter(tracker => tracker.sequence.id !== this.id);
+      this.cg.keys.sequences = this.cg.keys.sequences.filter(id => id !== this.id);
+      delete this.cg.sequences[this.id];
     };
   };
 
@@ -1144,8 +1144,11 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     ent = 0;
     duration = 0;
     loop = false;
-    timeDebt = 0;
     end = null;
+
+    get progress() {
+      return (this.cg.clock - this.stt) / this.duration;
+    }
 
     constructor(eventInit,cg) {
       ChoreoGraph.applyAttributes(this,eventInit);
