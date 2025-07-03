@@ -327,6 +327,8 @@ ChoreoGraph.plugin({
       overlayFrustumCulling(cg) {
         for (let canvasId of cg.keys.canvases) {
           let canvas = cg.canvases[canvasId];
+          let totalDraws = 0;
+          let totalCulled = 0;
           if (canvas.hideDebugOverlays) { continue; }
           let c = canvas.c;
           let cullCamera = canvas.camera;
@@ -370,6 +372,9 @@ ChoreoGraph.plugin({
             c.strokeStyle = cg.settings.develop.frustumCulling.unculledBoxColour;
             if (gx+bw*0.5<cx-cw*0.5||gx-bw*0.5>cx+cw*0.5||gy+bh*0.5<cy-ch*0.5||gy-bh*0.5>cy+ch*0.5) {
               c.strokeStyle = cg.settings.develop.frustumCulling.culledBoxColour;
+              totalCulled++;
+            } else {
+              totalDraws++;
             }
 
             ChoreoGraph.transformContext(canvas.camera,gx,gy);
@@ -383,6 +388,8 @@ ChoreoGraph.plugin({
                 drawCullBox(item);
               } else if (item.type=="collection") {
                 drawCollectionCullBoxes(item.children);
+              } else if (item.type=="graphic"&&item.transform.o>0&&(item.graphic.getBounds===undefined||!item.transform.CGSpace)) {
+                totalDraws++;
               }
             }
           }
@@ -390,6 +397,9 @@ ChoreoGraph.plugin({
           for (let scene of cullCamera.scenes) {
             drawCollectionCullBoxes(scene.drawBuffer);
           }
+
+          let text = totalDraws + " graphics drawn (" + totalCulled + " culled)";
+          cg.Develop.drawTopLeftText(cg,canvas,text);
         }
       };
 
