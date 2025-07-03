@@ -221,6 +221,7 @@ ChoreoGraph.plugin({
         }
 
         for (let layer of data.layers) {
+          if (layer.type !== "tilelayer") { continue; }
           if (data.infinite) {
             for (let chunk of layer.chunks) {
               for (let gid of chunk.data) {
@@ -228,10 +229,8 @@ ChoreoGraph.plugin({
               }
             }
           } else {
-            for (let layer of data.layers) {
-              for (let gid of layer.data) {
-                mapGid(gid);
-              }
+            for (let gid of layer.data) {
+              mapGid(gid);
             }
           }
         }
@@ -251,6 +250,7 @@ ChoreoGraph.plugin({
         if (data.infinite) {
           // CREATE CHUNKS FROM DATA
             for (let layer of data.layers) {
+              if (layer.type !== "tilelayer") { continue; }
               tilemap.createLayer({
                 name : layer.name,
                 visible : layer.visible
@@ -284,6 +284,7 @@ ChoreoGraph.plugin({
           // CREATE AUTO CHUNKED LAYERS
           if (importData.autoChunk) {
             for (let layer of data.layers) {
+              if (layer.type !== "tilelayer") { continue; }
               tilemap.createChunkedLayer({
                 tiles : convertLayerData(layer.data),
                 chunkWidth : importData.chunkWidth,
@@ -305,6 +306,7 @@ ChoreoGraph.plugin({
               height : data.height
             });
             for (let layer of data.layers) {
+              if (layer.type !== "tilelayer") { continue; }
               tilemap.createLayer({
                 name : layer.name,
                 visible : layer.visible
