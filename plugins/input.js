@@ -633,7 +633,7 @@ ChoreoGraph.plugin({
       },
       NINTENDO : {
         name : "Nintendo Pro Controller",
-        buttons : ["A","B","X","Y","Left Bumper","Right Bumper","Left Trigger","Right Trigger","Minus","Plus","Left Stick","Right Stick","D-Pad Up","D-Pad Down","D-Pad Left","D-Pad Right"],
+        buttons : ["B","A","Y","X","Left Bumper","Right Bumper","Left Trigger","Right Trigger","Minus","Plus","Left Stick","Right Stick","D-Pad Up","D-Pad Down","D-Pad Left","D-Pad Right"],
         triggers : ["ZL","ZR"]
       },
       STEAM : {
