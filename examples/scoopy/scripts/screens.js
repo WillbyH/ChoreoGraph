@@ -259,13 +259,15 @@ cg.Animation.createAnimationFromPacked("0:transform,o;1,v&fixedtime=t:2:3&value=
 cg.createObject({
   transformInit : {
     CGSpace : false,
-    canvasSpaceXAnchor : 0.5,
-    canvasSpaceYAnchor : 0.5,
     o : 0
   }
 },"spoonFoundText")
 .attach("Graphic",{
   graphic : cg.graphics.spoonFoundText,
+  transformInit : {
+    canvasSpaceXAnchor : 0.5,
+    canvasSpaceYAnchor : 0.5
+  },
   collection : "top"
 })
 .attach("Animator",{

@@ -584,6 +584,7 @@ ChoreoGraph.plugin({
             let lc = this.drawBufferContext;
 
             for (let visibleChunksByLayer of chunksToBuffer) {
+              if (visibleChunksByLayer==undefined) { continue; }
               for (let chunkLayer of visibleChunksByLayer) {
                 let chunk = chunkLayer.chunk;
                 lc.save();
