@@ -102,14 +102,6 @@ ChoreoGraph.plugin({
     TilemapLayer = class TilemapLayer {
       name = "Unnamed Layer";
       visible = true;
-      drawBuffer = null;
-      drawBufferContext = null;
-
-      initaliseDrawBuffer() {
-        if (this.drawBuffer!==null) { return }
-        this.drawBuffer = document.createElement("canvas");
-        this.drawBufferContext = this.drawBuffer.getContext("2d",{alpha:true});
-      }
     };
 
     Chunk = class Chunk {
@@ -454,8 +446,18 @@ ChoreoGraph.plugin({
         this.culling = true;
         this.debug = false;
         this.useDrawBuffer = true;
+
         this.previousChunksToBuffer = [];
-        if (init.imageSmoothingEnabled==undefined) { init.imageSmoothingEnabled = false; }
+        this.drawBuffer = document.createElement("canvas");
+        this.drawBufferContext = this.drawBuffer.getContext("2d",{alpha:true});
+        this.previousBufferWidth = 0;
+        this.previousBufferHeight = 0;
+
+        if (cg.settings.tilemaps.appendCanvases) {
+          document.body.appendChild(this.drawBuffer);
+        }
+
+        if (init.imageSmoothingEnabled===undefined) { init.imageSmoothingEnabled = false; }
       };
       draw(canvas,transform) {
         let go = transform.o;
@@ -572,35 +574,26 @@ ChoreoGraph.plugin({
         if (this.useDrawBuffer) {
           let bufferWidth = xMax - xMin;
           let bufferHeight = yMax - yMin;
-          if (bufferWidth>0||bufferHeight>0) {
-            for (let layerIndex=0;layerIndex<chunksToBuffer.length;layerIndex++) {
-              if (chunksToBuffer[layerIndex]==undefined) { continue; }
-              let layer = tilemap.layers[layerIndex];
-              if (bufferRequiresUpdate||chunksToBuffer[layerIndex].length!=this.previousChunksToBuffer[layerIndex]?.length) {
-                layer.initaliseDrawBuffer();
-                if (layer.prevDrawBufferWidth!=bufferWidth||layer.prevDrawBufferHeight!=bufferHeight) {
-                  layer.drawBuffer.width = bufferWidth;
-                  layer.drawBuffer.height = bufferHeight;
-                  layer.prevDrawBufferWidth = bufferWidth;
-                  layer.prevDrawBufferHeight = bufferHeight;
-                }
-                layer.drawBufferContext.clearRect(0,0,bufferWidth,bufferHeight);
+          let newSize = this.previousBufferWidth!=bufferWidth || this.previousBufferHeight!=bufferHeight;
+          if ((bufferWidth>0||bufferHeight>0) && (bufferRequiresUpdate || newSize)) {
+            this.previousBufferWidth = bufferWidth;
+            this.previousBufferHeight = bufferHeight;
+            this.drawBuffer.width = bufferWidth;
+            this.drawBuffer.height = bufferHeight;
+            this.drawBufferContext.clearRect(0,0,bufferWidth,bufferHeight);
+            let lc = this.drawBufferContext;
 
-                let lc = layer.drawBufferContext;
-
-                for (let chunkLayer of chunksToBuffer[layerIndex]) {
-                  let chunk = chunkLayer.chunk;
-                  lc.save();
-                  lc.translate(chunk.x * tilemap.tileWidth - xMin, chunk.y * tilemap.tileHeight - yMin);
-                  chunkLayer.draw(lc);
-                  lc.restore();
-                }
+            for (let visibleChunksByLayer of chunksToBuffer) {
+              for (let chunkLayer of visibleChunksByLayer) {
+                let chunk = chunkLayer.chunk;
+                lc.save();
+                lc.translate(chunk.x * tilemap.tileWidth - xMin, chunk.y * tilemap.tileHeight - yMin);
+                chunkLayer.draw(lc);
+                lc.restore();
               }
-
-              c.drawImage(layer.drawBuffer,xMin,yMin,bufferWidth,bufferHeight)
             }
 
-            this.previousChunksToBuffer = chunksToBuffer;
+            c.drawImage(this.drawBuffer,xMin,yMin,bufferWidth,bufferHeight)
           }
         }
 
