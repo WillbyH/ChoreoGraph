@@ -399,6 +399,9 @@ ChoreoGraph.plugin({
           }
 
           let text = totalDraws + " graphics drawn (" + totalCulled + " culled)";
+          if (cg.settings.core.frustumCulling === false) {
+            text += "  (frustum culling disabled)";
+          }
           cg.Develop.drawTopLeftText(cg,canvas,text);
         }
       };
