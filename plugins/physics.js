@@ -276,10 +276,6 @@ ChoreoGraph.plugin({
             console.warn("Collider type " + newCollider.type + " is not physics capable.",id);
           }
         }
-        if (newCollider.trigger && newCollider.static) {
-          console.warn("Colliders cannot be static and trigger at the same time.",id);
-          newCollider.static = false;
-        }
         this.colliders[id] = newCollider;
         this.cg.keys.colliders.push(id);
         if (cg.ready) {
