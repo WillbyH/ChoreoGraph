@@ -229,13 +229,13 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     };
 
     onReady() {
-      if (this.settings.core.callbacks.start!=null) { this.settings.core.callbacks.start(this); }
       for (let pluginKey in ChoreoGraph.plugins) {
         let plugin = ChoreoGraph.plugins[pluginKey];
         if (plugin.instanceStart!=null) {
           plugin.instanceStart(this);
         }
       }
+      if (this.settings.core.callbacks.start!=null) { this.settings.core.callbacks.start(this); }
     };
 
     createCanvas(canvasInit={},id=ChoreoGraph.id.get()) {
