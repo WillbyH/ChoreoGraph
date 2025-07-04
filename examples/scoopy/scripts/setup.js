@@ -72,7 +72,7 @@ cg.Tiled.importTileSetFromFile("tiled/buffetSet.json",() => {
     },"tilemapForeground");
     cg.scenes.main.createItem("graphic",{graphic:cg.graphics.tilemapBackground},"tilemapBackground","background");
     cg.scenes.main.createItem("graphic",{graphic:cg.graphics.tilemapForeground},"tilemapForeground","foreground");
-    cg.Physics.createCollidersFromTilemap(tilemap,3);
+    cg.Physics.createCollidersFromTilemap(tilemap,3,null,cg.scenes.main);
   });
 });
 
@@ -82,6 +82,7 @@ cg.Physics.createCollider({
   height : 32,
   trigger : true,
   groups : [1],
+  scene:cg.scenes.main,
   transformInit : {x:32,y:96}
 });
 
@@ -91,6 +92,7 @@ cg.Physics.createCollider({
   height : 4*16,
   trigger : true,
   groups : [1],
+  scene:cg.scenes.main,
   transformInit : {x:-224,y:-32}
 });
 
@@ -100,6 +102,7 @@ cg.Physics.createCollider({
   height : 6*16,
   trigger : true,
   groups : [1],
+  scene:cg.scenes.main,
   transformInit : {x:-40,y:-16}
 });
 
@@ -109,6 +112,7 @@ cg.Physics.createCollider({
   height : 16,
   trigger : true,
   groups : [1],
+  scene:cg.scenes.main,
   transformInit : {x:32,y:-120}
 });
 
@@ -118,6 +122,7 @@ cg.Physics.createCollider({
   height : 4*16,
   trigger : true,
   groups : [1],
+  scene:cg.scenes.main,
   transformInit : {x:-8,y:-192}
 });
 
@@ -127,6 +132,7 @@ cg.Physics.createCollider({
   height : 4*16,
   trigger : true,
   groups : [1],
+  scene:cg.scenes.main,
   transformInit : {x:168,y:-192}
 });
 
@@ -136,6 +142,7 @@ cg.Physics.createCollider({
   height : 16,
   trigger : true,
   groups : [1],
+  scene:cg.scenes.main,
   transformInit : {x:112,y:-24}
 });
 
@@ -145,6 +152,7 @@ cg.Physics.createCollider({
   height : 2*16,
   trigger : true,
   groups : [1],
+  scene:cg.scenes.main,
   transformInit : {x:-240,y:176},
   enter : () => {
     if (stst.spoon.transform.o==0) {

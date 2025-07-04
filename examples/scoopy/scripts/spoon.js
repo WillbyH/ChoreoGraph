@@ -44,6 +44,7 @@ cg.Physics.createCollider({
   radius : 22,
   trigger : true,
   groups : [1],
+  scene:cg.scenes.main,
   enter : () => {
     stst.spoon.transform.o = 0;
     cg.objects.spoonFoundText.Animator.restart()

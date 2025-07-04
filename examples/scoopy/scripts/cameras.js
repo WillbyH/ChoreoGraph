@@ -98,6 +98,7 @@ stst.createCamera = function(cameraInit) {
   newCamera.raycast = cg.Physics.createCollider({
     type : "raycast",
     groups : [1],
+    scene:cg.scenes.main,
     transformInit : {parent:transform,ax:[-8,-7,0,-7][orientation],ay:[1,0,0,0][orientation]}
   },"camera"+cameraIndex);
 

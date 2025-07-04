@@ -10,6 +10,7 @@ ChoreoGraph.plugin({
       static = false; // An intent that this collider will never move or change shape
       manual = false; // Excludes this from collision orders
       groups = [0];
+      scene = null;
 
       transform = null;
       collided = false;
@@ -230,6 +231,7 @@ ChoreoGraph.plugin({
             let collider = this.cg.Physics.colliders[mId];
             let comparison = this.cg.Physics.colliders[cId];
             if (collider.static && comparison.static) { continue; } // Don't compare two static colliders
+            if (collider.scene !== null && comparison.scene !== null && collider.scene !== comparison.scene) { continue; } // Don't compare colliders in different scenes
             let compatible = Object.keys(ChoreoGraph.Physics.colliderCompatability[collider.type]).includes(comparison.type);
             if (!compatible) { continue; } // Don't compare incompatible colliders
             let sharesAGroup = false;
@@ -284,7 +286,7 @@ ChoreoGraph.plugin({
         return newCollider;
       };
 
-      createCollidersFromTilemap(tilemap,layerIndex=0,targetTileId=null,xo=0,yo=0,groups=[0]) {
+      createCollidersFromTilemap(tilemap,layerIndex=0,targetTileId=null,scene=null,groups=[0]) {
         if (tilemap===undefined) { console.warn("No Tilemap provided in createCollidersFromTileMap"); return; }
         let pool = [];
         for (let chunk of tilemap.chunks) {
@@ -377,7 +379,8 @@ ChoreoGraph.plugin({
             width : tilemap.tileWidth * biggestWidth,
             height : tilemap.tileHeight * biggestHeight,
             transformInit : { x: cx, y: cy },
-            groups : groups
+            groups : groups,
+            scene : scene
           }, colliderGroupName + "_" + colliderNumber);
           colliderNumber++;
         }
@@ -813,6 +816,7 @@ ChoreoGraph.plugin({
         for (let colliderId of cg.keys.colliders) {
           let collider = cg.Physics.colliders[colliderId];
           if (collider.transform===null) { continue; }
+          if (collider.scene!==null&&!canvas.camera.scenes.includes(collider.scene)) { continue; }
           c.save();
           let [cx,cy] = collider.getPosition();
           ChoreoGraph.transformContext(canvas.camera,cx,cy);
@@ -941,10 +945,22 @@ ChoreoGraph.ObjectComponents.RigidBody = class cgObjectRidigBody {
       this.yv *= multiplier;
     }
 
+    const onlyOneScene = scene.cg.keys.scenes.length === 1;
+
+    let relevantScenes = [];
+    if (!onlyOneScene) {
+      for (const camera of scene.cameras) {
+        for (const scene of camera.scenes) {
+          relevantScenes.push(scene);
+        }
+      }
+    }
+
     let resolutions = [];
 
     for (let comparison of this.collider.affiliations) {
       if (comparison.trigger) { continue; }
+      if (onlyOneScene===false&&comparison.scene!=null&&!relevantScenes.includes(comparison.scene)) { continue; }
       const [collided,vector,flip] = ChoreoGraph.Physics.processCollision(this.collider, comparison, true);
       cg.Physics.collisionChecks++;
 

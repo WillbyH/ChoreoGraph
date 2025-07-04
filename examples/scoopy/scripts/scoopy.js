@@ -48,7 +48,8 @@ stst.scoopy = cg.createObject({
     width:8,
     height:8,
     groups:[0,1],
-  },"scoopy"),
+    scene:cg.scenes.main
+  },"scoopy")
 })
 .attach("Script",{
   updateScript : (object,scene) => {
