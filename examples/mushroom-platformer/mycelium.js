@@ -94,8 +94,8 @@ cg.createGraphic({
 },"playerJumpLookForward");
 
 for (let i=0;i<10;i++) {
-  let x = Math.floor(i/5) + 6;
-  let y = i%5;
+  const x = Math.floor(i/5) + 6;
+  const y = i%5;
   cg.createGraphic({
     type : "image",
     image : cg.createImage({
@@ -139,7 +139,7 @@ cg.createObject({
 })
 .attach("Animator")
 .attach("Script",{
-  updateScript : function(object) {
+  updateScript : (object) => {
     if (object.bufferJump && cg.objects.player.canJump && cg.Physics.colliders.player.collided) {
       if (cg.Input.actions.jump.get()!==0) {
         cg.objects.player.RigidBody.yv = -130;
@@ -151,7 +151,7 @@ cg.createObject({
     if (cg.Input.actions.jump.get()==0) {
       object.RigidBody.gravityScale = object.fallGravity;
     }
-    let dir = cg.Input.actions.right.get() - cg.Input.actions.left.get();
+    const dir = cg.Input.actions.right.get() - cg.Input.actions.left.get();
     object.movementManager(dir);
     object.animationManager(dir);
   }
@@ -224,7 +224,7 @@ cg.Physics.createCollider({
   trigger : true,
   groups : [2],
   transformInit : {parent:cg.objects.player.transform,oy:6},
-  enter : function(collider,other) {
+  enter : (collider,other) => {
     cg.objects.player.canJump = true;
   }
 },"playerGroundDetector");
@@ -242,8 +242,8 @@ cg.createGraphic({
 
 function createFireflies(x,y,r,count,scene) {
   for (let i=0;i<count;i++) {
-    let theta = Math.random()*2*Math.PI;
-    let firefly = cg.createObject({
+    const theta = Math.random()*2*Math.PI;
+    const firefly = cg.createObject({
       transformInit : {
         x : x + Math.cos(theta)*(r*Math.random()-0.5),
         y : y + Math.sin(theta)*(r*Math.random()-0.5),
@@ -258,8 +258,8 @@ function createFireflies(x,y,r,count,scene) {
       transformInit : {o:0.3}
     })
     .attach("Script",{
-      updateScript : function(object) {
-        let swarm = swarms[object.swarmIndex];
+      updateScript : (object) => {
+        const swarm = swarms[object.swarmIndex];
         if (swarm.lastCalculatedPDFH != ChoreoGraph.frame) {
           swarm.playerDistanceFromHome = Math.sqrt(
             (swarm.home[0] - cg.objects.player.transform.x) * (swarm.home[0] - cg.objects.player.transform.x) +
@@ -267,19 +267,19 @@ function createFireflies(x,y,r,count,scene) {
           );
           swarm.lastCalculatedPDFH = ChoreoGraph.frame;
         }
-        let distanceFromTarget = Math.sqrt(
+        const distanceFromTarget = Math.sqrt(
           (object.target[0] - object.transform.x) * (object.target[0] - object.transform.x) +
           (object.target[1] - object.transform.y) * (object.target[1] - object.transform.y)
         );
         if (distanceFromTarget < 1) {
-          let theta = Math.random()*2*Math.PI;
+          const theta = Math.random()*2*Math.PI;
           object.target = [
             swarm.home[0] + Math.cos(theta)*(swarm.homeRadius*Math.random()-0.5),
             swarm.home[1] + Math.sin(theta)*(swarm.homeRadius*Math.random()-0.5),
           ];
         } else {
           let dir = [object.target[0] - object.transform.x, object.target[1] - object.transform.y];
-          let mag = Math.sqrt(dir[0]*dir[0] + dir[1]*dir[1]);
+          const mag = Math.sqrt(dir[0]*dir[0] + dir[1]*dir[1]);
           if (mag == 0) { return; }
           dir[0] /= mag;
           dir[1] /= mag;
@@ -288,7 +288,7 @@ function createFireflies(x,y,r,count,scene) {
           object.transform.x += dir[0] * 0.001 * cg.timeDelta;
           object.transform.y += dir[1] * 0.001 * cg.timeDelta;
         }
-        let phase = (cg.clock % object.blinkRate) / object.blinkRate;
+        const phase = (cg.clock % object.blinkRate) / object.blinkRate;
         let brightness;
         if (phase < 0.5) {
           brightness = phase * 2;
@@ -317,13 +317,12 @@ function createFireflies(x,y,r,count,scene) {
     totalFireflies++;
   }
 
-  let swarm = {
+  swarms.push(swarm = {
     playerDistanceFromHome : 0,
     lastCalculatedPDFH : -1,
     home : [x,y],
     homeRadius : r,
-  }
-  swarms.push(swarm);
+  });
 }
 
 // GEMS
@@ -342,7 +341,7 @@ for (let i=0;i<4;i++) {
 cg.Animation.createAnimationFromPacked("0&sprite=f:7:Graphic,graphic:gem0|gem1|gem2|gem3",{},"gem");
 
 function createGem(x,y) {
-  let gem = cg.createObject({
+  const gem = cg.createObject({
     transformInit : {x:x,y:y}
   },"gem")
   .attach("Graphic",{
@@ -368,28 +367,185 @@ function createGem(x,y) {
     radius : 10,
     trigger : true,
     groups : [1],
+    gem : gem,
     transformInit : {parent:gem.transform},
-    enter : function() {
-      console.log("collect")
+    enter : (collider, self) =>{
+      if (self.gem.Graphic.transform.o===0) { return; }
+      cg.graphics.gameInterface.collectGem(self.gem);
+      self.gem.Graphic.transform.o = 0;
     }
   },"gemCollider");
 
   return gem;
 }
 
+// EXIT DOOR
+cg.createImage({
+  file : "sheet.png",
+  crop : [16,16*6,32,32]
+},"doorBackground");
+cg.createImage({
+  file : "sheet.png",
+  crop : [16*3,16*6,32,32]
+},"doorRoots");
+
+cg.graphicTypes.exitDoor = new class ExitDoor {
+  setup() {
+    this.open = false;
+
+    this.reset = () => {
+      this.open = false;
+    }
+  };
+  draw(c,ax,ay,canvas) {
+    canvas.drawImage(cg.images.doorBackground, 0, 0, 32, 32);
+    if (!this.open) {
+      canvas.drawImage(cg.images.doorRoots, 0, 0, 32, 32);
+    }
+  };
+}
+cg.createGraphic({type : "exitDoor"},"exitDoor");
+
 // UI
+cg.createImage({
+  file : "sheet.png",
+  crop : [5*16+1,6*16+6,6,9]
+},"largeGemColour");
+cg.createImage({
+  file : "sheet.png",
+  crop : [5*16+9,6*16+6,6,9]
+},"largeGemOutline");
+cg.createImage({
+  file : "sheet.png",
+  crop : [5*16,6*16+1,4,4]
+},"gemParticle0");
+cg.createImage({
+  file : "sheet.png",
+  crop : [5*16+5,6*16+1,4,4]
+},"gemParticle1");
+cg.createImage({
+  file : "sheet.png",
+  crop : [5*16+9,6*16+1,4,4]
+},"gemParticle2");
+cg.createImage({
+  file : "sheet.png",
+  crop : [5*16+12,6*16+1,4,4]
+},"gemParticle3");
+
+cg.processLoops.push(function canvasScaler() {
+  cg.cameras.main.canvasSpaceScale = cg.canvases.main.width/1920;
+});
 
 cg.graphicTypes.gameInterface = new class GameInterface {
   setup() {
     this.gemCount = 3;
     this.collectedGems = 0;
+
+    this.collections = [];
+    this.particles = [];
+
+    this.reset = () => {
+      this.collectedGems = 0;
+      this.collections = [];
+      this.particles = [];
+    }
+
+    this.createParticle = (x,y) => {
+      this.particles.push({
+        x : x + (Math.random()-0.5)*10,
+        y : y + (Math.random()-0.5)*10,
+        r : (Math.random()-0.5)*360,
+        xv : (Math.random()-0.5)*0.5,
+        yv : (Math.random()-0.5)*0.5,
+        rv : (Math.random()-0.5),
+        stt : cg.clock,
+        lifetime : Math.random()*1000 + 700,
+        image : cg.images["gemParticle" + Math.floor(Math.random()*4)]
+      })
+    }
+
+    this.collectGem = (gem) => {
+      const x = cg.cameras.main.getCanvasSpaceX(gem.transform.x);
+      const y = cg.cameras.main.getCanvasSpaceY(gem.transform.y);
+      this.collections.push({
+        originX : x,
+        originY : y,
+        stt : cg.clock,
+        targetIndex : this.collectedGems
+      });
+
+      for (let i=0;i<10;i++) {
+        this.createParticle(x,y);
+      }
+    }
   };
-  draw(c,ax,ay) {
-    // c.fillStyle = "red";
-    // c.fillRect(100,100,100,100)
+  draw(c,ax,ay,canvas) {
+    const xOffset = 100;
+    const yOffset = 100;
+    const pixelScale = 8;
+    const gemWidth = 6*pixelScale;
+    const gemHeight = 9*pixelScale;
+    const gemSeparation = 100;
+
+    // Collection Paths
+    const collectionDuration = 700;
+
+    for (let i=0;i<this.collections.length;i++) {
+      const collection = this.collections[i];
+      let progress = (cg.clock - collection.stt) / collectionDuration;
+      if (progress >= 1) {
+        this.collectedGems++;
+        if (this.collectedGems >= this.gemCount) {
+          cg.graphics.exitDoor.open = true;
+        }
+        collection.collected = true;
+        continue;
+      }
+      progress = cg.Animation.easeFunctions.inOutQuart(progress);
+      const targetX = xOffset + collection.targetIndex * gemSeparation;
+      const targetY = yOffset;
+      const x = collection.originX + (targetX - collection.originX) * progress;
+      const y = collection.originY + (targetY - collection.originY) * progress;
+
+      this.createParticle(x,y);
+
+      c.fillStyle = "#78ed87";
+      c.globalAlpha = progress + 0.1;
+      canvas.drawImage(cg.images.largeGemColour, x, y, gemWidth, gemHeight);
+    }
+    this.collections = this.collections.filter(c => !c.collected);
+
+
+    // Gems and Outlines
+
+    c.globalAlpha = 1;
+    for (let i=0;i<this.gemCount;i++) {
+      const image = (i<this.collectedGems) ? cg.images.largeGemColour : cg.images.largeGemOutline;
+      canvas.drawImage(image, xOffset + gemSeparation*i, yOffset, gemWidth, gemHeight);
+    }
+
+    // Particles
+    const particleSize = 10 / cg.cameras.main.canvasSpaceScale;
+
+    for (let i=0;i<this.particles.length;i++) {
+      const particle = this.particles[i];
+      const progress = (cg.clock - particle.stt) / particle.lifetime;
+      if (progress >= 1) {
+        this.particles.splice(i,1);
+        i--;
+        continue;
+      }
+      particle.x += particle.xv * cg.timeDelta;
+      particle.y += particle.yv * cg.timeDelta;
+      particle.r += particle.rv * cg.timeDelta;
+
+      c.globalAlpha = 1 - progress;
+
+      canvas.drawImage(particle.image, particle.x, particle.y, particleSize, particleSize, particle.r);
+    }
   };
 };
-cg.createGraphic({type : "gameInterface"},"gameInterface")
+cg.createGraphic({type : "gameInterface"},"gameInterface");
 
 // LEVELS
 const levels = {};
@@ -404,6 +560,7 @@ class Level {
   scene;
   tilemap;
   lighting;
+  gems = [];
 
   createScene() {
     this.scene = cg.createScene({},this.id);
@@ -412,15 +569,17 @@ class Level {
     this.scene.createItem("collection",{},"foreground");
     this.scene.createItem("collection",{},"top");
 
-    for (let [x,y,r,count] of this.fireflies) {
+    for (const [x,y,r,count] of this.fireflies) {
       createFireflies(x,y,r,count,this.scene);
     }
 
-    for (let [x,y] of this.gemPositions) {
-      this.scene.addObject(createGem(x,y));
+    for (const [x,y] of cg.createPath(this.gemPositions,"gems-"+this.id)) {
+      const gem = createGem(x,y);
+      this.scene.addObject(gem);
+      this.gems.push(gem);
     }
 
-    for (let position of cg.createPath(this.mushroomGlow,"mushroomGlow-"+this.id)) {
+    for (const position of cg.createPath(this.mushroomGlow,"mushroomGlow-"+this.id)) {
       cg.Lighting.createLight({
         type : "spot",
         transformInit : {x:position[0],y:position[1]},
@@ -474,6 +633,30 @@ class Level {
     cg.Physics.createCollidersFromTilemap(this.tilemap,3,null,this.scene,[0,2]);
 
     this.scene.createItem("graphic",{
+      graphic : cg.graphics.exitDoor,
+      transformInit : {
+        x : this.exitPosition[0],
+        y : this.exitPosition[1]
+      }
+    },"exitDoor-"+this.id,"background");
+
+    cg.Physics.createCollider({
+      type : "rectangle",
+      width : 32,
+      height : 32,
+      trigger : true,
+      groups : [1],
+      transformInit : {
+        x : this.exitPosition[0],
+        y : this.exitPosition[1]
+      },
+      enter : () => {
+        if (!cg.graphics.exitDoor.open) { return; }
+        // CAN EXIT
+      }
+    },"exit-"+this.id)
+
+    this.scene.createItem("graphic",{
       graphic : cg.graphics.gameInterface,
       transformInit : {
         CGSpace : false,
@@ -485,8 +668,12 @@ class Level {
 
   load() {
     cg.cameras.main.setScene(this.scene);
+    cg.graphics.gameInterface.reset();
     cg.graphics.gameInterface.gemCount = this.gemPositions.length;
-    cg.graphics.gameInterface.collectedGems = 0;
+    cg.graphics.exitDoor.reset();
+    for (const gem of this.gems) {
+      gem.Graphic.transform.o = 1;
+    }
   }
 }
 
@@ -502,9 +689,10 @@ cg.settings.core.callbacks.start = () => {
     id : "test",
     tilemap : "testMap",
     startPosition : [85,125],
+    exitPosition : [81,128],
     fireflies : [[100,75,30,10]],
     mushroomGlow : [[104,141],[136,93],[168,138]],
-    gemPositions : [[170,79]],
+    gemPositions : [[170,79],[117,66],[80,102]],
     tilemap : cg.Tilemaps.tilemaps.testMap
   });
 
