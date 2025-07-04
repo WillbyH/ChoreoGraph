@@ -248,7 +248,8 @@ ChoreoGraph.plugin({
         this.canvas = canvas;
         this.boundBox = canvas.element.getBoundingClientRect();
         this.canvas.element.addEventListener("touchmove", (event) => {
-          if (event.target.cgCanvas.cg.settings.input.preventSingleTouch&&event.touches.length===1&&event.cancelable) {
+          let iSet = event.target.cgCanvas.cg.settings.input;
+          if (((iSet.preventSingleTouch&&event.touches.length===1)||iSet.preventTouchScrolling)&&event.cancelable) {
             event.preventDefault();
           }
         }, {passive: false});
@@ -314,13 +315,16 @@ ChoreoGraph.plugin({
           this.up.any.y = this.y;
           this.up[side].x = this.x;
           this.up[side].y = this.y;
-
-          this.hold.any = false;
-          this.hold[side] = false;
           this.impulseUp.any = true;
           this.impulseUp[side] = true;
+
           delete this.touches[event.pointerId];
           this.activeTouches.splice(this.activeTouches.indexOf(event.pointerId),1);
+
+          if (this.activeTouches.length==0) {
+            this.hold.any = false;
+            this.hold[side] = false;
+          }
         } else if (event.type=="pointermove") {
           if (this.canvas.hasHiddenCursorForEmulatedCursor&&event.pointerType=="mouse") {
             this.canvas.hasHiddenCursorForEmulatedCursor = false;
@@ -908,7 +912,7 @@ ChoreoGraph.plugin({
         ChoreoGraph.initTransform(cg,this,buttonInit);
       };
 
-      cursorInside(cursor,onlyPrimaryTouch=false) {
+      cursorInside(cursor,event,onlyPrimaryTouch=false) {
         if (cursor?.canvas.camera==null) { return false; }
         if (this.check!==null) {
           if (this.check in this.cg.Input.buttonChecks) {
@@ -950,21 +954,25 @@ ChoreoGraph.plugin({
             const [x, y] = getPositionInSpace(this);
             if (this.inside(x,y)) {
               hovered = true;
-              this.setHoveredPositions(x,y);
+              if ((this.cursorId === null && !this.pressed) || this.cursorId === event.pointerId) {
+                this.setHoveredPositions(x,y);
+              }
             }
           } else {
             for (let touch of cursor.activeTouches) {
               const [x, y] = getPositionInSpace(this,touch);
               if (this.inside(x,y)) {
                 hovered = true;
-                this.setHoveredPositions(x,y);
+                if ((this.cursorId === null && !this.pressed) || this.cursorId === event.pointerId) {
+                  this.setHoveredPositions(x,y);
+                }
               }
             }
           }
         } else {
           const [x, y] = getPositionInSpace(this);
           hovered = this.inside(x,y);
-          if (hovered) {
+          if (hovered && ((this.cursorId === null && !this.pressed) || this.cursorId === event.pointerId)) {
             this.setHoveredPositions(x,y);
           }
         }
@@ -1126,7 +1134,7 @@ ChoreoGraph.plugin({
           }
         }
         if (!isRelevant && button.pressed === false && button.hovered === false) { continue; }
-        if (button.cursorInside(cursor,special==="down")) {
+        if (button.cursorInside(cursor,event,special==="down")) {
           if (!button.hovered) {
             button.hovered = true;
             button.enterTime = ChoreoGraph.nowint;
@@ -1142,9 +1150,9 @@ ChoreoGraph.plugin({
             cursor.setStyle(ChoreoGraph.Input.CURSOR_HOVERING,button.hoverCursor);
           }
           if (special==="down") {
-            if (button.allowedButtons[event.button]) {
+            if (button.allowedButtons[event.button] && !button.pressed) {
               button.downTime = ChoreoGraph.nowint;
-              if (!button.pressed) { cg.Input.pressedButtons++; }
+              cg.Input.pressedButtons++;
               button.pressed = true;
               button.cursorId = event.pointerId;
               cursor.setStyle(ChoreoGraph.Input.CURSOR_PRESSING,button.pressCursor);
@@ -1153,7 +1161,7 @@ ChoreoGraph.plugin({
               }
             }
           } else if (special==="up") {
-            if (button.pressed||button.allowUpWithNoPress) {
+            if ((button.pressed||button.allowUpWithNoPress) && button.cursorId === event.pointerId) {
               button.upTime = ChoreoGraph.nowint;
               if (button.pressed) { cg.Input.pressedButtons--; }
               button.pressed = false;
@@ -1189,7 +1197,7 @@ ChoreoGraph.plugin({
           if (button.exit!==null) {
             button.exit(button,event,canvas);
           }
-        } else if (button.pressed && special === "up") {
+        } else if (button.pressed && special === "up" && button.cursorId === event.pointerId) {
           button.upTime = ChoreoGraph.nowint;
           if (button.pressed) { cg.Input.pressedButtons--; }
           button.pressed = false;
@@ -1375,6 +1383,7 @@ ChoreoGraph.plugin({
     cg.keys.actions = [];
     cg.attachSettings("input",{
       preventSingleTouch : false, // Prevents single touches scrolling the page (starting on the canvas)
+      preventTouchScrolling : false, // Prevents default on all touches
       preventContextMenu : false, // Prevents the context menu from appearing when right clicking (on the canvas)
       preventMiddleClick : false, // Prevents the middle mouse button from scrolling the page (starting on the canvas)
       preventCanvasSelection : true, // Prevents the canvas from being selected, mainly for ios safari

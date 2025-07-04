@@ -3,7 +3,8 @@ const cg = ChoreoGraph.instantiate({
     assumptions : true
   },
   input : {
-    preventSingleTouch : true
+    preventSingleTouch : true,
+    preventTouchScrolling : true
   }
 });
 
