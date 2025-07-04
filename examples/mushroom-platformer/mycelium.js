@@ -18,13 +18,7 @@ cg.createCamera({
   scaleMode : "maximum",
   size : 180,
   transformInit : {x:128,y:95}
-},"main")
-.addScene(cg.createScene({},"main"));
-
-cg.scenes.main.createItem("collection",{},"background");
-cg.scenes.main.createItem("collection",{},"entities");
-cg.scenes.main.createItem("collection",{},"foreground");
-cg.scenes.main.createItem("collection",{},"top");
+},"main");
 
 cg.createCanvas({element:document.getElementsByTagName("canvas")[0],
   background : "peachpuff"
@@ -39,42 +33,14 @@ cg.createImage({
   file : "waterfall.png"
 },"waterfall");
 
-cg.Tiled.importTileSetFromFile("tiled/mushroom-set.tsj",() => {
-  if (Object.keys(cg.Tiled.tileSets).length == 2) {
-    loadTilemap();
-  }
-});
-cg.Tiled.importTileSetFromFile("tiled/waterfall.tsj",() => {
-  if (Object.keys(cg.Tiled.tileSets).length == 2) {
-    loadTilemap();
-  }
-});
+cg.Tiled.importTileSetFromFile("tiled/mushroom-set.tsj",() => { loadTilemaps(); });
+cg.Tiled.importTileSetFromFile("tiled/waterfall.tsj",() => { loadTilemaps(); });
 
-function loadTilemap() {
+function loadTilemaps() {
+  if (Object.keys(cg.Tiled.tileSets).length !== cg.Tiled.totalExternalTileSets) { return; }
   cg.Tiled.importTileMapFromFile({
     dataUrl : "tiled/testmap.tmj",
     id : "testMap"
-  },(tilemap) => {
-    cg.createGraphic({
-      type : "tilemap",
-      tilemap : tilemap,
-      debug : false,
-      visibleLayers : ["Background","Foreground"]
-    },"tilemapBackground");
-    cg.createGraphic({
-      type : "tilemap",
-      tilemap : tilemap,
-      debug : false,
-      visibleLayers : ["Overlay"]
-    },"tilemapForeground");
-
-    cg.scenes.main.createItem("graphic",{
-      graphic:cg.graphics.tilemapBackground
-    },"tilemapBackground","background");
-    cg.scenes.main.createItem("graphic",{
-      graphic:cg.graphics.tilemapForeground
-    },"tilemapForeground","foreground");
-    cg.Physics.createCollidersFromTilemap(tilemap,3,null,0,0,[0,2]);
   });
 }
 
@@ -148,50 +114,48 @@ cg.Input.createAction({keys:["space","up","w","conactionbottom","condpadup"],dow
 cg.Input.createAction({keys:["a","left","conleftleft","condpadleft","conrightleft"]},"left");
 cg.Input.createAction({keys:["d","right","conrightright","condpadright","conleftright"]},"right");
 
-cg.scenes.main.addObject(
-  cg.createObject({
-    fallGravity : 3.5,
-    jumpGravity : 1,
-    canJump : true,
-    bufferJump : false,
-    lastMoveTime : 0,
-    lastIdleTime : 0,
-    transformInit : {x:85,y:125},
-  },"player")
-  .attach("Graphic",{
-    graphic : cg.graphics.playerIdle,
-    transformInit : {oy:-1.5},
-    collection : "entities"
-  })
-  .attach("RigidBody",{
-    gravityScale : 1.5,
-    collider : cg.Physics.createCollider({
-      type : "rectangle",
-      width : 14,
-      height : 12,
-      groups : [0,1]
-    },"player"),
-  })
-  .attach("Animator")
-  .attach("Script",{
-    updateScript : function(object) {
-      if (object.bufferJump && cg.objects.player.canJump && cg.Physics.colliders.player.collided) {
-        if (cg.Input.actions.jump.get()!==0) {
-          cg.objects.player.RigidBody.yv = -130;
-          cg.objects.player.RigidBody.gravityScale = cg.objects.player.jumpGravity;
-          cg.objects.player.canJump = false;
-        }
-        object.bufferJump = false;
+cg.createObject({
+  fallGravity : 3.5,
+  jumpGravity : 1,
+  canJump : true,
+  bufferJump : false,
+  lastMoveTime : 0,
+  lastIdleTime : 0,
+  transformInit : {x:85,y:125},
+},"player")
+.attach("Graphic",{
+  graphic : cg.graphics.playerIdle,
+  transformInit : {oy:-1.5},
+  collection : "entities"
+})
+.attach("RigidBody",{
+  gravityScale : 1.5,
+  collider : cg.Physics.createCollider({
+    type : "rectangle",
+    width : 14,
+    height : 12,
+    groups : [0,1]
+  },"player"),
+})
+.attach("Animator")
+.attach("Script",{
+  updateScript : function(object) {
+    if (object.bufferJump && cg.objects.player.canJump && cg.Physics.colliders.player.collided) {
+      if (cg.Input.actions.jump.get()!==0) {
+        cg.objects.player.RigidBody.yv = -130;
+        cg.objects.player.RigidBody.gravityScale = cg.objects.player.jumpGravity;
+        cg.objects.player.canJump = false;
       }
-      if (cg.Input.actions.jump.get()==0) {
-        object.RigidBody.gravityScale = object.fallGravity;
-      }
-      let dir = cg.Input.actions.right.get() - cg.Input.actions.left.get();
-      object.movementManager(dir);
-      object.animationManager(dir);
+      object.bufferJump = false;
     }
-  })
-);
+    if (cg.Input.actions.jump.get()==0) {
+      object.RigidBody.gravityScale = object.fallGravity;
+    }
+    let dir = cg.Input.actions.right.get() - cg.Input.actions.left.get();
+    object.movementManager(dir);
+    object.animationManager(dir);
+  }
+});
 
 cg.objects.player.movementManager = function(dir) {
   let speed = 4;
@@ -265,36 +229,6 @@ cg.Physics.createCollider({
   }
 },"playerGroundDetector");
 
-// LIGHTING
-cg.scenes.main.createItem("graphic",{
-  graphic : cg.createGraphic({type:"lighting",
-    shadowType : ChoreoGraph.Lighting.SHADOW_FULL,
-    shadowColour : "#060004aa"
-  },"lighting"),
-},"lighting","top");
-
-cg.Lighting.createLight({
-  type : "spot",
-  transformInit : {parent:cg.objects.player.transform},
-  outerRadius : 80,
-  innerRadius : 1,
-  brightness : 0.7,
-  occlude : false,
-  hexColour : "#ffdcbd"
-},"player");
-
-for (let position of cg.createPath([[104,141],[136,93],[168,138]],"mushroomGlow")) {
-  cg.Lighting.createLight({
-    type : "spot",
-    transformInit : {x:position[0],y:position[1]},
-    outerRadius : 40,
-    innerRadius : 3,
-    brightness : 1,
-    occlude : false,
-    hexColour : "#7af2ff"
-  });
-}
-
 // FIREFLIES
 let totalFireflies = 0;
 const swarms = [];
@@ -306,7 +240,7 @@ cg.createGraphic({
   fill : true
 },"firefly");
 
-function createFireflies(x,y,r,count) {
+function createFireflies(x,y,r,count,scene) {
   for (let i=0;i<count;i++) {
     let theta = Math.random()*2*Math.PI;
     let firefly = cg.createObject({
@@ -369,14 +303,6 @@ function createFireflies(x,y,r,count) {
       }
     });
 
-    let swarm = {
-      playerDistanceFromHome : 0,
-      lastCalculatedPDFH : -1,
-      home : [x,y],
-      homeRadius : r,
-    }
-    swarms.push(swarm);
-
     firefly.light = cg.Lighting.createLight({
       type : "spot",
       transformInit : {parent:firefly.transform},
@@ -387,12 +313,18 @@ function createFireflies(x,y,r,count) {
       hexColour : "#ebff54"
     },"fireflyLight");
 
-    cg.scenes.main.addObject(firefly)
+    scene.addObject(firefly);
     totalFireflies++;
   }
-}
 
-createFireflies(100,75,30,10);
+  let swarm = {
+    playerDistanceFromHome : 0,
+    lastCalculatedPDFH : -1,
+    home : [x,y],
+    homeRadius : r,
+  }
+  swarms.push(swarm);
+}
 
 // GEMS
 for (let i=0;i<4;i++) {
@@ -442,20 +374,141 @@ function createGem(x,y) {
     }
   },"gemCollider");
 
-  cg.scenes.main.addObject(gem);
+  return gem;
 }
 
-createGem(170,79);
+// UI
+
+cg.graphicTypes.gameInterface = new class GameInterface {
+  setup() {
+    this.gemCount = 3;
+    this.collectedGems = 0;
+  };
+  draw(c,ax,ay) {
+    // c.fillStyle = "red";
+    // c.fillRect(100,100,100,100)
+  };
+};
+cg.createGraphic({type : "gameInterface"},"gameInterface")
 
 // LEVELS
+const levels = {};
+
 class Level {
   id = "unnamed-level";
-  tilemap;
+
   startPosition = [0,0];
+  fireflies = [];
+  gemPositions = [];
+
+  scene;
+  tilemap;
+  lighting;
+
+  createScene() {
+    this.scene = cg.createScene({},this.id);
+    this.scene.createItem("collection",{},"background");
+    this.scene.createItem("collection",{},"entities");
+    this.scene.createItem("collection",{},"foreground");
+    this.scene.createItem("collection",{},"top");
+
+    for (let [x,y,r,count] of this.fireflies) {
+      createFireflies(x,y,r,count,this.scene);
+    }
+
+    for (let [x,y] of this.gemPositions) {
+      this.scene.addObject(createGem(x,y));
+    }
+
+    for (let position of cg.createPath(this.mushroomGlow,"mushroomGlow-"+this.id)) {
+      cg.Lighting.createLight({
+        type : "spot",
+        transformInit : {x:position[0],y:position[1]},
+        outerRadius : 40,
+        innerRadius : 3,
+        brightness : 1,
+        occlude : false,
+        hexColour : "#7af2ff"
+      });
+    }
+
+    this.scene.addObject(cg.objects.player);
+
+    this.scene.createItem("graphic",{
+      graphic : cg.createGraphic({type:"lighting",
+        shadowType : ChoreoGraph.Lighting.SHADOW_FULL,
+        shadowColour : "#060004aa"
+      },"lighting-"+this.id),
+    },"lighting-"+this.id,"top");
+
+    cg.Lighting.createLight({
+      type : "spot",
+      transformInit : {parent:cg.objects.player.transform},
+      outerRadius : 80,
+      innerRadius : 1,
+      brightness : 0.7,
+      occlude : false,
+      hexColour : "#ffdcbd"
+    },"player-"+this.id);
+
+    cg.createGraphic({
+      type : "tilemap",
+      tilemap : this.tilemap,
+      debug : false,
+      visibleLayers : ["Background","Foreground"]
+    },"tilemapBackground");
+    cg.createGraphic({
+      type : "tilemap",
+      tilemap : this.tilemap,
+      debug : false,
+      visibleLayers : ["Overlay"]
+    },"tilemapForeground");
+
+    this.scene.createItem("graphic",{
+      graphic:cg.graphics.tilemapBackground
+    },"tilemapBackground","background");
+    this.scene.createItem("graphic",{
+      graphic:cg.graphics.tilemapForeground
+    },"tilemapForeground","foreground");
+
+    cg.Physics.createCollidersFromTilemap(this.tilemap,3,null,this.scene,[0,2]);
+
+    this.scene.createItem("graphic",{
+      graphic : cg.graphics.gameInterface,
+      transformInit : {
+        CGSpace : false,
+        canvasSpaceXAnchor : 0,
+        canvasSpaceYAnchor : 0
+      }
+    },"gameInterface-"+this.id,"top");
+  };
+
+  load() {
+    cg.cameras.main.setScene(this.scene);
+    cg.graphics.gameInterface.gemCount = this.gemPositions.length;
+    cg.graphics.gameInterface.collectedGems = 0;
+  }
 }
 
 function createLevel(init={}) {
-  cg.createScene({},"main")
+  const newLevel = new Level();
+  ChoreoGraph.applyAttributes(newLevel,init);
+  newLevel.createScene();
+  levels[newLevel.id] = newLevel;
+}
+
+cg.settings.core.callbacks.start = () => {
+  createLevel({
+    id : "test",
+    tilemap : "testMap",
+    startPosition : [85,125],
+    fireflies : [[100,75,30,10]],
+    mushroomGlow : [[104,141],[136,93],[168,138]],
+    gemPositions : [[170,79]],
+    tilemap : cg.Tilemaps.tilemaps.testMap
+  });
+
+  levels.test.load();
 }
 
 ChoreoGraph.start();
