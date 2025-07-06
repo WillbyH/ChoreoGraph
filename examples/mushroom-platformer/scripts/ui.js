@@ -89,9 +89,7 @@ cg.graphicTypes.gameInterface = new class GameInterface {
       this.losses.push({
         originIndex : this.gemOrder.length,
         gem : gem,
-        stt : cg.clock,
-        targetX : cg.cameras.main.getCanvasSpaceX(gem.transform.x),
-        targetY : cg.cameras.main.getCanvasSpaceY(gem.transform.y)
+        stt : cg.clock
       });
     }
 
@@ -154,8 +152,10 @@ cg.graphicTypes.gameInterface = new class GameInterface {
       progress = cg.Animation.easeFunctions.inOutQuart(progress);
       const originX = xOffset + loss.originIndex * gemSeparation;
       const originY = yOffset;
-      const x = originX + (loss.targetX - originX) * progress;
-      const y = originY + (loss.targetY - originY) * progress;
+      const targetX = cg.cameras.main.getCanvasSpaceX(loss.gem.transform.x);
+      const targetY = cg.cameras.main.getCanvasSpaceY(loss.gem.transform.y);
+      const x = originX + (targetX - originX) * progress;
+      const y = originY + (targetY - originY) * progress;
 
       this.createParticle(x,y);
 

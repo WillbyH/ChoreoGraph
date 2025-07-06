@@ -168,8 +168,8 @@ cg.settings.core.callbacks.start = () => {
     tilemap : cg.Tilemaps.tilemaps.level1
   });
 
-  levels.test.load();
-  // levels.level1.load();
+  // levels.test.load();
+  levels.level1.load();
 }
 
 ChoreoGraph.start();

@@ -1,7 +1,6 @@
 const cg = ChoreoGraph.instantiate({
   core : {
     baseImagePath : "images/",
-    frustumCulling : false,
     debugCGScale : 0.3,
     imageSmoothingEnabled : false,
     inactiveTime : 100
@@ -16,12 +15,12 @@ const cg = ChoreoGraph.instantiate({
 
 cg.createCamera({
   scaleMode : "maximum",
-  size : 180,
+  size : 350,
   transformInit : {x:128,y:95}
 },"main");
 
 cg.createCanvas({element:document.getElementsByTagName("canvas")[0],
-  background : "peachpuff"
+  background : "#110f0f"
 },"main")
 .resizeWithSelf()
 .setCamera(cg.cameras.main);

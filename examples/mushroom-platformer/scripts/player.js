@@ -72,6 +72,7 @@ cg.createObject({
   jumpGravity : 1,
   bufferJump : false,
   lastMoveTime : 0,
+  lastGroundTime : 0,
   lastIdleTime : 0,
   invincible : false,
   transformInit : {x:85,y:125},
@@ -92,6 +93,7 @@ cg.createObject({
   },"player"),
 })
 .attach("Animator")
+.attach("Camera",{camera:cg.cameras.main,smoothing:0.002})
 .attach("Script",{
   updateScript : (object) => {
     if (object.invincible) {
@@ -101,6 +103,7 @@ cg.createObject({
     }
     if (object.bufferJump && cg.Physics.colliders.playerGroundDetector.collided && cg.Physics.colliders.player.collided) {
       if (cg.Input.actions.jump.get()!==0) {
+        object.lastGroundTime = cg.clock;
         cg.objects.player.RigidBody.yv = -130;
         cg.objects.player.RigidBody.gravityScale = cg.objects.player.jumpGravity;
       }
@@ -108,6 +111,13 @@ cg.createObject({
     }
     if (cg.Input.actions.jump.get()==0) {
       object.RigidBody.gravityScale = object.fallGravity;
+    } else {
+      const easeBackBefore = 1000;
+      if (object.lastGroundTime + easeBackBefore < cg.clock) {
+        const easeBackDuration = 5000;
+        const easeBack = Math.min((cg.clock - object.lastGroundTime - easeBackBefore) / easeBackDuration, 1);
+        object.RigidBody.gravityScale = cg.objects.player.fallGravity * (easeBack) + cg.objects.player.jumpGravity;
+      }
     }
     const dir = cg.Input.actions.right.get() - cg.Input.actions.left.get();
     object.movementManager(dir);
@@ -123,7 +133,7 @@ cg.objects.player.movementManager = function(dir) {
   let multiplier = 1;
   if (cg.clock-this.lastIdleTime > 500) {
     multiplier = ((cg.clock-this.lastIdleTime-500)/1000)*0.5+1;
-    multiplier = Math.min(multiplier,1.5);
+    multiplier = Math.min(multiplier,1.3);
   }
   if (dir === 0) { return; }
   this.RigidBody.xv = dir * speed * multiplier * cg.timeDelta;
