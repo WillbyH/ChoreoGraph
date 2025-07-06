@@ -238,12 +238,11 @@ ChoreoGraph.plugin({
           if (this.chunkLayer.tiles[i]==null) { continue; }
           let tile = cg.Tilemaps.tiles[this.chunkLayer.tiles[i]];
           if (tile.animated) {
-            let animatedTileData = {
+            this.animatedTiles.push({
               tile : tile,
               x : i % chunk.width,
               y : Math.floor(i / chunk.width)
-            }
-            this.animatedTiles.push(animatedTileData);
+            });
             continue;
           }
           if (!tile.image.ready) {
@@ -322,7 +321,7 @@ ChoreoGraph.plugin({
       }
     };
 
-    AnimatedTile = class AnimatedTile {
+    AnimatedTile = class cgAnimatedTile {
       frames = [];
       totalDuration = 0;
 
@@ -385,7 +384,7 @@ ChoreoGraph.plugin({
       height = 0;
     };
 
-    instanceObject = class cgInstanceTilemaps {
+    InstanceObject = class cgInstanceTilemaps {
       tilemaps = {};
       tiles = {};
 
@@ -433,7 +432,7 @@ ChoreoGraph.plugin({
   },
 
   instanceConnect(cg) {
-    cg.Tilemaps = new ChoreoGraph.Tilemaps.instanceObject(cg);
+    cg.Tilemaps = new ChoreoGraph.Tilemaps.InstanceObject(cg);
     cg.keys.tilemaps = [];
     cg.keys.tiles = [];
 

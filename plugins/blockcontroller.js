@@ -36,7 +36,7 @@ ChoreoGraph.plugin({
       }
     };
 
-    instanceObject = class cgInstanceBlockController {
+    InstanceObject = class cgInstanceBlockController {
       blocks = {};
       blockGroups = {};
 
@@ -205,7 +205,7 @@ ChoreoGraph.plugin({
   },
 
   instanceConnect(cg) {
-    cg.BlockController = new ChoreoGraph.BlockController.instanceObject(cg);
+    cg.BlockController = new ChoreoGraph.BlockController.InstanceObject(cg);
     cg.keys.blocks = [];
 
     cg.attachSettings("blockcontroller",{

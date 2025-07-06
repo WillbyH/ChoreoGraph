@@ -4,7 +4,7 @@ ChoreoGraph.plugin({
   version : "1.0",
 
   globalPackage : new class cgAnimationEditorPackage {
-    instanceObject = class cgAnimationEditorInstancePackage {
+    InstanceObject = class cgAnimationEditorInstancePackage {
 
       initInterface = false;
       animation = null;
@@ -2750,7 +2750,7 @@ ChoreoGraph.plugin({
   },
 
   instanceConnect(cg) {
-    cg.AnimationEditor = new ChoreoGraph.AnimationEditor.instanceObject();
+    cg.AnimationEditor = new ChoreoGraph.AnimationEditor.InstanceObject();
     cg.AnimationEditor.cg = cg;
 
     cg.attachSettings("animationeditor",{

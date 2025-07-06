@@ -42,7 +42,7 @@ ChoreoGraph.plugin({
       this.CURSOR_HIDDEN = "hidden";
     }
 
-    instanceObject = class Input {
+    InstanceObject = class Input {
       get cursor() { return this.canvasCursors[this.cg.settings.core.defaultCanvas.id]; }
       lastInputType = ChoreoGraph.Input.NULLINPUT; // mouse touch keyboard controller
       lastKeyType = ChoreoGraph.Input.NULLINPUT; // keyboard controller mouse
@@ -1378,7 +1378,7 @@ ChoreoGraph.plugin({
   },
 
   instanceConnect(cg) {
-    cg.Input = new ChoreoGraph.Input.instanceObject(cg);
+    cg.Input = new ChoreoGraph.Input.InstanceObject(cg);
     cg.keys.buttons = [];
     cg.keys.actions = [];
     cg.attachSettings("input",{

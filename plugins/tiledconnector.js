@@ -4,7 +4,7 @@ ChoreoGraph.plugin({
   version : "1.1",
 
   globalPackage : new class FMODConnector {
-    instanceObject = class cgInstanceTiledConnector {
+    InstanceObject = class cgInstanceTiledConnector {
       totalExternalTileSets = 0;
       totalExternalTileMaps = 0;
       loadedExternalTileSets = 0;
@@ -335,7 +335,7 @@ ChoreoGraph.plugin({
   },
 
   instanceConnect(cg) {
-    cg.Tiled = new ChoreoGraph.Tiled.instanceObject(cg);
+    cg.Tiled = new ChoreoGraph.Tiled.InstanceObject(cg);
     cg.Tiled.cg = cg;
     cg.loadChecks.push(ChoreoGraph.Tiled.tilesetLoadCheck);
     cg.loadChecks.push(ChoreoGraph.Tiled.tilemapLoadCheck);

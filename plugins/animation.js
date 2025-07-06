@@ -4,7 +4,7 @@ ChoreoGraph.plugin({
   version : "1.0",
 
   globalPackage : new class cgAnimationPackage {
-    instanceObject = class cgAnimationInstancePackage {
+    InstanceObject = class cgAnimationInstancePackage {
       createAnimation(animationInit={},id=ChoreoGraph.id.get()) {
         if (this.cg.keys.animations.includes(id)) { id += "-" + ChoreoGraph.id.get(); }
         let newAnimation = new ChoreoGraph.Animation.Animation(animationInit);
@@ -1309,7 +1309,7 @@ ChoreoGraph.plugin({
   },
 
   instanceConnect(cg) {
-    cg.Animation = new ChoreoGraph.Animation.instanceObject();
+    cg.Animation = new ChoreoGraph.Animation.InstanceObject();
     cg.Animation.cg = cg;
     cg.keys.animations = [];
 

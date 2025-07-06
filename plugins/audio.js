@@ -33,7 +33,7 @@ ChoreoGraph.plugin({
     WEBAUDIO = "WebAudio";
     HTMLAUDIO = "HTMLAudio";
 
-    instanceObject = class cgAudio {
+    InstanceObject = class cgAudio {
       ready = false;
       sounds = {};
       playing = {};
@@ -665,7 +665,7 @@ ChoreoGraph.plugin({
     });
     cg.loadChecks.push(ChoreoGraph.Audio.soundLoadCheck);
     cg.keys.sounds = [];
-    cg.Audio = new ChoreoGraph.Audio.instanceObject(cg);
+    cg.Audio = new ChoreoGraph.Audio.InstanceObject(cg);
     cg.Audio.cg = cg;
     ChoreoGraph.globalBeforeLoops.push(ChoreoGraph.Audio.update);
     ChoreoGraph.Audio.instanceLoadBuffer.push(cg.Audio);

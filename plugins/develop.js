@@ -20,7 +20,7 @@ ChoreoGraph.plugin({
     changedSelectedInstanceHotkey = "ctrl+shift";
     createInterfaces = true;
 
-    instanceObject = class Develop {
+    InstanceObject = class Develop {
       interfaceItems = [];
 
       constructor(cg) {
@@ -1596,7 +1596,7 @@ ChoreoGraph.plugin({
         }
       }
     });
-    cg.Develop = new ChoreoGraph.Develop.instanceObject(cg);
+    cg.Develop = new ChoreoGraph.Develop.InstanceObject(cg);
     cg.processLoops.push(cg.Develop.developProcessLoop);
     cg.debugLoops.push(cg.Develop.developOverlayLoop);
   },

@@ -214,7 +214,7 @@ ChoreoGraph.plugin({
         }
       };
     }
-    instanceObject = class cgInstanceShaders {
+    InstanceObject = class cgInstanceShaders {
       shaderCanvases = {};
 
       updateIndex = -1;
@@ -247,7 +247,7 @@ ChoreoGraph.plugin({
   },
 
   instanceConnect(cg) {
-    cg.Shaders = new ChoreoGraph.Shaders.instanceObject(cg);
+    cg.Shaders = new ChoreoGraph.Shaders.InstanceObject(cg);
     cg.keys.shaderCanvases = [];
 
     cg.overlayLoops.push(cg.Shaders.updateShaderCanvases);

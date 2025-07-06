@@ -4,7 +4,7 @@ ChoreoGraph.plugin({
   version : "1.1",
 
   globalPackage : new class cgLighting {
-    instanceObject = class cgInstanceLighiting {
+    InstanceObject = class cgInstanceLighiting {
       lights = [];
       occluders = [];
 
@@ -342,7 +342,7 @@ ChoreoGraph.plugin({
   },
 
   instanceConnect(cg) {
-    cg.Lighting = new ChoreoGraph.Lighting.instanceObject(cg);
+    cg.Lighting = new ChoreoGraph.Lighting.InstanceObject(cg);
     cg.Lighting.cg = cg;
     cg.keys.lights = [];
     cg.keys.occluders = [];

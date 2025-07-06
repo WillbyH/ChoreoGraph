@@ -186,7 +186,7 @@ ChoreoGraph.plugin({
       }
     };
 
-    instanceObject = class cgInstancePhysics {
+    InstanceObject = class cgInstancePhysics {
       colliders = {};
       hasActivatedDebugLoop = false;
       triggerCollisionOrder = [];
@@ -868,7 +868,7 @@ ChoreoGraph.plugin({
   },
 
   instanceConnect(cg) {
-    cg.Physics = new ChoreoGraph.Physics.instanceObject(cg);
+    cg.Physics = new ChoreoGraph.Physics.InstanceObject(cg);
     cg.keys.colliders = [];
 
     cg.processLoops.push(ChoreoGraph.Physics.triggerProcessingLoop);
