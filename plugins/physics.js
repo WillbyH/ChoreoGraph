@@ -922,7 +922,8 @@ ChoreoGraph.ObjectComponents.RigidBody = class cgObjectRidigBody {
     key : "RigidBody",
     master : true,
     functions : {
-      update : true
+      update : true,
+      delete : true
     }
   }
 
@@ -936,6 +937,8 @@ ChoreoGraph.ObjectComponents.RigidBody = class cgObjectRidigBody {
   mass = 1;
   bounce = false;
   minimumVelocity = 0.00000001;
+
+  deleteColliderWithObject = false;
 
   constructor(componentInit,object) {
     ChoreoGraph.initObjectComponent(this,componentInit);
@@ -1132,5 +1135,11 @@ ChoreoGraph.ObjectComponents.RigidBody = class cgObjectRidigBody {
 
     if (Math.abs(this.xv) < this.minimumVelocity) { this.xv = 0; }
     if (Math.abs(this.yv) < this.minimumVelocity) { this.yv = 0; }
+  }
+
+  delete() {
+    if (this.deleteColliderWithObject) {
+      this.collider.delete();
+    }
   }
 };
