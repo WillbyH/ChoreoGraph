@@ -12,7 +12,7 @@ for (let i=0;i<4;i++) {
 
 cg.Animation.createAnimationFromPacked("0&sprite=f:7:Graphic,graphic:gem0|gem1|gem2|gem3",{},"gem");
 
-function createGem(x,y) {
+function createGem(x,y,scene) {
   const gem = cg.createObject({
     transformInit : {x:x,y:y}
   },"gem")
@@ -34,11 +34,14 @@ function createGem(x,y) {
     hexColour : "#78ed87"
   },"gemLight");
 
+  scene.items.lighting.graphic.lights.push(gem.light);
+
   gem.collider = cg.Physics.createCollider({
     type : "circle",
     radius : 10,
     trigger : true,
     groups : [1],
+    scene : scene,
     gem : gem,
     transformInit : {parent:gem.transform},
     enter : (collider, self) =>{

@@ -12,7 +12,7 @@ for (let i=0;i<10;i++) {
 
 cg.Animation.createAnimationFromPacked("0&sprite=f:25:Graphic,graphic:enemyWalk0|enemyWalk1|enemyWalk2|enemyWalk3|enemyWalk4|enemyWalk5|enemyWalk6|enemyWalk7|enemyWalk8|enemyWalk9",{},"enemyWalk");
 
-function createEnemy(x,y) {
+function createEnemy(x,y,scene) {
   const enemy = cg.createObject({
     transformInit : {x:x,y:y},
     right : true,
@@ -33,7 +33,8 @@ function createEnemy(x,y) {
       type : "rectangle",
       width : 14,
       height : 12,
-      groups : [2]
+      groups : [2],
+      scene : scene
     },"enemy-physics")
   })
   .attach("Script",{
@@ -51,6 +52,7 @@ function createEnemy(x,y) {
     height : 10,
     trigger : true,
     groups : [1,4],
+    scene : scene,
     object : enemy,
     transformInit : {parent:enemy.transform},
     enter : (collider, self) => {
@@ -87,6 +89,7 @@ function createEnemy(x,y) {
     height : 5,
     trigger : true,
     groups : [3],
+    scene : scene,
     object : enemy,
     transformInit : {parent:enemy.transform,ox:-9},
     enter : (collider, self) => {
@@ -100,6 +103,7 @@ function createEnemy(x,y) {
     height : 5,
     trigger : true,
     groups : [3],
+    scene : scene,
     object : enemy,
     transformInit : {parent:enemy.transform,ox:9},
     enter : (collider, self) => {

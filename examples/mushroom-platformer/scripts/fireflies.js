@@ -81,6 +81,8 @@ function createFireflies(x,y,r,count,scene) {
       hexColour : "#ebff54"
     },"fireflyLight");
 
+    scene.items.lighting.graphic.lights.push(firefly.light);
+
     scene.addObject(firefly);
     totalFireflies++;
   }

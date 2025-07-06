@@ -23,24 +23,31 @@ class Level {
     this.scene.createItem("collection",{},"foreground");
     this.scene.createItem("collection",{},"top");
 
+    this.lighting = this.scene.createItem("graphic",{
+      graphic : cg.createGraphic({type:"lighting",
+        shadowType : ChoreoGraph.Lighting.SHADOW_FULL,
+        shadowColour : "#060004aa"
+      },"lighting-"+this.id),
+    },"lighting","top");
+
     for (const [x,y,r,count] of this.fireflies) {
       createFireflies(x,y,r,count,this.scene);
     }
 
     for (const [x,y] of cg.createPath(this.gemPositions,"gems-"+this.id)) {
-      const gem = createGem(x,y);
+      const gem = createGem(x,y,this.scene);
       this.scene.addObject(gem);
       this.gems.push(gem);
     }
 
     for (const [x,y] of cg.createPath(this.enemyPositions,"enemies-"+this.id)) {
-      const enemy = createEnemy(x,y);
+      const enemy = createEnemy(x,y,this.scene);
       this.scene.addObject(enemy);
       this.enemies.push(enemy);
     }
 
     for (const position of cg.createPath(this.mushroomGlow,"mushroomGlow-"+this.id)) {
-      cg.Lighting.createLight({
+      this.lighting.graphic.lights.push(cg.Lighting.createLight({
         type : "spot",
         transformInit : {x:position[0],y:position[1]},
         outerRadius : 40,
@@ -48,19 +55,12 @@ class Level {
         brightness : 1,
         occlude : false,
         hexColour : "#7af2ff"
-      });
+      }));
     }
 
     this.scene.addObject(cg.objects.player);
 
-    this.scene.createItem("graphic",{
-      graphic : cg.createGraphic({type:"lighting",
-        shadowType : ChoreoGraph.Lighting.SHADOW_FULL,
-        shadowColour : "#060004aa"
-      },"lighting-"+this.id),
-    },"lighting-"+this.id,"top");
-
-    cg.Lighting.createLight({
+    this.lighting.graphic.lights.push(cg.Lighting.createLight({
       type : "spot",
       transformInit : {parent:cg.objects.player.transform},
       outerRadius : 80,
@@ -68,26 +68,23 @@ class Level {
       brightness : 0.7,
       occlude : false,
       hexColour : "#ffdcbd"
-    },"player-"+this.id);
-
-    cg.createGraphic({
-      type : "tilemap",
-      tilemap : this.tilemap,
-      debug : false,
-      visibleLayers : ["Background","Foreground"]
-    },"tilemapBackground");
-    cg.createGraphic({
-      type : "tilemap",
-      tilemap : this.tilemap,
-      debug : false,
-      visibleLayers : ["Overlay"]
-    },"tilemapForeground");
+    },"player-"+this.id));
 
     this.scene.createItem("graphic",{
-      graphic:cg.graphics.tilemapBackground
+      graphic:cg.createGraphic({
+        type : "tilemap",
+        tilemap : this.tilemap,
+        debug : false,
+        visibleLayers : ["Background","Foreground"]
+      },"tilemapBackground")
     },"tilemapBackground","background");
     this.scene.createItem("graphic",{
-      graphic:cg.graphics.tilemapForeground
+      graphic:cg.createGraphic({
+        type : "tilemap",
+        tilemap : this.tilemap,
+        debug : false,
+        visibleLayers : ["Overlay"]
+      },"tilemapForeground")
     },"tilemapForeground","foreground");
 
     cg.Physics.createCollidersFromTilemap(this.tilemap,3,null,this.scene,[0,2,3]);
@@ -98,7 +95,7 @@ class Level {
         x : this.exitPosition[0],
         y : this.exitPosition[1]
       }
-    },"exitDoor-"+this.id,"background");
+    },"exitDoor","background");
 
     cg.Physics.createCollider({
       type : "rectangle",
@@ -106,6 +103,7 @@ class Level {
       height : 32,
       trigger : true,
       groups : [1],
+      scene : this.scene,
       transformInit : {
         x : this.exitPosition[0],
         y : this.exitPosition[1]
@@ -114,7 +112,7 @@ class Level {
         if (!cg.graphics.exitDoor.open) { return; }
         // DO EXIT TRANSITION
       }
-    },"exit-"+this.id)
+    },"exit-"+this.id);
 
     this.scene.createItem("graphic",{
       graphic : cg.graphics.gameInterface,
@@ -123,7 +121,7 @@ class Level {
         canvasSpaceXAnchor : 0,
         canvasSpaceYAnchor : 0
       }
-    },"gameInterface-"+this.id,"top");
+    },"gameInterface","top");
   };
 
   load() {
@@ -131,6 +129,8 @@ class Level {
     cg.graphics.gameInterface.reset();
     cg.graphics.gameInterface.gemCount = this.gemPositions.length;
     cg.graphics.exitDoor.reset();
+    cg.objects.player.transform.x = this.startPosition[0];
+    cg.objects.player.transform.y = this.startPosition[1];
     for (const gem of this.gems) {
       gem.Graphic.transform.o = 1;
       gem.light.brightness = 1;
@@ -157,7 +157,19 @@ cg.settings.core.callbacks.start = () => {
     tilemap : cg.Tilemaps.tilemaps.testMap
   });
 
+  createLevel({
+    id : "level1",
+    startPosition : [85,50],
+    exitPosition : [81,128],
+    fireflies : [],
+    mushroomGlow : [],
+    gemPositions : [],
+    enemiesPositions : [],
+    tilemap : cg.Tilemaps.tilemaps.level1
+  });
+
   levels.test.load();
+  // levels.level1.load();
 }
 
 ChoreoGraph.start();
