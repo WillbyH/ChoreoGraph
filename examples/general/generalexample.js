@@ -314,22 +314,22 @@ cg.Physics.createCollider({type:"circle",trigger:true,transformInit:{x:301,y:300
 cg.Physics.createCollider({type:"raycast",dx:100,dy:50,transformInit:{x:203,y:200}},"raycastCollider");
 
 cg.settings.core.callbacks.loopBefore = () => {
-  cg.sceneItems.cursorRectangle.transform.x = cg.Input.cursor.x;
-  cg.sceneItems.cursorRectangle.transform.y = cg.Input.cursor.y;
+  cg.scenes.main.items.cursorRectangle.transform.x = cg.Input.cursor.x;
+  cg.scenes.main.items.cursorRectangle.transform.y = cg.Input.cursor.y;
   if (cg.Input.lastCursorType=="controller") {
-    cg.sceneItems.cursorRectangle.transform.o = 1;
+    cg.scenes.main.items.cursorRectangle.transform.o = 1;
   } else {
-    cg.sceneItems.cursorRectangle.transform.o = 0;
+    cg.scenes.main.items.cursorRectangle.transform.o = 0;
   }
 
-  // cg.sceneItems.downRectangle.transform.x = cg.Input.cursor.down.any.x;
-  // cg.sceneItems.downRectangle.transform.y = cg.Input.cursor.down.any.y;
+  // cg.scenes.main.items.downRectangle.transform.x = cg.Input.cursor.down.any.x;
+  // cg.scenes.main.items.downRectangle.transform.y = cg.Input.cursor.down.any.y;
 
-  // cg.sceneItems.upRectangle.transform.x = cg.Input.cursor.up.any.x;
-  // cg.sceneItems.upRectangle.transform.y = cg.Input.cursor.up.any.y;
+  // cg.scenes.main.items.upRectangle.transform.x = cg.Input.cursor.up.any.x;
+  // cg.scenes.main.items.upRectangle.transform.y = cg.Input.cursor.up.any.y;
 
-  // cg.sceneItems.canvasCursorRectangle.transform.x = cg.Input.cursor.canvasX;
-  // cg.sceneItems.canvasCursorRectangle.transform.y = cg.Input.cursor.canvasY;
+  // cg.scenes.main.items.canvasCursorRectangle.transform.x = cg.Input.cursor.canvasX;
+  // cg.scenes.main.items.canvasCursorRectangle.transform.y = cg.Input.cursor.canvasY;
 
   if (ChoreoGraph.Input.keyStates.g) {
     cg.Physics.colliders.rectCollider.transform.x = cg.Input.cursor.x;
@@ -357,8 +357,8 @@ cg.settings.core.callbacks.loopAfter = () => {
   // let dir = cg.Input.getActionNormalisedVector("forward","backward","left","right");
   // cg.c.fillText(dir[0],40,160);
   // cg.c.fillText(dir[1],40,200);
-  // cg.sceneItems.another.transform.x += dir[0]*0.2*cg.timeDelta;
-  // cg.sceneItems.another.transform.y += dir[1]*0.2*cg.timeDelta;
+  // cg.scenes.main.items.another.transform.x += dir[0]*0.2*cg.timeDelta;
+  // cg.scenes.main.items.another.transform.y += dir[1]*0.2*cg.timeDelta;
 
   dir = cg.Input.getActionNormalisedVector("secondaryForward","secondaryBackward","secondaryLeft","secondaryRight");
   cg.cameras.main.transform.x += dir[0]*0.4*cg.timeDelta;
@@ -392,11 +392,11 @@ cg.settings.core.callbacks.loopAfter = () => {
   // cg.canvas.drawImage(cg.images.waveyTiles,100,100,600,100,cg.clock%(360*10)/10,300,0,true,false)
 
   // cg.c.beginPath();
-  // cg.c.moveTo(cg.sceneItems.downRectangle.transform.x,cg.sceneItems.downRectangle.transform.y);
+  // cg.c.moveTo(cg.scenes.main.items.downRectangle.transform.x,cg.scenes.main.items.downRectangle.transform.y);
   // if (cg.Input.cursor.hold.any) {
   //   cg.c.lineTo(cg.Input.cursor.x,cg.Input.cursor.y);
   // } else {
-  //   cg.c.lineTo(cg.sceneItems.upRectangle.transform.x,cg.sceneItems.upRectangle.transform.y);
+  //   cg.c.lineTo(cg.scenes.main.items.upRectangle.transform.x,cg.scenes.main.items.upRectangle.transform.y);
   // }
   // cg.c.stroke();
 

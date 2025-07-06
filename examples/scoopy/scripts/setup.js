@@ -306,7 +306,7 @@ cg.settings.input.callbacks.keyDown = (key) => {
   }
   if (stst.cheatsActive) {
     if (key=="l") {
-      cg.sceneItems.lighting.transform.o = !cg.sceneItems.lighting.transform.o;
+      cg.scenes.main.items.lighting.transform.o = !cg.scenes.main.items.lighting.transform.o;
     } else if (key=="p") {
       cg.settings.physics.debug.active = !cg.settings.physics.debug.active;
     } else if (key=="o") {

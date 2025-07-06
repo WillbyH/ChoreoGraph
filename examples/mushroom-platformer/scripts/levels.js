@@ -8,7 +8,7 @@ class Level {
   gemPositions = [];
   exitPosition = [];
   mushroomGlow = [];
-  enemiesPositions = [];
+  enemyPositions = [];
 
   scene;
   tilemap;
@@ -33,7 +33,7 @@ class Level {
       this.gems.push(gem);
     }
 
-    for (const [x,y] of cg.createPath(this.enemiesPositions,"enemies-"+this.id)) {
+    for (const [x,y] of cg.createPath(this.enemyPositions,"enemies-"+this.id)) {
       const enemy = createEnemy(x,y);
       this.scene.addObject(enemy);
       this.enemies.push(enemy);
@@ -153,7 +153,7 @@ cg.settings.core.callbacks.start = () => {
     fireflies : [[100,75,30,10]],
     mushroomGlow : [[104,141],[136,93],[168,138]],
     gemPositions : [[170,79],[117,66],[80,102]],
-    enemiesPositions : [[124,127]],
+    enemyPositions : [[124,127]],
     tilemap : cg.Tilemaps.tilemaps.testMap
   });
 

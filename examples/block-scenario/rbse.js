@@ -185,7 +185,7 @@ cg.Input.createButton({type:"rectangle",
         cg.cameras.railways.height = 300;
         cg.cameras.railways.width = 400;
         cg.Input.buttons.fullscreenToggle.transform.x = 100000000;
-        cg.sceneItems.fullscreenToggle.transform.x = 100000000;
+        cg.scenes.railways.items.fullscreenToggle.transform.x = 100000000;
         alert("Your browser does not support fullscreen")
       });
     } else {

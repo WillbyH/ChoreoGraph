@@ -28,7 +28,6 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     cameras = {};
     scenes = {};
     graphics = {};
-    sceneItems = {};
     transforms = {};
     images = {};
     sequences = {};
@@ -41,7 +40,6 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       cameras : [],
       scenes : [],
       graphics : [],
-      sceneItems : [],
       transforms : [],
       images : [],
       sequences : [],
@@ -788,14 +786,15 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     drawBuffer = [];
     drawBufferCollections = [];
     cameras = [];
+    items = {};
 
     createItem(type,init={},id=ChoreoGraph.id.get(),collection=null) {
       if (collection!==null&&this.collections[collection]===undefined) {
         console.warn("Collection with id:",collection,"does not exist");
         return;
       }
-      if (this.cg.sceneItems[id]!==undefined) {
-        console.warn("Scene Item with id:",id,"already exists");
+      if (this.items[id]!==undefined) {
+        console.warn("Scene Item with id:",id,"already exists on scene:",this.id);
         return;
       }
       let newItem;
@@ -821,8 +820,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         });
         this.collections[id] = newItem;
       }
-      this.cg.sceneItems[id] = newItem;
-      this.cg.keys.sceneItems.push(id);
+      this.items[id] = newItem;
 
       if (collection===null) {
         this.structure.push(newItem);
