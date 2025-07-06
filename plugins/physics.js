@@ -24,6 +24,8 @@ ChoreoGraph.plugin({
       exit = null;
       collide = null;
 
+      _deleteAfterProcessing = false;
+
       constructor(colliderInit,cg) {
         this.cg = cg;
       };
@@ -46,12 +48,8 @@ ChoreoGraph.plugin({
       };
 
       delete() {
-        ChoreoGraph.id.release(this.id);
-        this.cg.keys.colliders = this.cg.keys.colliders.filter(id => id !== this.id);
-        delete this.cg.Physics.colliders[this.id];
-        if (this.cg.ready) {
-          this.cg.Physics.calibrateCollisionOrder();
-        }
+        this._deleteAfterProcessing = true;
+        this.cg.Physics.hasPendingColliderDeletions = true;
       };
     };
 
@@ -197,6 +195,8 @@ ChoreoGraph.plugin({
       iterationNumber = 0;
       collisionChecks = 0;
 
+      hasPendingColliderDeletions = false;
+
       constructor(cg) {
         this.cg = cg;
       }
@@ -277,6 +277,9 @@ ChoreoGraph.plugin({
           if (colliderInit.trigger === false) {
             console.warn("Collider type " + newCollider.type + " is not physics capable.",id);
           }
+        }
+        if (newCollider.trigger===false && (typeof colliderInit.enter === "function" || typeof colliderInit.exit === "function")) {
+          console.warn("Only trigger colliders can use enter and exit callbacks for collider:",id,colliderInit.enter,colliderInit.exit);
         }
         this.colliders[id] = newCollider;
         this.cg.keys.colliders.push(id);
@@ -804,6 +807,23 @@ ChoreoGraph.plugin({
           }
         }
       }
+
+      if (cg.Physics.hasPendingColliderDeletions) {
+        for (let colliderId of cg.keys.colliders) {
+          let collider = cg.Physics.colliders[colliderId];
+          if (collider._deleteAfterProcessing) {
+            ChoreoGraph.id.release(collider.id);
+            delete cg.Physics.colliders[colliderId];
+          }
+        }
+        cg.keys.colliders = cg.keys.colliders.filter(id => id in cg.Physics.colliders);
+
+        if (cg.ready) {
+          cg.Physics.calibrateCollisionOrder();
+        }
+
+        cg.Physics.hasPendingColliderDeletions = false;
+      }
     };
 
     physicsDebugLoop(cg) {
@@ -900,6 +920,8 @@ ChoreoGraph.ObjectComponents.RigidBody = class cgObjectRidigBody {
   yv = 0;
   collider = null;
   drag = 0;
+  dragX = null;
+  dragY = null;
   mass = 1;
   bounce = false;
   minimumVelocity = 0.00000001;
@@ -939,10 +961,21 @@ ChoreoGraph.ObjectComponents.RigidBody = class cgObjectRidigBody {
     this.collider.transform.parent.x += dx;
     this.collider.transform.parent.y += dy;
 
-    if (this.drag !== 0) {
-      const multiplier = 1-(this.drag * timeDeltaSeconds);
-      this.xv *= multiplier;
-      this.yv *= multiplier;
+    if (this.dragX === null && this.dragY === null) {
+      if (this.drag !== 0) {
+        const multiplier = 1-(this.drag * timeDeltaSeconds);
+        this.xv *= multiplier;
+        this.yv *= multiplier;
+      }
+    } else {
+      if (this.dragX !== 0) {
+        const multiplier = 1-(this.dragX * timeDeltaSeconds);
+        this.xv *= multiplier;
+      }
+      if (this.dragY !== 0) {
+        const multiplier = 1-(this.dragY * timeDeltaSeconds);
+        this.yv *= multiplier;
+      }
     }
 
     const onlyOneScene = scene.cg.keys.scenes.length === 1;
