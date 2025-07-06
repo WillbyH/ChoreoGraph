@@ -291,6 +291,7 @@ ChoreoGraph.plugin({
 
       createCollidersFromTilemap(tilemap,layerIndex=0,targetTileId=null,scene=null,groups=[0]) {
         if (tilemap===undefined) { console.warn("No Tilemap provided in createCollidersFromTileMap"); return; }
+
         let pool = [];
         for (let chunk of tilemap.chunks) {
           if (chunk.layers[layerIndex]==undefined) { continue; }

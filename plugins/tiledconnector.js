@@ -249,6 +249,7 @@ ChoreoGraph.plugin({
 
         if (data.infinite) {
           // CREATE CHUNKS FROM DATA
+            let layerIndex = 0;
             for (let layer of data.layers) {
               if (layer.type !== "tilelayer") { continue; }
               tilemap.createLayer({
@@ -275,8 +276,9 @@ ChoreoGraph.plugin({
                 }
                 chunk.createLayer({
                   tiles : convertLayerData(chunkData.data)
-                });
+                },layerIndex);
               }
+              layerIndex++;
             }
         } else {
           if (importData.autoChunk===undefined) { importData.autoChunk = false; }

@@ -117,7 +117,7 @@ ChoreoGraph.plugin({
         this.tilemap = tilemap;
       };
 
-      createLayer(layerInit={}) {
+      createLayer(layerInit={},layerIndex=null) {
         let newLayer = new ChoreoGraph.Tilemaps.ChunkLayer(this);
         ChoreoGraph.applyAttributes(newLayer,layerInit);
         if (newLayer.tiles==undefined) { newLayer.tiles = []; }
@@ -146,7 +146,11 @@ ChoreoGraph.plugin({
             awaitImage(this,tile.image);
           }
         }
-        this.layers.push(newLayer);
+        if (layerIndex!==null) {
+          this.layers[layerIndex] = newLayer;
+        } else {
+          this.layers.push(newLayer);
+        }
         if (this.tilemap.cg.settings.tilemaps.preCacheChunkLayers&&this.tilemap.cache) {
           newLayer.createCache();
         }
