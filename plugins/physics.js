@@ -683,10 +683,20 @@ ChoreoGraph.plugin({
     triggerProcessingLoop(cg) {
       cg.Physics.iterationNumber = 0;
       cg.Physics.collisionChecks = 0;
+      const onlyOneScene = cg.keys.scenes.length === 1;
 
       for (let pairs of cg.Physics.triggerCollisionOrder) {
         const colliderA = pairs[0];
         const colliderB = pairs[1];
+        if (!onlyOneScene) {
+          let scenesActive = true;
+          for (let canvasId of cg.keys.canvases) {
+            const canvas = cg.canvases[canvasId];
+            if (colliderA.scene!==null&&!canvas.camera.scenes.includes(colliderA.scene)) { scenesActive = false; break; }
+            if (colliderB.scene!==null&&!canvas.camera.scenes.includes(colliderB.scene)) { scenesActive = false; break; }
+          }
+          if (!scenesActive) { continue; }
+        }
 
         if (colliderA.collidedFrame !== ChoreoGraph.frame) { colliderA.collisions.length = 0; }
         if (colliderB.collidedFrame !== ChoreoGraph.frame) { colliderB.collisions.length = 0; }
