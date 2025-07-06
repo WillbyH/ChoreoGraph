@@ -10,6 +10,9 @@ const cg = ChoreoGraph.instantiate({
   },
   input : {
     preventDefaultKeys : ["up","down","left","right","space"]
+  },
+  audio : {
+    baseAudioPath : "sounds/",
   }
 });
 
@@ -25,6 +28,18 @@ cg.createCanvas({element:document.getElementsByTagName("canvas")[0],
 .resizeWithSelf()
 .setCamera(cg.cameras.main);
 
+cg.createScene({},"levels");
+
+cg.cameras.main.setScene(cg.scenes.levels);
+
+cg.Audio.createSound({source:"music.mp3"},"music");
+cg.Audio.sounds.music.play({
+  allowBuffer : true,
+  loop : true,
+  fadeIn : 4,
+  soundInstanceId : "music"
+})
+
 cg.createImage({
   file : "sheet.png"
 },"sheet");
@@ -38,11 +53,15 @@ cg.Tiled.importTileSetFromFile("tiled/waterfall.tsj",() => { loadTilemaps(); });
 function loadTilemaps() {
   if (Object.keys(cg.Tiled.tileSets).length !== cg.Tiled.totalExternalTileSets) { return; }
   cg.Tiled.importTileMapFromFile({
-    dataUrl : "tiled/testmap.tmj",
-    id : "testMap"
-  });
-  cg.Tiled.importTileMapFromFile({
     dataUrl : "tiled/level1.tmj",
     id : "level1"
+  });
+  cg.Tiled.importTileMapFromFile({
+    dataUrl : "tiled/level2.tmj",
+    id : "level2"
+  });
+  cg.Tiled.importTileMapFromFile({
+    dataUrl : "tiled/level3.tmj",
+    id : "level3"
   });
 }

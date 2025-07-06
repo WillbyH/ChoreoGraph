@@ -12,11 +12,14 @@ for (let i=0;i<10;i++) {
 
 cg.Animation.createAnimationFromPacked("0&sprite=f:25:Graphic,graphic:enemyWalk0|enemyWalk1|enemyWalk2|enemyWalk3|enemyWalk4|enemyWalk5|enemyWalk6|enemyWalk7|enemyWalk8|enemyWalk9",{},"enemyWalk");
 
-function createEnemy(x,y,scene) {
+function createEnemy(x,y,level) {
   const enemy = cg.createObject({
     transformInit : {x:x,y:y},
     right : true,
-    movementSpeed : 30
+    movementSpeed : 30,
+    level : level,
+    startX : x,
+    startY : y
   },"enemy")
   .attach("Animator",{
     animation : cg.Animation.animations.enemyWalk,
@@ -29,12 +32,13 @@ function createEnemy(x,y,scene) {
   })
   .attach("RigidBody",{
     gravityScale : 1,
+    deleteColliderWithObject : true,
     collider : cg.Physics.createCollider({
       type : "rectangle",
       width : 14,
       height : 12,
       groups : [2],
-      scene : scene
+      scene : level.scene
     },"enemy-physics")
   })
   .attach("Script",{
@@ -52,7 +56,7 @@ function createEnemy(x,y,scene) {
     height : 10,
     trigger : true,
     groups : [1,4],
-    scene : scene,
+    scene : level.scene,
     object : enemy,
     transformInit : {parent:enemy.transform},
     enter : (collider, self) => {
@@ -60,6 +64,7 @@ function createEnemy(x,y,scene) {
         if (cg.objects.player.invincible) { return; }
         cg.objects.player.RigidBody.yv = -250;
         cg.graphics.gameInterface.poof(self.object.transform.x, self.object.transform.y);
+        self.object.level.enemiesToRecreate.push([self.object.startX, self.object.startY]);
         self.object.playerTrigger.delete();
         self.object.leftTrigger.delete();
         self.object.rightTrigger.delete();
@@ -89,7 +94,7 @@ function createEnemy(x,y,scene) {
     height : 5,
     trigger : true,
     groups : [3],
-    scene : scene,
+    scene : level.scene,
     object : enemy,
     transformInit : {parent:enemy.transform,ox:-9},
     enter : (collider, self) => {
@@ -103,7 +108,7 @@ function createEnemy(x,y,scene) {
     height : 5,
     trigger : true,
     groups : [3],
-    scene : scene,
+    scene : level.scene,
     object : enemy,
     transformInit : {parent:enemy.transform,ox:9},
     enter : (collider, self) => {

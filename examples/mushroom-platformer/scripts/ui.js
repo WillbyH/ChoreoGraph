@@ -36,11 +36,19 @@ cg.graphicTypes.gameInterface = new class GameInterface {
     this.losses = [];
     this.particles = [];
     this.gemOrder = [];
+    this.fadeOutTime = Infinity;
 
     this.reset = () => {
       this.gemOrder = [];
       this.collections = [];
       this.particles = [];
+      this.fadeOutTime = Infinity;
+      this.displayedGems = 0;
+    }
+
+    this.fadeOut = () => {
+      if (this.fadeOutTime !== Infinity) { return; }
+      this.fadeOutTime = cg.clock;
     }
 
     this.createParticle = (x,y) => {
@@ -104,10 +112,10 @@ cg.graphicTypes.gameInterface = new class GameInterface {
   draw(c,ax,ay,canvas) {
     const xOffset = 100;
     const yOffset = 100;
-    const pixelScale = 8;
+    const pixelScale = 4;
     const gemWidth = 6*pixelScale;
     const gemHeight = 9*pixelScale;
-    const gemSeparation = 100;
+    const gemSeparation = 50;
 
     // Collection Paths
     const collectionDuration = 700;
@@ -190,6 +198,30 @@ cg.graphicTypes.gameInterface = new class GameInterface {
       c.globalAlpha = 1 - progress;
 
       canvas.drawImage(particle.image, particle.x, particle.y, particleSize, particleSize, particle.r);
+    }
+
+    // Radial Fade Out
+
+    const fadeOutTime = 2000;
+    c.fillStyle = "#000000";
+    c.globalAlpha = 1;
+
+    if ((this.fadeOutTime+fadeOutTime) - cg.clock < fadeOutTime) {
+      const playerX = cg.cameras.main.getCanvasSpaceX(cg.objects.player.transform.x);
+      const playerY = cg.cameras.main.getCanvasSpaceY(cg.objects.player.transform.y);
+
+      let progress = Math.max(((this.fadeOutTime+fadeOutTime) - cg.clock) / fadeOutTime,0);
+
+      if (progress === 0) {
+        cg.cameras.main.setScene(cg.scenes.levels);
+        this.reset();
+      }
+
+      progress = cg.Animation.easeFunctions.inCubic(progress);
+      c.beginPath();
+      c.arc(playerX,playerY,6000,0,Math.PI*2);
+      c.arc(playerX,playerY,2000*progress,0,Math.PI*2,true);
+      c.fill();
     }
   };
 };

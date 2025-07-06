@@ -63,8 +63,8 @@ function createFireflies(x,y,r,count,scene) {
         } else {
           brightness = (1 - phase) * 2;
         }
-        if (swarm.playerDistanceFromHome < swarm.homeRadius * 2) {
-          brightness *= (swarm.playerDistanceFromHome / swarm.homeRadius * 2) * 0.25;
+        if (swarm.playerDistanceFromHome < swarm.homeRadius) {
+          brightness *= (swarm.playerDistanceFromHome / swarm.homeRadius * 2) * 0.5;
         }
         object.Graphic.transform.o = brightness;
         object.light.brightness = brightness;
