@@ -855,7 +855,9 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     };
 
     removeObject(object) {
-      this.objects.splice(this.objects.indexOf(object),1);
+      const index = this.objects.indexOf(object);
+      if (index === -1) { return; }
+      this.objects.splice(index,1);
     };
 
     remove(id) {
