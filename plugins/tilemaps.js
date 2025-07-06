@@ -118,7 +118,7 @@ ChoreoGraph.plugin({
       };
 
       createLayer(layerInit={},layerIndex=null) {
-        let newLayer = new ChoreoGraph.Tilemaps.ChunkLayer(this);
+        let newLayer = new ChoreoGraph.Tilemaps.ChunkLayer(this,layerIndex);
         ChoreoGraph.applyAttributes(newLayer,layerInit);
         if (newLayer.tiles==undefined) { newLayer.tiles = []; }
         for (let tileId of newLayer.tiles) {
@@ -165,11 +165,11 @@ ChoreoGraph.plugin({
       cache = null;
       tiles = [];
 
-      constructor(chunk) {
+      constructor(chunk,layerOverride=null) {
         if (chunk==undefined) { console.warn("ChunkLayer requires a Chunk"); return; }
         this.chunk = chunk;
         this.tilemap = chunk.tilemap;
-        this.index = chunk.layers.length;
+        this.index = layerOverride || chunk.layers.length;
       }
 
       createCache() {
@@ -183,7 +183,7 @@ ChoreoGraph.plugin({
         } else {
           if (this.tilemap.cache) {
             this.createCache();
-            this.drawFromCache(c);
+            if (this.cache!==null) { this.drawFromCache(c); }
           } else {
             this.drawFromTiles(c);
           }
