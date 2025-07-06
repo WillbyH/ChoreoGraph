@@ -545,6 +545,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
 
     draw() {
       this.c.resetTransform();
+      this.c.globalAlpha = 1;
       if (this.background === null) {
         this.c.clearRect(0,0,this.width,this.height);
       } else if (this.background !== false) {
