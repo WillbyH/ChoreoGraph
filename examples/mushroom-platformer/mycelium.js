@@ -42,6 +42,10 @@ function loadTilemaps() {
     dataUrl : "tiled/testmap.tmj",
     id : "testMap"
   });
+  cg.Tiled.importTileMapFromFile({
+    dataUrl : "tiled/level1.tmj",
+    id : "level1"
+  });
 }
 
 // PLAYER
@@ -117,10 +121,10 @@ cg.Input.createAction({keys:["d","right","conrightright","condpadright","conleft
 cg.createObject({
   fallGravity : 3.5,
   jumpGravity : 1,
-  canJump : true,
   bufferJump : false,
   lastMoveTime : 0,
   lastIdleTime : 0,
+  invincible : false,
   transformInit : {x:85,y:125},
 },"player")
 .attach("Graphic",{
@@ -130,6 +134,7 @@ cg.createObject({
 })
 .attach("RigidBody",{
   gravityScale : 1.5,
+  dragX : 20,
   collider : cg.Physics.createCollider({
     type : "rectangle",
     width : 14,
@@ -140,11 +145,15 @@ cg.createObject({
 .attach("Animator")
 .attach("Script",{
   updateScript : (object) => {
-    if (object.bufferJump && cg.objects.player.canJump && cg.Physics.colliders.player.collided) {
+    if (object.invincible) {
+      object.Graphic.transform.o = Math.min(Number(cg.clock % 200 > 100) + 0.5, 1);
+    } else {
+      object.Graphic.transform.o = 1;
+    }
+    if (object.bufferJump && cg.Physics.colliders.playerGroundDetector.collided && cg.Physics.colliders.player.collided) {
       if (cg.Input.actions.jump.get()!==0) {
         cg.objects.player.RigidBody.yv = -130;
         cg.objects.player.RigidBody.gravityScale = cg.objects.player.jumpGravity;
-        cg.objects.player.canJump = false;
       }
       object.bufferJump = false;
     }
@@ -167,6 +176,7 @@ cg.objects.player.movementManager = function(dir) {
     multiplier = ((cg.clock-this.lastIdleTime-500)/1000)*0.5+1;
     multiplier = Math.min(multiplier,1.5);
   }
+  if (dir === 0) { return; }
   this.RigidBody.xv = dir * speed * multiplier * cg.timeDelta;
 };
 
@@ -223,11 +233,130 @@ cg.Physics.createCollider({
   height : 4,
   trigger : true,
   groups : [2],
-  transformInit : {parent:cg.objects.player.transform,oy:6},
-  enter : (collider,other) => {
-    cg.objects.player.canJump = true;
-  }
+  transformInit : {parent:cg.objects.player.transform,oy:6}
 },"playerGroundDetector");
+
+cg.Physics.createCollider({
+  type : "rectangle",
+  width : 2,
+  height : 10,
+  trigger : true,
+  groups : [4],
+  transformInit : {parent:cg.objects.player.transform,oy:10},
+},"playerKillDetector");
+
+// ENEMIES
+for (let i=0;i<10;i++) {
+  const x = Math.floor(i/5) + 4;
+  const y = i%5;
+  cg.createGraphic({
+    type : "image",
+    image : cg.createImage({
+      file : "sheet.png",
+      crop : [x*16+1,y*16+1,16-2,16-1]
+    },"enemyWalk" + i),
+  },"enemyWalk" + i);
+}
+
+cg.Animation.createAnimationFromPacked("0&sprite=f:25:Graphic,graphic:enemyWalk0|enemyWalk1|enemyWalk2|enemyWalk3|enemyWalk4|enemyWalk5|enemyWalk6|enemyWalk7|enemyWalk8|enemyWalk9",{},"enemyWalk");
+
+function createEnemy(x,y) {
+  const enemy = cg.createObject({
+    transformInit : {x:x,y:y},
+    right : true,
+    movementSpeed : 30
+  },"enemy")
+  .attach("Animator",{
+    animation : cg.Animation.animations.enemyWalk,
+    speed : 0.5
+  })
+  .attach("Graphic",{
+    graphic : cg.graphics.enemyWalk0,
+    transformInit : {oy:-1.5},
+    collection : "entities"
+  })
+  .attach("RigidBody",{
+    gravityScale : 1,
+    collider : cg.Physics.createCollider({
+      type : "rectangle",
+      width : 14,
+      height : 12,
+      groups : [2]
+    },"enemy-physics")
+  })
+  .attach("Script",{
+    updateScript : (object) => {
+      object.RigidBody.xv = object.movementSpeed * (object.right ? 1 : -1);
+      object.Graphic.transform.flipX = !object.right;
+    }
+  });
+
+  enemy.RigidBody.collider.object = enemy;
+
+  enemy.playerTrigger = cg.Physics.createCollider({
+    type : "rectangle",
+    width : 10,
+    height : 10,
+    trigger : true,
+    groups : [1,4],
+    object : enemy,
+    transformInit : {parent:enemy.transform},
+    enter : (collider, self) => {
+      if (collider.id === "playerKillDetector") {
+        if (cg.objects.player.invincible) { return; }
+        cg.objects.player.RigidBody.yv = -250;
+        cg.graphics.gameInterface.poof(self.object.transform.x, self.object.transform.y);
+        self.object.playerTrigger.delete();
+        self.object.leftTrigger.delete();
+        self.object.rightTrigger.delete();
+        self.object.delete();
+      } else if (collider.id === "player" && !cg.Physics.colliders.playerKillDetector.collided) {
+        if (cg.objects.player.invincible) { return; }
+        if (cg.objects.player.transform.x < self.object.transform.x) {
+          cg.objects.player.RigidBody.xv = -300;
+        } else {
+          cg.objects.player.RigidBody.xv = 300;
+        }
+        cg.objects.player.RigidBody.yv = -100;
+        cg.objects.player.RigidBody.dragX = 3;
+        cg.objects.player.invincible = true;
+        cg.createEvent({duration:1000,end:()=>{
+          cg.objects.player.RigidBody.dragX = 20;
+          cg.objects.player.invincible = false;
+        }});
+        cg.graphics.gameInterface.loseGem();
+      }
+    }
+  },"enemy-trigger");
+
+  enemy.leftTrigger = cg.Physics.createCollider({
+    type : "rectangle",
+    width : 2,
+    height : 5,
+    trigger : true,
+    groups : [3],
+    object : enemy,
+    transformInit : {parent:enemy.transform,ox:-9},
+    enter : (collider, self) => {
+      self.object.right = !self.object.right;
+    }
+  },"enemy-leftTrigger");
+
+  enemy.rightTrigger = cg.Physics.createCollider({
+    type : "rectangle",
+    width : 2,
+    height : 5,
+    trigger : true,
+    groups : [3],
+    object : enemy,
+    transformInit : {parent:enemy.transform,ox:9},
+    enter : (collider, self) => {
+      self.object.right = !self.object.right;
+    }
+  },"enemy-rightTrigger");
+
+  return enemy;
+}
 
 // FIREFLIES
 let totalFireflies = 0;
@@ -317,7 +446,7 @@ function createFireflies(x,y,r,count,scene) {
     totalFireflies++;
   }
 
-  swarms.push(swarm = {
+  swarms.push({
     playerDistanceFromHome : 0,
     lastCalculatedPDFH : -1,
     home : [x,y],
@@ -388,6 +517,14 @@ cg.createImage({
   file : "sheet.png",
   crop : [16*3,16*6,32,32]
 },"doorRoots");
+cg.createImage({
+  file : "sheet.png",
+  crop : [16*5+9,16*5+12,3,4]
+},"doorGemEmpty");
+cg.createImage({
+  file : "sheet.png",
+  crop : [16*5+13,16*5+12,3,4]
+},"doorGemFull");
 
 cg.graphicTypes.exitDoor = new class ExitDoor {
   setup() {
@@ -401,6 +538,19 @@ cg.graphicTypes.exitDoor = new class ExitDoor {
     canvas.drawImage(cg.images.doorBackground, 0, 0, 32, 32);
     if (!this.open) {
       canvas.drawImage(cg.images.doorRoots, 0, 0, 32, 32);
+    }
+
+    const gameInterface = cg.graphics.gameInterface;
+    const gemSeparation = 5;
+    const xOffset = -gameInterface.gemCount * 0.5 * gemSeparation + 3;
+    const yOffset = -14;
+
+    for (let i=0;i<gameInterface.gemCount;i++) {
+      const image = (i >= gameInterface.gemOrder.length) ? cg.images.doorGemEmpty : cg.images.doorGemFull;
+
+      const x = xOffset + i * gemSeparation;
+      const y = yOffset;
+      canvas.drawImage(image, x, y);
     }
   };
 }
@@ -439,24 +589,31 @@ cg.processLoops.push(function canvasScaler() {
 cg.graphicTypes.gameInterface = new class GameInterface {
   setup() {
     this.gemCount = 3;
-    this.collectedGems = 0;
+    this.displayedGems = 0;
 
     this.collections = [];
+    this.losses = [];
     this.particles = [];
+    this.gemOrder = [];
 
     this.reset = () => {
-      this.collectedGems = 0;
+      this.gemOrder = [];
       this.collections = [];
       this.particles = [];
     }
 
     this.createParticle = (x,y) => {
+      const dir = Math.random() * 2 * Math.PI;
+      const speed = Math.random() * 0.4;
+      const xv = Math.cos(dir) * speed;
+      const yv = Math.sin(dir) * speed;
+
       this.particles.push({
         x : x + (Math.random()-0.5)*10,
         y : y + (Math.random()-0.5)*10,
         r : (Math.random()-0.5)*360,
-        xv : (Math.random()-0.5)*0.5,
-        yv : (Math.random()-0.5)*0.5,
+        xv : xv,
+        yv : yv,
         rv : (Math.random()-0.5),
         stt : cg.clock,
         lifetime : Math.random()*1000 + 700,
@@ -471,10 +628,36 @@ cg.graphicTypes.gameInterface = new class GameInterface {
         originX : x,
         originY : y,
         stt : cg.clock,
-        targetIndex : this.collectedGems
+        targetIndex : this.gemOrder.length,
       });
 
+      this.gemOrder.push(gem);
+
+      gem.light.brightness = 0;
+
       for (let i=0;i<10;i++) {
+        this.createParticle(x,y);
+      }
+    }
+
+    this.loseGem = () => {
+      if (this.gemOrder.length === 0) { return; }
+      const gem = this.gemOrder.pop();
+      this.displayedGems--;
+      cg.graphics.exitDoor.open = false;
+      this.losses.push({
+        originIndex : this.gemOrder.length,
+        gem : gem,
+        stt : cg.clock,
+        targetX : cg.cameras.main.getCanvasSpaceX(gem.transform.x),
+        targetY : cg.cameras.main.getCanvasSpaceY(gem.transform.y)
+      });
+    }
+
+    this.poof = (x,y) => {
+      x = cg.cameras.main.getCanvasSpaceX(x);
+      y = cg.cameras.main.getCanvasSpaceY(y);
+      for (let i=0;i<40;i++) {
         this.createParticle(x,y);
       }
     }
@@ -494,8 +677,8 @@ cg.graphicTypes.gameInterface = new class GameInterface {
       const collection = this.collections[i];
       let progress = (cg.clock - collection.stt) / collectionDuration;
       if (progress >= 1) {
-        this.collectedGems++;
-        if (this.collectedGems >= this.gemCount) {
+        this.displayedGems++;
+        if (this.displayedGems >= this.gemCount) {
           cg.graphics.exitDoor.open = true;
         }
         collection.collected = true;
@@ -515,12 +698,36 @@ cg.graphicTypes.gameInterface = new class GameInterface {
     }
     this.collections = this.collections.filter(c => !c.collected);
 
+    // Loss Paths
+    const lossDuration = 700;
+
+    for (let i=0;i<this.losses.length;i++) {
+      const loss = this.losses[i];
+      let progress = (cg.clock - loss.stt) / lossDuration;
+      if (progress >= 1) {
+        loss.gem.Graphic.transform.o = 1;
+        this.losses.splice(i,1);
+        i--;
+        continue;
+      }
+      progress = cg.Animation.easeFunctions.inOutQuart(progress);
+      const originX = xOffset + loss.originIndex * gemSeparation;
+      const originY = yOffset;
+      const x = originX + (loss.targetX - originX) * progress;
+      const y = originY + (loss.targetY - originY) * progress;
+
+      this.createParticle(x,y);
+
+      c.fillStyle = "#ff0000";
+      c.globalAlpha = 1 - progress;
+      canvas.drawImage(cg.images.largeGemOutline, x, y, gemWidth, gemHeight);
+    }
 
     // Gems and Outlines
 
     c.globalAlpha = 1;
     for (let i=0;i<this.gemCount;i++) {
-      const image = (i<this.collectedGems) ? cg.images.largeGemColour : cg.images.largeGemOutline;
+      const image = (i<this.displayedGems) ? cg.images.largeGemColour : cg.images.largeGemOutline;
       canvas.drawImage(image, xOffset + gemSeparation*i, yOffset, gemWidth, gemHeight);
     }
 
@@ -556,11 +763,15 @@ class Level {
   startPosition = [0,0];
   fireflies = [];
   gemPositions = [];
+  exitPosition = [];
+  mushroomGlow = [];
+  enemiesPositions = [];
 
   scene;
   tilemap;
   lighting;
   gems = [];
+  enemies = [];
 
   createScene() {
     this.scene = cg.createScene({},this.id);
@@ -577,6 +788,12 @@ class Level {
       const gem = createGem(x,y);
       this.scene.addObject(gem);
       this.gems.push(gem);
+    }
+
+    for (const [x,y] of cg.createPath(this.enemiesPositions,"enemies-"+this.id)) {
+      const enemy = createEnemy(x,y);
+      this.scene.addObject(enemy);
+      this.enemies.push(enemy);
     }
 
     for (const position of cg.createPath(this.mushroomGlow,"mushroomGlow-"+this.id)) {
@@ -630,7 +847,7 @@ class Level {
       graphic:cg.graphics.tilemapForeground
     },"tilemapForeground","foreground");
 
-    cg.Physics.createCollidersFromTilemap(this.tilemap,3,null,this.scene,[0,2]);
+    cg.Physics.createCollidersFromTilemap(this.tilemap,3,null,this.scene,[0,2,3]);
 
     this.scene.createItem("graphic",{
       graphic : cg.graphics.exitDoor,
@@ -652,7 +869,7 @@ class Level {
       },
       enter : () => {
         if (!cg.graphics.exitDoor.open) { return; }
-        // CAN EXIT
+        // DO EXIT TRANSITION
       }
     },"exit-"+this.id)
 
@@ -673,6 +890,7 @@ class Level {
     cg.graphics.exitDoor.reset();
     for (const gem of this.gems) {
       gem.Graphic.transform.o = 1;
+      gem.light.brightness = 1;
     }
   }
 }
@@ -687,12 +905,12 @@ function createLevel(init={}) {
 cg.settings.core.callbacks.start = () => {
   createLevel({
     id : "test",
-    tilemap : "testMap",
     startPosition : [85,125],
     exitPosition : [81,128],
     fireflies : [[100,75,30,10]],
     mushroomGlow : [[104,141],[136,93],[168,138]],
     gemPositions : [[170,79],[117,66],[80,102]],
+    enemiesPositions : [[124,127]],
     tilemap : cg.Tilemaps.tilemaps.testMap
   });
 
