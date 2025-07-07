@@ -60,7 +60,7 @@ ChoreoGraph.plugin({
             if (this.#masterVolume==0) {
               this.playing[id].savedVolume = this.playing[id].source.volume;
               this.playing[id].source.volume = 0;
-            } else {
+            } else if (this.playing[id].savedVolume !== undefined) {
               this.playing[id].source.volume = this.playing[id].savedVolume;
               delete this.playing[id].savedVolume;
             }
@@ -158,9 +158,10 @@ ChoreoGraph.plugin({
           return options.soundInstance;
         } else if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.HTMLAUDIO) {
           let source = sound.audio.cloneNode();
-          source.play();
+          if (!options.paused) { source.play(); }
           source.loop = options.loop; // Looping
           source.volume = options.volume; // Volume
+          options.soundInstance.source = source;
           if (options.fadeIn!=0) {
             source.volume = 0;
           }
@@ -239,7 +240,7 @@ ChoreoGraph.plugin({
         }
       }
 
-      setVolume(id, volume, seconds) {
+      setVolume(id, volume=1, seconds=0) {
         if (!this.ready) { return; }
         if (this.playing[id]==undefined) { console.warn("Sound not found"); return; }
         let sound = this.playing[id];
@@ -380,6 +381,11 @@ ChoreoGraph.plugin({
       stopped = false;
       cgAudio = null;
 
+      fadeFrom = 0;
+      fadeTo = 0;
+      fadeStart = 0;
+      fadeEnd = 0;
+
       constructor(init={}) {
         ChoreoGraph.applyAttributes(this,init);
         if (this.id==null) { this.id = ChoreoGraph.Audio.nextId; ChoreoGraph.Audio.nextId++; }
@@ -416,14 +422,21 @@ ChoreoGraph.plugin({
         },{passive: true});
       }
       fadeVolume(volume=0.5, time=1) {
-        if (this.started==false) {
-          this.playOptions.volume = volume;
-          return;
+        if (ChoreoGraph.Audio.mode===ChoreoGraph.Audio.HTMLAUDIO) {
+          this.fadeFrom = this.source.volume;
+          this.fadeTo = volume;
+          this.fadeStart = ChoreoGraph.nowint;
+          this.fadeEnd = ChoreoGraph.nowint + time * 1000;
+        } else if (ChoreoGraph.Audio.mode===ChoreoGraph.Audio.WEBAUDIO) {
+          if (this.started==false) {
+            this.playOptions.volume = volume;
+            return;
+          }
+          const now = ChoreoGraph.Audio.ctx.currentTime;
+          this.source.gainNode.gain.cancelScheduledValues(now);
+          this.source.gainNode.gain.setValueAtTime(this.source.gainNode.gain.value, now);
+          this.source.gainNode.gain.linearRampToValueAtTime(volume, now + time);
         }
-        const now = ChoreoGraph.Audio.ctx.currentTime;
-        this.source.gainNode.gain.cancelScheduledValues(now);
-        this.source.gainNode.gain.setValueAtTime(this.source.gainNode.gain.value, now);
-        this.source.gainNode.gain.linearRampToValueAtTime(volume, now + time);
       }
     };
 
@@ -531,14 +544,18 @@ ChoreoGraph.plugin({
         });
         this.instanceLoadBuffer = [];
       } else if (this.busLoadBuffer.length>0) {
-        for (let i=0;i<this.busLoadBuffer.length;i++) {
-          let bus = this.busLoadBuffer[i];
-          if (bus.gainNode==null) {
-            bus.gainNode = ChoreoGraph.Audio.ctx.createGain();
-            bus.gainNode.connect(bus.cg.Audio.masterGain);
+        if (this.mode==this.WEBAUDIO) {
+          for (let i=0;i<this.busLoadBuffer.length;i++) {
+            let bus = this.busLoadBuffer[i];
+            if (bus.gainNode==null) {
+              bus.gainNode = ChoreoGraph.Audio.ctx.createGain();
+              bus.gainNode.connect(bus.cg.Audio.masterGain);
+            }
+            this.busLoadBuffer.splice(i,1);
+            i--;
           }
-          this.busLoadBuffer.splice(i,1);
-          i--;
+        } else {
+          this.busLoadBuffer.length = 0;
         }
       } else if (this.playBuffer.length>0) {
         for (let i=0;i<this.playBuffer.length;i++) {
@@ -597,15 +614,20 @@ ChoreoGraph.plugin({
           callback();
         }
       }
+
+      // HTML Audio Volume Fade
       if (Audio.mode==Audio.HTMLAUDIO) {
-        for (let id in Audio.playing) {
-          let sound = Audio.playing[id];
-          if (sound.fadeEnd!=0) {
-            if (ChoreoGraph.nowint<sound.fadeEnd) {
-              sound.source.volume = sound.fadeFrom+(sound.fadeTo-sound.fadeFrom)*(ChoreoGraph.nowint-sound.fadeStart)/(sound.fadeEnd-sound.fadeStart);
-            } else if (sound.fadeEnd!=0) {
-              sound.source.volume = sound.fadeTo;
-              sound.fadeEnd = 0;
+        for (let cg of ChoreoGraph.instances) {
+          for (let id in cg.Audio.playing) {
+            let soundInstance = cg.Audio.playing[id];
+            if (soundInstance.fadeEnd!=0) {
+              if (ChoreoGraph.nowint<soundInstance.fadeEnd) {
+                const volume = soundInstance.fadeFrom+(soundInstance.fadeTo-soundInstance.fadeFrom)*(ChoreoGraph.nowint-soundInstance.fadeStart)/(soundInstance.fadeEnd-soundInstance.fadeStart);
+                soundInstance.source.volume = volume;
+              } else if (soundInstance.fadeEnd!=0) {
+                soundInstance.source.volume = soundInstance.fadeTo;
+                soundInstance.fadeEnd = 0;
+              }
             }
           }
         }
@@ -646,8 +668,8 @@ ChoreoGraph.plugin({
             }
           } else if (Audio.mode==ChoreoGraph.Audio.HTMLAUDIO) {
             if (soundInstance.stopTime<ChoreoGraph.nowint) {
-              sound.source.pause();
-              delete ChoreoGraph.Audio.playing[id];
+              soundInstance.source.pause();
+              delete cg.Audio.playing[id];
             }
           }
         };
