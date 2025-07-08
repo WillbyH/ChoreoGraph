@@ -481,6 +481,7 @@ ChoreoGraph.plugin({
         c.globalAlpha = go;
         let tilemap = this.tilemap;
 
+        let bufferRequiresUpdate = false;
         let chunksToBuffer = [];
         let xMin = 0;
         let yMin = 0;
@@ -591,9 +592,9 @@ ChoreoGraph.plugin({
                 lc.restore();
               }
             }
-
-            c.drawImage(this.drawBuffer,xMin,yMin,bufferWidth,bufferHeight)
           }
+
+          c.drawImage(this.drawBuffer,xMin,yMin,bufferWidth,bufferHeight)
         }
 
         for (let debugChunk of debugChunks) {
