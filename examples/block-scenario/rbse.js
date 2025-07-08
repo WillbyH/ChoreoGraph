@@ -20,8 +20,6 @@ const cg = ChoreoGraph.instantiate({
 
 // CREATE CAMERA, CANVAS, SCENE AND SCENE COLLECTIONS
 cg.createCamera({
-  x : 400/2,
-  y : 300/2,
   scaleMode : "minimum",
   width : 400,
   height : 300,
