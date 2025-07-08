@@ -6,7 +6,7 @@ const cg = ChoreoGraph.instantiate({
     inactiveTime : 100
   },
   physics : {
-    gravity : 9.8*16
+    gravityY : 9.8*16
   },
   input : {
     preventDefaultKeys : ["up","down","left","right","space"]

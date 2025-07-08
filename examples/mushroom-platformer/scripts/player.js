@@ -83,7 +83,7 @@ cg.createObject({
   collection : "entities"
 })
 .attach("RigidBody",{
-  gravityScale : 1.5,
+  gravityScaleY : 1.5,
   dragX : 20,
   collider : cg.Physics.createCollider({
     type : "rectangle",
@@ -105,18 +105,18 @@ cg.createObject({
       if (cg.Input.actions.jump.get()!==0) {
         object.lastGroundTime = cg.clock;
         cg.objects.player.RigidBody.yv = -130;
-        cg.objects.player.RigidBody.gravityScale = cg.objects.player.jumpGravity;
+        cg.objects.player.RigidBody.gravityScaleY = cg.objects.player.jumpGravity;
       }
       object.bufferJump = false;
     }
     if (cg.Input.actions.jump.get()==0) {
-      object.RigidBody.gravityScale = object.fallGravity;
+      object.RigidBody.gravityScaleY = object.fallGravity;
     } else {
       const easeBackBefore = 1000;
       if (object.lastGroundTime + easeBackBefore < cg.clock) {
         const easeBackDuration = 5000;
         const easeBack = Math.min((cg.clock - object.lastGroundTime - easeBackBefore) / easeBackDuration, 1);
-        object.RigidBody.gravityScale = cg.objects.player.fallGravity * (easeBack) + cg.objects.player.jumpGravity;
+        object.RigidBody.gravityScaleY = cg.objects.player.fallGravity * (easeBack) + cg.objects.player.jumpGravity;
       }
     }
     const dir = cg.Input.actions.right.get() - cg.Input.actions.left.get();

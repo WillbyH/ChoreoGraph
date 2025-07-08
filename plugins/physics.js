@@ -876,7 +876,8 @@ ChoreoGraph.plugin({
 
     cg.attachSettings("physics",{
       maximumIterations : 10,
-      gravity : 9.8,
+      gravityX : 0,
+      gravityY : 9.8,
 
       debug : new class {
         style = {
@@ -916,7 +917,7 @@ ChoreoGraph.plugin({
   }
 });
 
-ChoreoGraph.ObjectComponents.RigidBody = class cgObjectRidigBody {
+ChoreoGraph.ObjectComponents.RigidBody = class cgObjectRigidBody {
   manifest = {
     type : "RigidBody",
     key : "RigidBody",
@@ -927,7 +928,8 @@ ChoreoGraph.ObjectComponents.RigidBody = class cgObjectRidigBody {
     }
   }
 
-  gravityScale = 0;
+  gravityScaleX = 0;
+  gravityScaleY = 0;
   xv = 0;
   yv = 0;
   collider = null;
@@ -969,7 +971,8 @@ ChoreoGraph.ObjectComponents.RigidBody = class cgObjectRidigBody {
     }
 
     let timeDeltaSeconds = scene.cg.timeDelta / 1000;
-    this.yv += scene.cg.settings.physics.gravity * this.gravityScale * timeDeltaSeconds;
+    this.xv += scene.cg.settings.physics.gravityX * this.gravityScaleX * timeDeltaSeconds;
+    this.yv += scene.cg.settings.physics.gravityY * this.gravityScaleY * timeDeltaSeconds;
     let dx = this.xv * timeDeltaSeconds;
     let dy = this.yv * timeDeltaSeconds;
     this.collider.transform.parent.x += dx;

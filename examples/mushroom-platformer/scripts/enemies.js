@@ -31,7 +31,7 @@ function createEnemy(x,y,level) {
     collection : "entities"
   })
   .attach("RigidBody",{
-    gravityScale : 1,
+    gravityScaleY : 1,
     deleteColliderWithObject : true,
     collider : cg.Physics.createCollider({
       type : "rectangle",

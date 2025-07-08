@@ -31,7 +31,7 @@ function createBall(id,x,y,colour) {
   .attach("RigidBody",{
     drag : drag,
     bounce:true,
-    gravityScale:gravityScale,
+    gravityScaleY:gravityScale,
     collider : cg.Physics.createCollider({
       type:"circle",
       radius:50,
@@ -73,7 +73,7 @@ cg.createObject({transformInit:{x:-300,y:200}},"hotel")
 .attach("RigidBody",{
   drag : drag,
   bounce:true,
-  gravityScale:gravityScale||10,
+  gravityScaleY:gravityScale||10,
   collider : cg.Physics.createCollider({
     type:"rectangle",
     height:100,
@@ -102,7 +102,7 @@ cg.createObject({transformInit:{x:300,y:200}},"india")
   drag : drag,
   bounce:true,
   mass : 0.1,
-  gravityScale:gravityScale,
+  gravityScaleY:gravityScale,
   collider : cg.Physics.createCollider({
     type:"point",
   },"pointCollider"),
