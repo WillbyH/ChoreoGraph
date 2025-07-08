@@ -19,10 +19,10 @@ ChoreoGraph.plugin({
     mode = null; // WebAudio or HTMLAudio
     ctx = null;
 
-    #onReadys = [];
+    _onReadys = [];
     set onReady(callback) {
       if (this.ready) { callback(); return; }
-      this.#onReadys.push(callback);
+      this._onReadys.push(callback);
     }
     hasCalledOnReady = false;
 
@@ -288,6 +288,7 @@ ChoreoGraph.plugin({
         let bus = new ChoreoGraph.Audio.Bus(id,this.cg);
         this.buses[id] = bus;
         ChoreoGraph.Audio.busLoadBuffer.push(bus);
+        return bus;
       }
     };
 
@@ -368,7 +369,7 @@ ChoreoGraph.plugin({
       };
     };
 
-    SoundInstance = class SoundInstance {
+    SoundInstance = class cgSoundInstance {
       id = null;
       source = null;
       nodes = [];
@@ -610,7 +611,7 @@ ChoreoGraph.plugin({
       if (!Audio.checkSetup()) { return; };
       if (Audio.hasCalledOnReady==false&&Audio.ready) {
         Audio.hasCalledOnReady = true;
-        for (let callback of Audio.#onReadys) {
+        for (let callback of Audio._onReadys) {
           callback();
         }
       }

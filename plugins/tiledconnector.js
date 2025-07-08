@@ -3,14 +3,13 @@ ChoreoGraph.plugin({
   key : "Tiled",
   version : "1.1",
 
-  globalPackage : new class FMODConnector {
+  globalPackage : new class TiledConnector {
     InstanceObject = class cgInstanceTiledConnector {
       totalExternalTileSets = 0;
       totalExternalTileMaps = 0;
       loadedExternalTileSets = 0;
       loadedExternalTileMaps = 0;
       tileSets = {};
-      tileMaps = [];
 
       async importTileSetFromFile(dataUrl, callback=null) {
         this.totalExternalTileSets++;
@@ -290,7 +289,7 @@ ChoreoGraph.plugin({
               tilemap.createChunkedLayer({
                 tiles : convertLayerData(layer.data),
                 chunkWidth : importData.chunkWidth,
-                chunkHeight : importData.chunkWidth,
+                chunkHeight : importData.chunkHeight,
                 totalWidth : data.width,
                 chunksOffsetX : importData.chunkOffsetX || 0,
                 chunksOffsetY : importData.chunkOffsetY || 0,

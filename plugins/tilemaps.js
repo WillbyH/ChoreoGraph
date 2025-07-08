@@ -99,12 +99,12 @@ ChoreoGraph.plugin({
       };
     };
 
-    TilemapLayer = class TilemapLayer {
+    TilemapLayer = class cgTilemapLayer {
       name = "Unnamed Layer";
       visible = true;
     };
 
-    Chunk = class Chunk {
+    Chunk = class cgTilemapChunk {
       tilemap = null;
       x = 0;
       y = 0;
@@ -158,7 +158,7 @@ ChoreoGraph.plugin({
       };
     };
 
-    ChunkLayer = class ChunkLayer {
+    ChunkLayer = class cgTilemapChunkLayer {
       tilemap = null;
       index = 0;
       chunk = null;
@@ -213,7 +213,7 @@ ChoreoGraph.plugin({
       };
     };
 
-    CachedChunkLayer = class CachedChunkLayer {
+    CachedChunkLayer = class cgTilemapCachedChunkLayer {
       canvas = null;
       c = null;
       animatedTiles = [];
@@ -287,7 +287,7 @@ ChoreoGraph.plugin({
       };
     };
 
-    Tile = class cgTile {
+    Tile = class cgTilemapTile {
       image = null;
       flipX = false;
       flipY = false;
@@ -321,7 +321,7 @@ ChoreoGraph.plugin({
       }
     };
 
-    AnimatedTile = class cgAnimatedTile {
+    AnimatedTile = class cgTilemapAnimatedTile {
       frames = [];
       totalDuration = 0;
 
@@ -372,7 +372,7 @@ ChoreoGraph.plugin({
       };
     };
 
-    AnimatedTileFrame = class AnimatedTileFrame {
+    AnimatedTileFrame = class cgTilemapAnimatedTileFrame {
       image = null;
       duration = 0;
       flipX = false;
@@ -450,7 +450,6 @@ ChoreoGraph.plugin({
         this.debug = false;
         this.useDrawBuffer = true;
 
-        this.previousChunksToBuffer = [];
         this.drawBuffer = document.createElement("canvas");
         this.drawBufferContext = this.drawBuffer.getContext("2d",{alpha:true});
         this.previousBufferWidth = 0;
@@ -482,7 +481,6 @@ ChoreoGraph.plugin({
         c.globalAlpha = go;
         let tilemap = this.tilemap;
 
-        let bufferRequiresUpdate = false;
         let chunksToBuffer = [];
         let xMin = 0;
         let yMin = 0;
@@ -532,9 +530,6 @@ ChoreoGraph.plugin({
                   chunksToBuffer[layerIndex] = [];
                 }
 
-                if (this.previousChunksToBuffer[layerIndex]==undefined||!this.previousChunksToBuffer[layerIndex].includes(chunkLayer)) {
-                  bufferRequiresUpdate = true;
-                }
                 if (chunkLayer.cache!==null&&chunkLayer.cache.animatedTiles.length>0) {
                   bufferRequiresUpdate = true;
                 }

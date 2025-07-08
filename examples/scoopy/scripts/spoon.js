@@ -64,6 +64,6 @@ cg.processLoops.push(function alarmLighting() {
     let upperBound = 0.8;
     let lowerBound = 0.9; // When off
     let brightness = lowerBound + (upperBound-lowerBound)*pingPong;
-    cg.graphics.lighting.shadowColour = colour + parseInt(brightness*255).toString(16);
+    cg.graphics.lighting.shadowColour = colour + Math.round(brightness*255).toString(16);
   }
 });

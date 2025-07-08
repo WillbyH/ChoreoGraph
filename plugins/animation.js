@@ -635,7 +635,6 @@ ChoreoGraph.plugin({
           let data = [];
           let previousPoint = null;
           let previousDisconnected = false;
-          let track = this;
           let cg = this.cg;
           let applyRotationNext = false;
           let previousRotation = 0;

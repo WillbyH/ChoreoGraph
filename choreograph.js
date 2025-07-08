@@ -48,6 +48,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       objects : []
     };
 
+    timeDelta = 0;
     disabled = false;
     clock = 0;
     timeSinceLastFrame = 0;
@@ -116,10 +117,6 @@ const ChoreoGraph = new class ChoreoGraphEngine {
 
     constructor(id=ChoreoGraph.id.get()) {
       this.id = id;
-      this.setupCoreSettings();
-    };
-
-    setupCoreSettings() {
       this.attachSettings("core",{
         defaultCanvas : null,
         timeScale : 1,
@@ -785,11 +782,11 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     objects = [];
     collections = {};
     drawBuffer = [];
-    drawBufferCollections = [];
+    drawBufferCollections = {};
     cameras = [];
     items = {};
 
-    createItem(type,init={},id=ChoreoGraph.id.get(),collection=null) {
+    createItem(type,itemInit={},id=ChoreoGraph.id.get(),collection=null) {
       if (collection!==null&&this.collections[collection]===undefined) {
         console.warn("Collection with id:",collection,"does not exist");
         return;
@@ -800,12 +797,12 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       }
       let newItem;
       if (type=="graphic") {
-        ChoreoGraph.initTransform(this.cg,init,init);
+        ChoreoGraph.initTransform(this.cg,itemInit,itemInit);
         newItem = new ChoreoGraph.SceneItem({
           type:"graphic",
           id:id,
-          graphic:init.graphic,
-          transform:init.transform
+          graphic:itemInit.graphic,
+          transform:itemInit.transform
         });
       } else if (type=="collection") {
         let path = [];
@@ -858,15 +855,6 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       const index = this.objects.indexOf(object);
       if (index === -1) { return; }
       this.objects.splice(index,1);
-    };
-
-    remove(id) {
-      for (let i=0;i<this.structure.length;i++) {
-        if (this.structure[i].id==id) {
-          this.structure.splice(i,1);
-        }
-      }
-      return this;
     };
 
     update() {
@@ -1304,7 +1292,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       }
       startScript = null;
       updateScript = null;
-      collapseScript = null;
+      deleteScript = null;
 
       constructor(componentInit,object) {
         ChoreoGraph.initObjectComponent(this,componentInit);
@@ -1317,9 +1305,9 @@ const ChoreoGraph = new class ChoreoGraphEngine {
           this.updateScript(this.object,scene);
         }
       };
-      collapse(scene) {
-        if (this.collapseScript!==null) {
-          this.collapseScript(this.object,scene);
+      delete() {
+        if (this.deleteScript!==null) {
+          this.deleteScript(this.object);
         }
       };
     }

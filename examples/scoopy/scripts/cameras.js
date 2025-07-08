@@ -194,6 +194,5 @@ stst.createCamera({
   fov:60,
   detectRange:15,
   pivotCentre:90,
-  pivotSpeed:0.5,
-  pivotCentre:90
+  pivotSpeed:0.5
 });
