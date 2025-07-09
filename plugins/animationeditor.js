@@ -1422,6 +1422,8 @@ ChoreoGraph.plugin({
       if (cg.AnimationEditor.ui.dopeSheetCanvasContainer!=null) { return cg.AnimationEditor.ui.dopeSheetCanvasContainer; }
       let canvasElement = document.createElement("canvas");
       canvasElement.style.borderRadius = "12px";
+      canvasElement.style.height = "100%";
+      canvasElement.style.width = "100%";
       canvasElement.oncontextmenu = function(e) { e.preventDefault(); };
       canvasElement.onpointerdown = function(e) { if (e.button==1) { e.preventDefault(); } };
       let canvasParent = document.createElement("div");
