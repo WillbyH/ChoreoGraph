@@ -59,6 +59,7 @@ ChoreoGraph.plugin({
         keyboard : -Infinity,
         controller : -Infinity
       };
+      lastPointerMoveEvent = null;
 
       buttons = {};
       lastCheckedButtonChecks = -1;
@@ -175,7 +176,7 @@ ChoreoGraph.plugin({
             for (const buttonId of cg.keys.buttons) {
               let button = cg.Input.buttons[buttonId];
               if (!canvas.camera.scenes.includes(button.scene)) { continue; }
-              ChoreoGraph.transformContext(canvas.camera,button.x,button.y,0,1,1,button.transform.CGSpace,false,false,button.transform.canvasSpaceXAnchor,button.transform.canvasSpaceYAnchor);
+              ChoreoGraph.transformContext(canvas.camera,button.x,button.y,button.transform.r,1,1,button.transform.CGSpace,false,false,button.transform.canvasSpaceXAnchor,button.transform.canvasSpaceYAnchor);
               button.setStyles(canvas);
               button.drawShape(canvas);
             }
@@ -428,6 +429,7 @@ ChoreoGraph.plugin({
     pointerMove(event) {
       for (let cg of ChoreoGraph.instances) {
         if (cg.ready==false) { continue; }
+        cg.Input.lastPointerMoveEvent = event;
         for (let canvasId of cg.keys.canvases) {
           let canvas = cg.canvases[canvasId];
           cg.Input.updateCursor(canvas,event);
@@ -932,21 +934,35 @@ ChoreoGraph.plugin({
         let hovered = false;
 
         function getPositionInSpace(button,touch=null) {
+          let x, y;
           if (button.transform.CGSpace) {
             if (touch!==null) {
-              return [cursor.touches[touch].x,cursor.touches[touch].y];
+              x = cursor.touches[touch].x;
+              y = cursor.touches[touch].y;
             } else {
-              return [cursor.x,cursor.y];
+              x = cursor.x;
+              y = cursor.y;
             }
           } else {
-            let x = touch!==null ? cursor.touches[touch].canvasX : cursor.canvasX;
-            let y = touch!==null ? cursor.touches[touch].canvasY : cursor.canvasY;
+            x = touch!==null ? cursor.touches[touch].canvasX : cursor.canvasX;
+            y = touch!==null ? cursor.touches[touch].canvasY : cursor.canvasY;
             x -= button.transform.canvasSpaceXAnchor*cursor.canvas.width;
             y -= button.transform.canvasSpaceYAnchor*cursor.canvas.height;
             x /= cursor.canvas.camera.canvasSpaceScale;
             y /= cursor.canvas.camera.canvasSpaceScale;
-            return [x,y];
           }
+          if (button.transform.r!==0) {
+            const rad = button.transform.r*Math.PI/180;
+            x -= button.transform.x;
+            y -= button.transform.y;
+            const cos = Math.cos(rad);
+            const sin = Math.sin(rad);
+            const tx = x*cos + y*sin;
+            const ty = -x*sin + y*cos;
+            x = tx + button.transform.x;
+            y = ty + button.transform.y;
+          }
+          return [x,y];
         }
 
         if (this.cg.Input.lastInputType==ChoreoGraph.Input.TOUCH) {
@@ -1217,6 +1233,15 @@ ChoreoGraph.plugin({
       }
     };
 
+    buttonRecheckLoop(cg) {
+      if (cg.settings.input.recheckButtonsEveryFrame==false) { return; }
+      for (let canvasId of cg.keys.canvases) {
+        const canvas = cg.canvases[canvasId];
+        if (canvas===undefined) { continue; }
+        ChoreoGraph.Input.updateButtons(canvas,cg.Input.lastPointerMoveEvent);
+      }
+    }
+
     unhoverAllButtons(event) {
       for (const cg of ChoreoGraph.instances) {
         cg.Input.hoveredButtons = 0;
@@ -1393,8 +1418,8 @@ ChoreoGraph.plugin({
       preventScrollWheel : false, // Prevents the page from scrolling when the mouse wheel is used
 
       focusKeys : false, // If true, keys will only be sent to the last clicked canvases instance
-
       preventDefaultKeys : [],
+      recheckButtonsEveryFrame : true,
 
       allowController : true, // Allow controller input events
       controller : {
@@ -1488,6 +1513,9 @@ ChoreoGraph.plugin({
       cg.processLoops.push(ChoreoGraph.Input.actionUpdateLoop);
       if (cg.settings.input.controller.emulatedCursor.active) {
         cg.processLoops.push(ChoreoGraph.Input.emulatedCursorLoop);
+      }
+      if (cg.settings.input.recheckButtonsEveryFrame) {
+        cg.processLoops.push(ChoreoGraph.Input.buttonRecheckLoop);
       }
     }
   }

@@ -64,6 +64,7 @@ interface cgInstance {
       keyboard: number;
       controller: number;
     }
+    lastPointerMoveEvent: PointerEvent | null;
 
     readonly buttons: Record<string, cgButton>;
     readonly lastCheckedButtonChecks: ChoreoGraphFrame;
@@ -261,24 +262,7 @@ interface cgButton {
   [key: string]: any;
 }
 
-interface cgRectangleButton extends cgButton {
-  type: "rectangle";
-  width: number;
-  height: number;
-}
-
-interface cgCircleButton extends cgButton {
-  type: "circle";
-  radius: number;
-}
-
-interface cgPolygonButton extends cgButton {
-  type: "polygon";
-  path: [number, number][];
-}
-
-type cgButtonInit = {
-  type: "rectangle" | "circle" | "polygon";
+interface cgButtonInitBase {
   check?: string;
   hoverCursor?: CSSCursor;
   pressCursor?: CSSCursor;
@@ -298,6 +282,40 @@ type cgButtonInit = {
 
   [key: string]: any;
 }
+
+interface cgRectangleButton extends cgButton {
+  type: "rectangle";
+  width: number;
+  height: number;
+}
+
+interface cgRectangleButtonInit extends cgButtonInitBase {
+  type: "rectangle";
+  width: number;
+  height: number;
+}
+
+interface cgCircleButton extends cgButton {
+  type: "circle";
+  radius: number;
+}
+
+interface cgCircleButtonInit extends cgButtonInitBase {
+  type: "circle";
+  radius: number;
+}
+
+interface cgPolygonButton extends cgButton {
+  type: "polygon";
+  path: [number, number][];
+}
+
+interface cgPolygonButtonInit extends cgButtonInitBase {
+  type: "polygon";
+  path: [number, number][];
+}
+
+type cgButtonInit = cgRectangleButtonInit | cgCircleButtonInit | cgPolygonButtonInit;
 
 type cgActionKey = {
   main: cgKeyType | cgInputControllerAxes | cgButton | cgAction;
@@ -342,8 +360,8 @@ interface cgSettings {
     preventScrollWheel: boolean;
 
     focusKeys: boolean;
-
     preventDefaultKeys: cgKeyType[];
+    recheckButtonsEveryFrame: boolean;
 
     allowController: boolean;
     controller: {
