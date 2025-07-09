@@ -138,7 +138,9 @@ ChoreoGraph.plugin({
           dragging : false
         },
         fps : {
-          previous : []
+          previousFPS : [],
+          previousProcessTime : [],
+          savedAverageProcessTime : 0
         },
         objectGizmo : {
           active : false,
@@ -413,19 +415,33 @@ ChoreoGraph.plugin({
           let canvas = cg.canvases[canvasId];
           if (canvas.hideDebugOverlays) { continue; }
           let fps = 1000/ChoreoGraph.timeDelta;
-          if (cg.Develop.featureData.fps.previous.length>30) {
-            cg.Develop.featureData.fps.previous.shift();
+          if (cg.Develop.featureData.fps.previousFPS.length>30) {
+            cg.Develop.featureData.fps.previousFPS.shift();
           } else {
-            cg.Develop.featureData.fps.previous.push(fps);
+            cg.Develop.featureData.fps.previousFPS.push(fps);
           }
 
           let average = 0;
-          for (let f of cg.Develop.featureData.fps.previous) {
+          for (let f of cg.Develop.featureData.fps.previousFPS) {
             average += f;
           }
-          average /= cg.Develop.featureData.fps.previous.length;
+          average /= cg.Develop.featureData.fps.previousFPS.length;
+
+          // Update the average process time every 5 frames
+          if (cg.Develop.featureData.fps.previousProcessTime.length>5) {
+            average = 0;
+            for (let f of cg.Develop.featureData.fps.previousProcessTime) {
+              average += f;
+            }
+            average /= cg.Develop.featureData.fps.previousProcessTime.length;
+            cg.Develop.featureData.fps.previousProcessTime.length = 0;
+            cg.Develop.featureData.fps.savedAverageProcessTime = average;
+          } else {
+            cg.Develop.featureData.fps.previousProcessTime.push(ChoreoGraph.processTime);
+          }
+
           let text = Math.round(fps*10)/10+"fps";
-          text += " (" + Math.round(ChoreoGraph.processTime*10)/10 + "ms)";
+          text += " (" + Math.round(cg.Develop.featureData.fps.savedAverageProcessTime*10)/10 + "ms)";
 
           cg.Develop.drawTopLeftText(cg,canvas,text);
         }
