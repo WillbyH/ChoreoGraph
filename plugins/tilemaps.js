@@ -483,10 +483,10 @@ ChoreoGraph.plugin({
 
         let bufferRequiresUpdate = false;
         let chunksToBuffer = [];
-        let xMin = 0;
-        let yMin = 0;
-        let xMax = 0;
-        let yMax = 0;
+        let xMin = null;
+        let yMin = null;
+        let xMax = null;
+        let yMax = null;
 
         let debugChunks = [];
 
@@ -522,10 +522,10 @@ ChoreoGraph.plugin({
                 if (chunkLayer==undefined||layer.visible==false||((this.visibleLayers.length>0&&!this.visibleLayers.includes(layer.name))&&(this.visibleLayers.length!==0))) {
                   continue;
                 }
-                xMin = Math.min(xMin,chunkX);
-                yMin = Math.min(yMin,chunkY);
-                xMax = Math.max(xMax,chunkX + chunkWidth);
-                yMax = Math.max(yMax,chunkY + chunkHeight);
+                xMin = xMin === null ? chunkX : Math.min(xMin,chunkX);
+                yMin = yMin === null ? chunkY : Math.min(yMin,chunkY);
+                xMax = xMax === null ? chunkX + chunkWidth : Math.max(xMax,chunkX + chunkWidth);
+                yMax = yMax === null ? chunkY + chunkHeight : Math.max(yMax,chunkY + chunkHeight);
 
                 if (chunksToBuffer[layerIndex]==undefined) {
                   chunksToBuffer[layerIndex] = [];
