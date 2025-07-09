@@ -19,32 +19,32 @@ ChoreoGraph.plugin({
     pauseOnVisibilityChange = true;
     use3D = false;
 
-    #dopplerscale = 1;
-    #distancefactor = 0.02;
-    #rolloffscale = 0.02;
-    get dopplerscale() {
-      return this.#dopplerscale;
+    #dopplerScale = 1;
+    #distanceFactor = 0.02;
+    #rolloffScale = 0.02;
+    get dopplerScale() {
+      return this.#dopplerScale;
     }
-    set dopplerscale(value) {
-      this.#dopplerscale = value;
+    set dopplerScale(value) {
+      this.#dopplerScale = value;
       ChoreoGraph.FMOD.use3D = true;
-      this.errorCheck(this.SystemCore.set3DSettings(this.#dopplerscale, this.#distancefactor, this.#rolloffscale));
+      this.errorCheck(this.SystemCore.set3DSettings(this.#dopplerScale, this.#distanceFactor, this.#rolloffScale));
     }
-    get distancefactor() {
-      return this.#distancefactor;
+    get distanceFactor() {
+      return this.#distanceFactor;
     }
-    set distancefactor(value) {
-      this.#distancefactor = value;
+    set distanceFactor(value) {
+      this.#distanceFactor = value;
       ChoreoGraph.FMOD.use3D = true;
-      this.errorCheck(this.SystemCore.set3DSettings(this.#dopplerscale, this.#distancefactor, this.#rolloffscale));
+      this.errorCheck(this.SystemCore.set3DSettings(this.#dopplerScale, this.#distanceFactor, this.#rolloffScale));
     }
-    get rolloffscale() {
-      return this.#rolloffscale;
+    get rolloffScale() {
+      return this.#rolloffScale;
     }
-    set rolloffscale(value) {
-      this.#rolloffscale = value;
+    set rolloffScale(value) {
+      this.#rolloffScale = value;
       ChoreoGraph.FMOD.use3D = true;
-      this.errorCheck(this.SystemCore.set3DSettings(this.#dopplerscale, this.#distancefactor, this.#rolloffscale));
+      this.errorCheck(this.SystemCore.set3DSettings(this.#dopplerScale, this.#distanceFactor, this.#rolloffScale));
     }
 
     onInit = null;
@@ -128,6 +128,7 @@ ChoreoGraph.plugin({
         unload() { // Unloads the bank file data from memory
           if (!this.loaded) { return false; }
           if (ChoreoGraph.FMOD.logging) { console.info("Unloading bank: " + this.key); }
+          return true;
         };
         listEvents() { // Returns a list of event descriptions in the bank
           let bankEvents = {};
@@ -328,8 +329,8 @@ ChoreoGraph.plugin({
 
       cgFMOD.errorCheck(cgFMOD.System.setListenerAttributes(0, cgFMOD.originAttributes(), null));
       if (cgFMOD.use3D) {
-        cgFMOD.errorCheck(cgFMOD.SystemCore.set3DSettings(cgFMOD.dopplerscale, cgFMOD.distancefactor, cgFMOD.rolloffscale));
-        if (cgFMOD.logging) { console.info("3D audio enabled",cgFMOD.dopplerscale, cgFMOD.distancefactor, cgFMOD.rolloffscale); }
+        cgFMOD.errorCheck(cgFMOD.SystemCore.set3DSettings(cgFMOD.dopplerScale, cgFMOD.distanceFactor, cgFMOD.rolloffScale));
+        if (cgFMOD.logging) { console.info("3D audio enabled",cgFMOD.dopplerScale, cgFMOD.distanceFactor, cgFMOD.rolloffScale); }
       }
 
       if (cgFMOD.logging) { console.info("Initialised FMOD"); }
