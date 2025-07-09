@@ -627,7 +627,7 @@ ChoreoGraph.plugin({
     GamePadTypes = {
       XBOX : {
         name : "Xbox Controller",
-        buttons : ["A","B","X","Y","Left Bumper","Right Bumper","Left Trigger","Right Trigger","Select","Start","Left Stick","Right Stuck","D-Pad Up","D-Pad Down","D-Pad Left","D-Pad Right"],
+        buttons : ["A","B","X","Y","Left Bumper","Right Bumper","Left Trigger","Right Trigger","Select","Start","Left Stick","Right Stick","D-Pad Up","D-Pad Down","D-Pad Left","D-Pad Right"],
         triggers : ["LT","RT"]
       },
       PLAYSTATION : {
@@ -647,7 +647,7 @@ ChoreoGraph.plugin({
       },
       UNKNOWN : {
         name : "Controller",
-        buttons : ["A","B","X","Y","Left Bumper","Right Bumper","Left Trigger","Right Trigger","Select","Start","Left Stick","Right Stuck","D-Pad Up","D-Pad Down","D-Pad Left","D-Pad Right"],
+        buttons : ["A","B","X","Y","Left Bumper","Right Bumper","Left Trigger","Right Trigger","Select","Start","Left Stick","Right Stick","D-Pad Up","D-Pad Down","D-Pad Left","D-Pad Right"],
         triggers : ["LT","RT"]
       }
     }
