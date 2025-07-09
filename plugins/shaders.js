@@ -144,9 +144,7 @@ ChoreoGraph.plugin({
       height = 400;
 
       element = null;
-
       clearColor = {r:0,g:0,b:0,a:0};
-
       sources = [];
 
       gl = null;
