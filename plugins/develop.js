@@ -309,6 +309,7 @@ ChoreoGraph.plugin({
               c.lineTo(-cw*0.5,ch*0.5);
               c.stroke();
 
+              if (camera.scaleMode==="pixels") { c.restore(); continue; }
               let scale = cg.settings.core.debugCanvasScale / camera.cz;
               c.setLineDash([20*scale,10*scale]);
               c.beginPath();
