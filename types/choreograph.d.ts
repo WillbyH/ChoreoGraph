@@ -1,4 +1,4 @@
-declare interface ChoreoGraph {
+export declare interface ChoreoGraph {
   readonly VERSION: "3.2.0";
   settings: {
     maxFPS: number;
@@ -49,11 +49,11 @@ declare interface ChoreoGraph {
   start(): void;
 }
 
-
-declare const ChoreoGraph: ChoreoGraph;
-
-interface Window {
-  ChoreoGraph: ChoreoGraph;
+declare global {
+  interface Window {
+    ChoreoGraph: ChoreoGraph;
+  }
+  declare const ChoreoGraph: ChoreoGraph;
 }
 
 type DeepPartial<T> = {
@@ -80,7 +80,7 @@ interface cgInstance {
   readonly paths: Record<ChoreoGraphId, [number, number][]>;
   readonly objects: Record<ChoreoGraphId, cgObject>;
 
-  readonly keys: Record<string, ChoreoGraphId>;
+  readonly keys: Record<string, ChoreoGraphId[]>;
 
   readonly timeDelta: number;
   disabled: boolean;
