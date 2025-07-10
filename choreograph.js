@@ -133,6 +133,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         assumptions : false,
         imageSmoothingEnabled : true,
         skipLoadChecks : false,
+        areaTextDebug : false,
 
         callbacks : {
           loopBefore : null, // loopBefore(cg) runs before canvases are drawn
@@ -529,6 +530,84 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         c.drawImage(image.image, crop[0], crop[1], crop[2], crop[3], -(width/2)+ax, -(height/2)+ay, width, height);
       }
       c.restore();
+    };
+
+    drawAreaText(text, x, y, areaTextOptionsOrInit={}) {
+      const originX = x;
+      const originY = y;
+      let areaTextOptions;
+      if (areaTextOptionsOrInit instanceof ChoreoGraph.AreaTextOptions) {
+        areaTextOptions = areaTextOptionsOrInit;
+      } else {
+        areaTextOptions = new ChoreoGraph.AreaTextOptions(text, this.c, areaTextOptionsOrInit);
+      }
+      if (areaTextOptions.calibratedText!==text) {
+        areaTextOptions.calibrate(text.this.c);
+      }
+      this.c.font = `${areaTextOptions.fontWeight} ${areaTextOptions.fontSize}${areaTextOptions.sizeType} ${areaTextOptions.fontFamily}`;
+      this.c.textAlign = areaTextOptions.textAlign;
+      this.c.textBaseline = areaTextOptions.textBaseline;
+      if (areaTextOptions.fill) {
+        this.c.fillStyle = areaTextOptions.colour;
+      } else {
+        this.c.strokeStyle = areaTextOptions.colour;
+        this.c.lineWidth = areaTextOptions.strokeWidth;
+      }
+
+      const words = text.split(" ");
+      let wordsPassed = 0;
+      let lineCount = areaTextOptions.lineWords.length;
+      if (lineCount>areaTextOptions.maxLines) {
+        lineCount = areaTextOptions.maxLines;
+      }
+
+      if (areaTextOptions.area==="middle") {
+        y -= (areaTextOptions.leading*lineCount)*0.5;
+      } else if (areaTextOptions.area==="bottom") {
+        y -= areaTextOptions.leading*lineCount;
+      }
+
+      if (this.cg.settings.core.areaTextDebug) {
+        this.c.save();
+        this.c.globalCompositeOperation = "multiply";
+        this.c.lineWidth = 1;
+        this.c.globalAlpha = 0.5;
+        this.c.fillStyle = "blue";
+        this.c.strokeStyle = "red";
+        this.c.beginPath();
+        this.c.arc(originX, originY, 2, 0, Math.PI*2);
+        this.c.fill();
+        let boxXMin = x;
+        let boxXMax = x;
+        let boxY = y;
+        if (areaTextOptions.textAlign==="center") {
+          boxXMin -= areaTextOptions.minWidth*0.5;
+          boxXMax -= areaTextOptions.maxWidth*0.5;
+        } else if (areaTextOptions.textAlign==="right") {
+          boxXMin -= areaTextOptions.minWidth;
+          boxXMax -= areaTextOptions.maxWidth;
+        }
+        this.c.strokeRect(boxXMin, boxY, areaTextOptions.minWidth, areaTextOptions.leading*lineCount);
+        this.c.strokeRect(boxXMax, boxY, areaTextOptions.maxWidth, areaTextOptions.leading*lineCount);
+        this.c.restore();
+      }
+
+      for (let i=0;i<lineCount;i++) {
+        const wordCount = areaTextOptions.lineWords[i];
+        const lineWidth = areaTextOptions.lineWidths[i];
+        y += areaTextOptions.leading;
+        if (areaTextOptions.textAlign==="center") {
+          x -= 1/lineWidth;
+        }
+        let line = "";
+        for (let j=0;j<wordCount;j++) {
+          if (j>0) { line += " "; }
+          line += words[wordsPassed+j];
+        }
+        wordsPassed += wordCount;
+        this.c.fillText(line, x, y);
+        x = originX;
+      }
     };
 
     setCamera(camera) {
@@ -1325,6 +1404,76 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     ChoreoGraph.applyAttributes(component,componentInit);
   };
 
+  AreaTextOptions = class cgAreaTextOptions {
+    fontFamily = "Arial";
+    fontSize = 16;
+    leading = 16+16*0.1;
+    sizeType = "px";
+    fontWeight = "normal";
+    textAlign = "left";
+    textBaseline = "alphabetic";
+    area = "middle";
+    fill = true;
+    colour = "#000000";
+    lineWidth = 1;
+    minWidth = 100;
+    maxWidth = 100;
+    maxLines = Infinity;
+
+    measuredHeight = 0;
+    lineWords = [];
+    lineWidths = [];
+    calibratedText = "";
+
+    constructor(text, c, areaTextInit={}) {
+      if (areaTextInit.leading===undefined && areaTextInit.fontSize!==undefined) {
+        areaTextInit.leading = areaTextInit.fontSize + areaTextInit.fontSize * 0.1;
+      }
+      if (areaTextInit.minWidth===undefined && areaTextInit.maxWidth!==undefined) {
+        areaTextInit.minWidth = areaTextInit.maxWidth;
+      }
+      if (areaTextInit.lineWords!==undefined || areaTextInit.lineWidths!==undefined) {
+        console.warn("AreaTextOptions lines should not be set in the init. It will be overwrriten");
+      }
+      ChoreoGraph.applyAttributes(this,areaTextInit,true);
+
+      this.calibrate(text,c);
+    }
+    calibrate(text,c) {
+      this.calibratedText = text;
+      c.font = `${this.fontWeight} ${this.fontSize}${this.sizeType} ${this.fontFamily}`;
+
+      const words = text.split(" ");
+      const totalWords = words.length;
+
+      let currentWords = 0;
+      let currentLength = 0;
+      let forceNewLine = false;
+      for (let i=0;i<totalWords;i++) {
+        const word = words[i];
+        const wordWithSpace = word + (i === totalWords - 1 ? "" : " ");
+        const wordWidth = c.measureText(wordWithSpace).width;
+        if ((currentLength + wordWidth > this.maxWidth && currentWords > 0) || forceNewLine) {
+          forceNewLine = false;
+          this.lineWords.push(currentWords);
+          this.lineWidths.push(currentLength);
+          currentWords = 1;
+          currentLength = wordWidth;
+        } else {
+          if (currentLength + wordWidth > this.minWidth) {
+            forceNewLine = true;
+          }
+          currentWords++;
+          currentLength += wordWidth;
+        }
+      }
+      if (currentWords > 0) {
+        this.lineWords.push(currentWords);
+        this.lineWidths.push(currentLength);
+      }
+    };
+  };
+
   id = new class IDManager {
     used = [];
 
@@ -1565,10 +1714,46 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         }
       };
     };
+    cg.graphicTypes.areaText = new class AreaTextGraphic {
+      setup(init,cg) {
+        if (init.text!==undefined) {
+          this.text = init.text;
+          delete init.text;
+        }
+        this.options = new ChoreoGraph.AreaTextOptions(this.text, cg.canvas.c, init);
+      };
+      draw(c,ax,ay,canvas) {
+        canvas.drawAreaText(this.text, ax, ay, this.options);
+      };
+      getBounds() {
+        const lineCount = this.options.lineWords.length;
+        let xo = 0;
+        let yo = 0;
+        if (this.options.textAlign==="left") {
+          xo += this.options.maxWidth*0.5;
+        } else if (this.options.textAlign==="right") {
+          xo -= this.options.maxWidth*0.5;
+        }
+        if (this.options.area==="top") {
+          yo += this.options.leading*lineCount*0.5;
+        } else if (this.options.area==="bottom") {
+          yo -= this.options.leading*lineCount*0.5;
+        }
+        if (this.options.textBaseline==="top") {
+          yo += this.options.fontSize;
+        } else if (this.options.textBaseline==="alphabetic") {
+          yo += this.options.fontSize*0.3;
+        } else if (this.options.textBaseline==="middle") {
+          yo += this.options.fontSize*0.5;
+        }
+        return [this.options.maxWidth, this.options.leading*this.options.lineWords.length, xo, yo];
+      };
+    };
   };
 
-  applyAttributes(obj,attributes) {
+  applyAttributes(obj,attributes,strict=false) {
     for (let key in attributes) {
+      if (strict&&obj[key]===undefined) { continue; }
       obj[key] = attributes[key];
     }
   };

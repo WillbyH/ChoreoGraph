@@ -1,7 +1,8 @@
 const cg = ChoreoGraph.instantiate({
   core : {
     generateBasicEnvironment : true,
-    baseImagePath : "images/"
+    baseImagePath : "images/",
+    areaTextDebug : true
   },
   input : {
     preventSingleTouch : true
@@ -336,6 +337,20 @@ cg.settings.core.callbacks.loopBefore = () => {
     cg.Physics.colliders.rectCollider.transform.y = cg.Input.cursor.y;
   }
 }
+
+cg.createGraphic({
+  type:"areaText",
+  text:"This area text is in a graphic which saves data about it so it doesnt need to recalibrate every single frame",
+  maxWidth:150,
+  minWidth:100,
+  textAlign:"center"
+},"areaText");
+
+cg.scenes.main.createItem("graphic",{
+  graphic:cg.graphics.areaText,
+  transformInit:{x:-100,y:250},
+},"areaTextItem");
+
 cg.settings.core.callbacks.loopAfter = () => {
   ChoreoGraph.transformContext(cg.canvases.main.camera);
   cg.c.strokeStyle = "white";
@@ -416,6 +431,20 @@ cg.settings.core.callbacks.loopAfter = () => {
   //   }
   //   console.log(keys)
   // }
+
+  cg.canvas.c.resetTransform();
+  const minWidth = 100;
+  const maxWidth = 150;
+  const text = "You can do area text like this now! Which is pretty neat if I dooooooo say so my seeeeelllllllfffffff";
+  let options = new ChoreoGraph.AreaTextOptions(text,cg.canvas.c,{
+    minWidth : minWidth,
+    maxWidth : maxWidth,
+    textAlign : "center",
+    area : "middle",
+    colour : "#0d559d",
+    fontWeight : "bold"
+  });
+  cg.canvas.drawAreaText(text,500,370,options);
 }
 
 ChoreoGraph.start();

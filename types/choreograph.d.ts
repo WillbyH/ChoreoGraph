@@ -21,7 +21,9 @@ export declare interface ChoreoGraph {
 
   id: cgIDManager;
 
-  applyAttributes(obj: object, attributes: Record<string, any>): void;
+  AreaTextOptions: typeof cgAreaTextOptions;
+
+  applyAttributes(obj: object, attributes: Record<string, any>, strict: boolean): void;
   colourLerp(colourFrom: string, colourTo: string, amount: number): string;
   degreeToRadianStandard(degree: number): number;
   transformContext(
@@ -131,6 +133,7 @@ interface cgSettings {
     assumptions: boolean;
     imageSmoothingEnabled: boolean;
     skipLoadChecks: boolean;
+    areaTextDebug: boolean;
 
     callbacks: {
       loopBefore: ((cg: cgInstance) => void);
@@ -183,6 +186,12 @@ type cgCanvas = {
     ay?: number,
     flipX?: boolean,
     flipY?: boolean
+  ): void;
+  drawAreaText(
+    text: string,
+    x: number,
+    y: number,
+    areaTextOptionsOrInit?: cgAreaTextOptions | cgAreaTextOptionsInit,
   ): void;
   setCamera(camera: cgCamera): cgCanvas;
   delete(): void;
@@ -446,12 +455,24 @@ interface cgPointTextGraphicInit extends cgGraphicInitBase {
   maxWidth?: number;
 }
 
+interface cgAreaTextGraphic extends cgGraphicBase {
+  type: "areaText";
+  text: string;
+  options: cgAreaTextOptions;
+}
+
+interface cgAreaTextGraphicInit extends cgGraphicInitBase {
+  type: "areaText";
+  text: string;
+}
+
 interface cgGraphicMap {
   rectangle: cgRectangleGraphic;
   arc: cgArcGraphic;
   polygon: cgPolygonGraphic;
   image: cgImageGraphic;
   pointText: cgPointTextGraphic;
+  areaText: cgAreaTextGraphic;
 }
 
 type cgGraphic = cgGraphicMap[keyof cgGraphicMap];
@@ -462,6 +483,7 @@ interface cgGraphicInitMap {
   polygon: cgPolygonGraphicInit;
   image: cgImageGraphicInit;
   pointText: cgPointTextGraphicInit;
+  areaText: cgAreaTextGraphicInit & cgAreaTextOptionsInit;
 }
 
 type cgGraphicInit =
@@ -719,6 +741,49 @@ interface cgObjectComponentInitMap {
 }
 
 type cgObjectComponentInit = cgObjectComponentInitMap[keyof cgObjectComponentInitMap];
+
+declare class cgAreaTextOptions {
+  fontFamily: string;
+  fontSize: number;
+  leading: number;
+  sizeType: "px" | "em" | "rem" | "pt";
+  fontWeight: "normal";
+  textAlign: "left" | "center" | "right";
+  textBaseline: "alphabetic" | "top" | "middle" | "bottom";
+  area: "middle" | "top" | "bottom";
+  fill: true;
+  colour: string;
+  lineWidth: number;
+  minWidth: number;
+  maxWidth: number;
+  maxLines: number;
+
+  measuredHeight: number;
+  lineWords: number[];
+  lineWidths: number[];
+  calibratedText: string;
+
+  constructor(text: string, c: CanvasRenderingContext2D, areaTextInit: cgAreaTextOptionsInit);
+
+  calibrate(text: string, c: CanvasRenderingContext2D): void;
+}
+
+type cgAreaTextOptionsInit = {
+  fontFamily?: string;
+  fontSize?: number;
+  leading?: number;
+  sizeType?: "px" | "em" | "rem" | "pt";
+  fontWeight?: "normal";
+  textAlign?: "left" | "center" | "right";
+  textBaseline?: "alphabetic" | "top" | "middle" | "bottom";
+  area?: "middle" | "top" | "bottom";
+  fill?: true;
+  colour?: string;
+  lineWidth?: number;
+  minWidth?: number;
+  maxWidth?: number;
+  maxLines?: number;
+}
 
 type cgIDManager = {
   used: string[];
