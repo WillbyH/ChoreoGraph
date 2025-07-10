@@ -1,3 +1,10 @@
+// @ts-check
+/** @typedef {import('../../types/choreograph') } ChoreoGraphCore */
+/** @typedef {import('../../types/develop') } ChoreoGraphDevelop */
+/** @typedef {import('../../types/input') } ChoreoGraphInput */
+/** @typedef {import('../../types/audio') } ChoreoGraphAudio */
+/** @typedef {import('../../types/physics') } ChoreoGraphPhysics */
+
 const cg = ChoreoGraph.instantiate({
   core : {
     assumptions : true
