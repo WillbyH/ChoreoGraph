@@ -51,24 +51,6 @@ export declare interface ChoreoGraph {
   start(): void;
 }
 
-declare global {
-  interface Window {
-    ChoreoGraph: ChoreoGraph;
-  }
-  declare const ChoreoGraph: ChoreoGraph;
-}
-
-type DeepPartial<T> = {
-  [P in keyof T]?: T[P] extends object
-    ? T[P] extends Function
-      ? T[P]
-      : DeepPartial<T[P]>
-    : T[P];
-};
-type cgCullBounds = [width: number, height: number, xo: number, yo: number];
-type ChoreoGraphFrame = number;
-type ChoreoGraphId = string | number;
-
 interface cgInstance {
   settings: cgSettings;
   readonly canvases: Record<ChoreoGraphId, cgCanvas>;
@@ -152,159 +134,6 @@ interface cgSettings {
       resize: ((cgCanvas: cgCanvas) => void);
     };
   };
-}
-
-type cgCanvas = {
-  readonly id: ChoreoGraphId;
-  readonly width: number;
-  readonly height: number;
-  readonly rawWidth: number;
-  readonly rawHeight: number;
-
-  keepCursorHidden: boolean;
-  hideDebugOverlays: boolean;
-
-  imageRendering: 'auto' | 'smooth' | 'crisp-edges' | 'pixelated';
-
-  readonly camera: cgCamera;
-  readonly parentElement: HTMLElement;
-  pixelSize: number;
-  background: string;
-
-  readonly c: CanvasRenderingContext2D;
-  readonly element: HTMLCanvasElement;
-
-  resizeWithSelf(): cgCanvas;
-  drawImage(
-    image: cgImage,
-    x: number,
-    y: number,
-    width?: number,
-    height?: number,
-    rotation?: number,
-    ax?: number,
-    ay?: number,
-    flipX?: boolean,
-    flipY?: boolean
-  ): void;
-  drawAreaText(
-    text: string,
-    x: number,
-    y: number,
-    areaTextOptionsOrInit?: cgAreaTextOptions | cgAreaTextOptionsInit,
-  ): void;
-  setCamera(camera: cgCamera): cgCanvas;
-  delete(): void;
-}
-
-type cgCanvasInit = {
-  element: HTMLCanvasElement | HTMLElement | null;
-  width?: number;
-  height?: number;
-  rawWidth?: number;
-  rawHeight?: number;
-  keepCursorHidden?: boolean;
-  hideDebugOverlays?: boolean;
-  imageRendering?: 'auto' | 'smooth' | 'crisp-edges' | 'pixelated';
-  pixelSize?: number;
-  background?: string;
-}
-
-type cgCamera = {
-  readonly id: ChoreoGraphId;
-  readonly scenes: cgScene[];
-  readonly canvas: cgCanvas;
-
-  readonly cullOverride: cgCamera;
-  readonly inactiveCanvas: cgCanvas;
-
-  readonly x: number;
-  readonly y: number;
-  z: number;
-
-  transform: cgTransform;
-  canvasSpaceScale: number;
-
-  scaleMode: 'pixels' | 'maximum' | 'minimum';
-  pixelScale: number;
-  size: number;
-  width: number;
-  height: number;
-
-  readonly cx: number;
-  readonly cy: number;
-  readonly cz: number;
-
-  getCGSpaceX(x: number): number;
-  getCGSpaceY(y: number): number;
-
-  getCanvasSpaceX(x: number): number;
-  getCanvasSpaceY(y: number): number;
-
-  addScene(scene: cgScene): void;
-  removeScene(scene: cgScene): void;
-  setScene(scene: cgScene): void;
-  isSceneOpen(scene: cgScene): boolean;
-  delete(): void;
-}
-
-type cgCameraInit = {
-  scaleMode? : 'pixels' | 'maximum' | 'minimum';
-  pixelScale?: number;
-  size?: number;
-  width?: number;
-  height?: number;
-
-  transform?: cgTransform;
-  transformInit?: cgTransformInit;
-  transformId?: ChoreoGraphId;
-}
-
-type cgScene = {
-  readonly id: ChoreoGraphId;
-  readonly tree: Record<string, object>;
-  readonly structure: cgSceneItem[];
-  readonly objects: cgObject[];
-  readonly collections: Record<string, cgSceneItem>;
-  readonly drawBuffer: object[];
-  readonly drawBufferCollections: Record<string, object[]>;
-  readonly cameras: cgCamera[];
-  readonly items: Record<string, cgSceneItem>;
-
-  createItem(type: 'graphic' | 'collection', init: cgSceneItemInit, id?: ChoreoGraphId, collection?: ChoreoGraphId): cgSceneItem;
-  addObject(object: cgObject): void;
-  removeObject(object: cgObject): void;
-  addToBuffer(graphic: cgGraphic, transform: cgTransform, collection: string): void;
-  delete(): void;
-}
-
-type cgSceneInit = {
-
-}
-
-type cgSceneItem = {
-  readonly id: ChoreoGraphId;
-  readonly type: 'graphic' | 'collection';
-  readonly children: object[];
-  readonly path: string[];
-  readonly graphic: cgGraphic;
-  readonly transform: cgTransform;
-}
-
-type cgSceneItemInit = {
-  graphic?: cgGraphic;
-  children?: cgSceneItem[];
-  path?: any[];
-
-  transform?: cgTransform;
-  transformInit?: cgTransformInit;
-  transformId?: any;
-}
-
-type cgGraphicType = {
-  setup?(init: cgGraphicInit, cg: cgInstance): void;
-  draw(graphic: cgGraphic, init: cgGraphicInit, cg: cgInstance): void;
-  draw(item: cgSceneItem, transform: cgTransform): void;
 }
 
 interface cgGraphicBase {
@@ -490,314 +319,500 @@ type cgGraphicInit =
   | cgGraphicInitMap[keyof cgGraphicInitMap]
   | ({ type: Exclude<string, keyof cgGraphicInitMap> } & Record<string, any>);
 
-type cgTransform = {
-  readonly id: ChoreoGraphId;
-  x: number;
-  y: number;
-   /** Offset X */
-  ox: number;
-   /** Offset Y */
-  oy: number;
-   /** Scale X */
-  sx: number;
-   /** Scale Y */
-  sy: number;
-   /** Anchor X */
-  ax: number;
-   /** Anchor Y */
-  ay: number;
-   /** Rotation in degrees */
-  r: number;
-   /** Opacity from 0 to 1 */
-  o: number | boolean;
-  CGSpace: boolean;
-  canvasSpaceXAnchor: number;
-  canvasSpaceYAnchor: number;
-  flipX: boolean;
-  flipY: boolean;
-  parent: cgTransform | null;
-  delete(): void;
-}
 
-type cgTransformInit = {
-  x?: number;
-  y?: number;
-  ox?: number;
-  oy?: number;
-  sx?: number;
-  sy?: number;
-  ax?: number;
-  ay?: number;
-  r?: number;
-  o?: number;
-  CGSpace?: boolean;
-  canvasSpaceXAnchor?: number;
-  canvasSpaceYAnchor?: number;
-  flipX?: boolean;
-  flipY?: boolean;
-  parent?: cgTransform;
-}
+  interface cgObjectComponentInitBase {
+    master?: boolean;
+    key?: string;
 
-type cgImage = {
-  readonly id: ChoreoGraphId;
-  readonly file: string;
-  readonly image: HTMLImageElement;
-  readonly crop: number[];
-  readonly unsetCrop: boolean;
-  readonly rawWidth: number;
-  readonly rawHeight: number;
-  readonly width: number;
-  readonly height: number;
-  readonly scale: [number, number];
-  readonly ready: boolean;
-  readonly loadAttempts: number;
+    [key: string]: any;
+  }
 
-  disableCropping: boolean;
-  onLoad?: (image: cgImage) => void;
+  type cgObjectGraphic = {
+    readonly manifest: {
+      type: 'Graphic';
+      key: string;
+      master: true;
+      functions: {
+        update: true;
+        delete: true;
+      };
+    };
 
-  [key: string]: any;
-}
+    graphic: cgGraphic;
+    collection: string;
+    readonly transform: cgTransform;
 
-type cgImageInit = {
-  file?: string;
-  image?: HTMLImageElement | HTMLCanvasElement;
-  crop?: number[];
-  unsetCrop?: boolean;
-  disableCropping?: boolean;
-  onLoad?: (image: cgImage) => void;
-
-  width?: number;
-  height?: number;
-  scale?: [number, number];
-
-  [key: string]: any;
-}
-
-type cgSequence = {
-  readonly id: ChoreoGraphId;
-  data: any[];
-  callbacks: Record<string, Function>;
-
-  run(): void;
-  delete(): void;
-
-  [key: string]: any;
-}
-
-type cgSequenceInit = {
-  data?: any[];
-  callbacks?: Record<string, Function>;
-
-  [key: string]: any;
-}
-
-type cgEvent = {
-  readonly id: ChoreoGraphId;
-  readonly stt: number;
-  readonly ent: number;
-  readonly duration: number;
-  loop: boolean;
-  end?: (event: cgEvent) => void;
-  delete(): void;
-
-  [key: string]: any;
-}
-
-type cgEventInit = {
-  duration?: number;
-  loop?: boolean;
-  end?: (event: cgEvent) => void;
-
-  [key: string]: any;
-}
-
-type cgObject = {
-  readonly id: ChoreoGraphId;
-  objectData: {
-    readonly components: cgObjectComponent[];
     deleteTransformOnDelete: boolean;
-  };
-  readonly transform: cgTransform;
+  }
 
-  [key: string]: any;
+  interface cgObjectGraphicInit extends cgObjectComponentInitBase {
+    graphic?: cgGraphic;
+    collection?: string;
 
-  attach(
-    componentName: keyof cgObjectComponentMap,
-    init?: cgObjectComponentInit
-  ): cgObject;
-  update(scene: cgScene): void;
-  delete(): void;
-}
+    deleteTransformOnDelete?: boolean;
 
-type cgObjectInit = {
-  transform?: cgTransform;
-  transformInit?: cgTransformInit;
-  transformId?: ChoreoGraphId;
+    transform?: cgTransform;
+    transformInit?: cgTransformInit;
+    transformId?: ChoreoGraphId;
+  }
 
-  [key: string]: any;
-}
-
-interface cgObjectComponentInitBase {
-  master?: boolean;
-  key?: string;
-
-  [key: string]: any;
-}
-
-type cgObjectGraphic = {
-  readonly manifest: {
-    type: 'Graphic';
-    key: string;
-    master: true;
-    functions: {
-      update: true;
-      delete: true;
+  type cgObjectCamera = {
+    readonly manifest: {
+      type: 'Camera';
+      key: string;
+      master: true;
+      functions: {
+        update: true;
+      };
     };
-  };
 
-  graphic: cgGraphic;
-  collection: string;
-  readonly transform: cgTransform;
+    camera: cgCamera;
+    readonly transform: cgTransform;
+    active: boolean;
+    jump: boolean;
+    jumpDistance: number;
+    smoothing: boolean;
+  }
 
-  deleteTransformOnDelete: boolean;
-}
+  interface cgObjectCameraInit extends cgObjectComponentInitBase {
+    camera: cgCamera | null;
 
-interface cgObjectGraphicInit extends cgObjectComponentInitBase {
-  graphic?: cgGraphic;
-  collection?: string;
+    transform?: cgTransform;
+    transformInit?: cgTransformInit;
+    transformId?: ChoreoGraphId;
 
-  deleteTransformOnDelete?: boolean;
+    active?: boolean;
+    jump?: boolean;
+    jumpDistance?: number;
+    smoothing?: boolean;
+  }
 
-  transform?: cgTransform;
-  transformInit?: cgTransformInit;
-  transformId?: ChoreoGraphId;
-}
-
-type cgObjectCamera = {
-  readonly manifest: {
-    type: 'Camera';
-    key: string;
-    master: true;
-    functions: {
-      update: true;
+  type cgObjectScript = {
+    readonly manifest: {
+      type: 'Script';
+      key: string;
+      master: true;
+      functions: {
+        update: true;
+        delete: true;
+      };
     };
+
+    startScript: ((object: cgObject) => void) | null;
+    updateScript: ((object: cgObject, scene: cgScene) => void) | null;
+    deleteScript: ((object: cgObject) => void) | null;
+  }
+
+  interface cgObjectScriptInit extends cgObjectComponentInitBase {
+    startScript?: ((object: cgObject) => void) | null;
+    updateScript?: ((object: cgObject, scene: cgScene) => void) | null;
+    deleteScript?: ((object: cgObject) => void) | null;
+  }
+
+  interface cgObjectComponentMap {
+    Graphic: cgObjectGraphic;
+    Camera: cgObjectCamera;
+    Script: cgObjectScript;
+  }
+
+  type cgObjectComponent = cgObjectComponentMap[keyof cgObjectComponentMap];
+
+  interface cgObjectComponentInitMap {
+    Graphic: cgObjectGraphicInit;
+    Camera: cgObjectCameraInit;
+    Script: cgObjectScriptInit;
+  }
+
+  type cgObjectComponentInit = cgObjectComponentInitMap[keyof cgObjectComponentInitMap];
+
+declare global {
+  interface Window {
+    ChoreoGraph: ChoreoGraph;
+  }
+  declare const ChoreoGraph: ChoreoGraph;
+
+  type DeepPartial<T> = {
+    [P in keyof T]?: T[P] extends object
+      ? T[P] extends Function
+        ? T[P]
+        : DeepPartial<T[P]>
+      : T[P];
   };
+  type cgCullBounds = [width: number, height: number, xo: number, yo: number];
+  type ChoreoGraphFrame = number;
+  type ChoreoGraphId = string | number;
 
-  camera: cgCamera;
-  readonly transform: cgTransform;
-  active: boolean;
-  jump: boolean;
-  jumpDistance: number;
-  smoothing: boolean;
-}
+  type cgCanvas = {
+    readonly id: ChoreoGraphId;
+    readonly width: number;
+    readonly height: number;
+    readonly rawWidth: number;
+    readonly rawHeight: number;
 
-interface cgObjectCameraInit extends cgObjectComponentInitBase {
-  camera: cgCamera | null;
+    keepCursorHidden: boolean;
+    hideDebugOverlays: boolean;
 
-  transform?: cgTransform;
-  transformInit?: cgTransformInit;
-  transformId?: ChoreoGraphId;
+    imageRendering: 'auto' | 'smooth' | 'crisp-edges' | 'pixelated';
 
-  active?: boolean;
-  jump?: boolean;
-  jumpDistance?: number;
-  smoothing?: boolean;
-}
+    readonly camera: cgCamera;
+    readonly parentElement: HTMLElement;
+    pixelSize: number;
+    background: string;
 
-type cgObjectScript = {
-  readonly manifest: {
-    type: 'Script';
-    key: string;
-    master: true;
-    functions: {
-      update: true;
-      delete: true;
+    readonly c: CanvasRenderingContext2D;
+    readonly element: HTMLCanvasElement;
+
+    resizeWithSelf(): cgCanvas;
+    drawImage(
+      image: cgImage,
+      x: number,
+      y: number,
+      width?: number,
+      height?: number,
+      rotation?: number,
+      ax?: number,
+      ay?: number,
+      flipX?: boolean,
+      flipY?: boolean
+    ): void;
+    drawAreaText(
+      text: string,
+      x: number,
+      y: number,
+      areaTextOptionsOrInit?: cgAreaTextOptions | cgAreaTextOptionsInit,
+    ): void;
+    setCamera(camera: cgCamera): cgCanvas;
+    delete(): void;
+  }
+
+  type cgCanvasInit = {
+    element: HTMLCanvasElement | HTMLElement | null;
+    width?: number;
+    height?: number;
+    rawWidth?: number;
+    rawHeight?: number;
+    keepCursorHidden?: boolean;
+    hideDebugOverlays?: boolean;
+    imageRendering?: 'auto' | 'smooth' | 'crisp-edges' | 'pixelated';
+    pixelSize?: number;
+    background?: string;
+  }
+
+  type cgCamera = {
+    readonly id: ChoreoGraphId;
+    readonly scenes: cgScene[];
+    readonly canvas: cgCanvas;
+
+    readonly cullOverride: cgCamera;
+    readonly inactiveCanvas: cgCanvas;
+
+    readonly x: number;
+    readonly y: number;
+    z: number;
+
+    transform: cgTransform;
+    canvasSpaceScale: number;
+
+    scaleMode: 'pixels' | 'maximum' | 'minimum';
+    pixelScale: number;
+    size: number;
+    width: number;
+    height: number;
+
+    readonly cx: number;
+    readonly cy: number;
+    readonly cz: number;
+
+    getCGSpaceX(x: number): number;
+    getCGSpaceY(y: number): number;
+
+    getCanvasSpaceX(x: number): number;
+    getCanvasSpaceY(y: number): number;
+
+    addScene(scene: cgScene): void;
+    removeScene(scene: cgScene): void;
+    setScene(scene: cgScene): void;
+    isSceneOpen(scene: cgScene): boolean;
+    delete(): void;
+  }
+
+  type cgCameraInit = {
+    scaleMode? : 'pixels' | 'maximum' | 'minimum';
+    pixelScale?: number;
+    size?: number;
+    width?: number;
+    height?: number;
+
+    transform?: cgTransform;
+    transformInit?: cgTransformInit;
+    transformId?: ChoreoGraphId;
+  }
+
+  type cgScene = {
+    readonly id: ChoreoGraphId;
+    readonly tree: cgSceneTree;
+    readonly structure: cgSceneItem[];
+    readonly objects: cgObject[];
+    readonly collections: Record<string, cgSceneItem>;
+    readonly drawBuffer: object[];
+    readonly drawBufferCollections: Record<string, cgSceneItem[]>;
+    readonly cameras: cgCamera[];
+    readonly items: Record<string, cgSceneItem>;
+
+    createItem(type: 'graphic' | 'collection', init: cgSceneItemInit, id?: ChoreoGraphId, collection?: ChoreoGraphId): cgSceneItem;
+    addObject(object: cgObject): void;
+    removeObject(object: cgObject): void;
+    addToBuffer(graphic: cgGraphic, transform: cgTransform, collection: string): void;
+    delete(): void;
+  }
+
+  type cgSceneInit = {
+
+  }
+
+  type cgSceneTree = cgSceneItem | cgSceneTreeBranch;
+  type cgSceneTreeBranch = Record<ChoreoGraphId, cgSceneItemTree>;
+
+  type cgSceneItem = cgSceneItemGraphic | cgSceneItemCollection;
+
+  type cgSceneItemGraphic = {
+    readonly type: 'graphic';
+    readonly id: ChoreoGraphId;
+    readonly graphic: cgGraphic;
+    readonly transform: cgTransform;
+  }
+
+  type cgSceneItemCollection = {
+    readonly type: 'collection';
+    readonly id: ChoreoGraphId;
+    readonly children: cgSceneItem[];
+    readonly path: string[];
+  }
+
+  type cgSceneItemInit = cgSceneItemGraphicInit | cgSceneItemCollectionInit;
+
+  type cgSceneItemGraphicInit = {
+    graphic: cgGraphic;
+    transform?: cgTransform;
+    transformInit?: cgTransformInit;
+    transformId?: ChoreoGraphId;
+  }
+
+  type cgSceneItemCollectionInit = {
+    children?: cgSceneItem[];
+    path?: any[];
+  }
+
+  type cgGraphicType = {
+    setup?(init: cgGraphicInit, cg: cgInstance): void;
+    draw(graphic: cgGraphic, init: cgGraphicInit, cg: cgInstance): void;
+    draw(item: cgSceneItem, transform: cgTransform): void;
+  }
+
+  type cgTransform = {
+    readonly id: ChoreoGraphId;
+    x: number;
+    y: number;
+    /** Offset X */
+    ox: number;
+    /** Offset Y */
+    oy: number;
+    /** Scale X */
+    sx: number;
+    /** Scale Y */
+    sy: number;
+    /** Anchor X */
+    ax: number;
+    /** Anchor Y */
+    ay: number;
+    /** Rotation in degrees */
+    r: number;
+    /** Opacity from 0 to 1 */
+    o: number | boolean;
+    CGSpace: boolean;
+    canvasSpaceXAnchor: number;
+    canvasSpaceYAnchor: number;
+    flipX: boolean;
+    flipY: boolean;
+    parent: cgTransform | null;
+    delete(): void;
+  }
+
+  type cgTransformInit = {
+    x?: number;
+    y?: number;
+    ox?: number;
+    oy?: number;
+    sx?: number;
+    sy?: number;
+    ax?: number;
+    ay?: number;
+    r?: number;
+    o?: number;
+    CGSpace?: boolean;
+    canvasSpaceXAnchor?: number;
+    canvasSpaceYAnchor?: number;
+    flipX?: boolean;
+    flipY?: boolean;
+    parent?: cgTransform;
+  }
+
+  type cgImage = {
+    readonly id: ChoreoGraphId;
+    readonly file: string;
+    readonly image: HTMLImageElement;
+    readonly crop: number[];
+    readonly unsetCrop: boolean;
+    readonly rawWidth: number;
+    readonly rawHeight: number;
+    readonly width: number;
+    readonly height: number;
+    readonly scale: [number, number];
+    readonly ready: boolean;
+    readonly loadAttempts: number;
+
+    disableCropping: boolean;
+    onLoad?: (image: cgImage) => void;
+
+    [key: string]: any;
+  }
+
+  type cgImageInit = {
+    file?: string;
+    image?: HTMLImageElement | HTMLCanvasElement;
+    crop?: number[];
+    unsetCrop?: boolean;
+    disableCropping?: boolean;
+    onLoad?: (image: cgImage) => void;
+
+    width?: number;
+    height?: number;
+    scale?: [number, number];
+
+    [key: string]: any;
+  }
+
+  type cgSequence = {
+    readonly id: ChoreoGraphId;
+    data: any[];
+    callbacks: Record<string, Function>;
+
+    run(): void;
+    delete(): void;
+
+    [key: string]: any;
+  }
+
+  type cgSequenceInit = {
+    data?: any[];
+    callbacks?: Record<string, Function>;
+
+    [key: string]: any;
+  }
+
+  type cgEvent = {
+    readonly id: ChoreoGraphId;
+    readonly stt: number;
+    readonly ent: number;
+    readonly duration: number;
+    loop: boolean;
+    end?: (event: cgEvent) => void;
+    delete(): void;
+
+    [key: string]: any;
+  }
+
+  type cgEventInit = {
+    duration?: number;
+    loop?: boolean;
+    end?: (event: cgEvent) => void;
+
+    [key: string]: any;
+  }
+
+  type cgObject = {
+    readonly id: ChoreoGraphId;
+    objectData: {
+      readonly components: cgObjectComponent[];
+      deleteTransformOnDelete: boolean;
     };
-  };
+    readonly transform: cgTransform;
 
-  startScript: ((object: cgObject) => void) | null;
-  updateScript: ((object: cgObject, scene: cgScene) => void) | null;
-  deleteScript: ((object: cgObject) => void) | null;
-}
+    [key: string]: any;
 
-interface cgObjectScriptInit extends cgObjectComponentInitBase {
-  startScript?: ((object: cgObject) => void) | null;
-  updateScript?: ((object: cgObject, scene: cgScene) => void) | null;
-  deleteScript?: ((object: cgObject) => void) | null;
-}
+    attach(
+      componentName: keyof cgObjectComponentMap,
+      init?: cgObjectComponentInit
+    ): cgObject;
+    update(scene: cgScene): void;
+    delete(): void;
+  }
 
-interface cgObjectComponentMap {
-  Graphic: cgObjectGraphic;
-  Camera: cgObjectCamera;
-  Script: cgObjectScript;
-}
+  type cgObjectInit = {
+    transform?: cgTransform;
+    transformInit?: cgTransformInit;
+    transformId?: ChoreoGraphId;
 
-type cgObjectComponent = cgObjectComponentMap[keyof cgObjectComponentMap];
+    [key: string]: any;
+  }
 
-interface cgObjectComponentInitMap {
-  Graphic: cgObjectGraphicInit;
-  Camera: cgObjectCameraInit;
-  Script: cgObjectScriptInit;
-}
+  declare class cgAreaTextOptions {
+    fontFamily: string;
+    fontSize: number;
+    leading: number;
+    sizeType: "px" | "em" | "rem" | "pt";
+    fontWeight: "normal";
+    textAlign: "left" | "center" | "right";
+    textBaseline: "alphabetic" | "top" | "middle" | "bottom";
+    area: "middle" | "top" | "bottom";
+    fill: true;
+    colour: string;
+    lineWidth: number;
+    minWidth: number;
+    maxWidth: number;
+    maxLines: number;
 
-type cgObjectComponentInit = cgObjectComponentInitMap[keyof cgObjectComponentInitMap];
+    measuredHeight: number;
+    lineWords: number[];
+    lineWidths: number[];
+    calibratedText: string;
 
-declare class cgAreaTextOptions {
-  fontFamily: string;
-  fontSize: number;
-  leading: number;
-  sizeType: "px" | "em" | "rem" | "pt";
-  fontWeight: "normal";
-  textAlign: "left" | "center" | "right";
-  textBaseline: "alphabetic" | "top" | "middle" | "bottom";
-  area: "middle" | "top" | "bottom";
-  fill: true;
-  colour: string;
-  lineWidth: number;
-  minWidth: number;
-  maxWidth: number;
-  maxLines: number;
+    constructor(text: string, c: CanvasRenderingContext2D, areaTextInit: cgAreaTextOptionsInit);
 
-  measuredHeight: number;
-  lineWords: number[];
-  lineWidths: number[];
-  calibratedText: string;
+    calibrate(text: string, c: CanvasRenderingContext2D): void;
+  }
 
-  constructor(text: string, c: CanvasRenderingContext2D, areaTextInit: cgAreaTextOptionsInit);
+  type cgAreaTextOptionsInit = {
+    fontFamily?: string;
+    fontSize?: number;
+    leading?: number;
+    sizeType?: "px" | "em" | "rem" | "pt";
+    fontWeight?: string;
+    textAlign?: "left" | "center" | "right";
+    textBaseline?: "alphabetic" | "top" | "middle" | "bottom";
+    area?: "middle" | "top" | "bottom";
+    fill?: true;
+    colour?: string;
+    lineWidth?: number;
+    minWidth?: number;
+    maxWidth?: number;
+    maxLines?: number;
+  }
 
-  calibrate(text: string, c: CanvasRenderingContext2D): void;
-}
+  type cgIDManager = {
+    used: string[];
 
-type cgAreaTextOptionsInit = {
-  fontFamily?: string;
-  fontSize?: number;
-  leading?: number;
-  sizeType?: "px" | "em" | "rem" | "pt";
-  fontWeight?: "normal";
-  textAlign?: "left" | "center" | "right";
-  textBaseline?: "alphabetic" | "top" | "middle" | "bottom";
-  area?: "middle" | "top" | "bottom";
-  fill?: true;
-  colour?: string;
-  lineWidth?: number;
-  minWidth?: number;
-  maxWidth?: number;
-  maxLines?: number;
-}
+    get: (length: number) => string;
+    release: (id: string) => void;
+  }
 
-type cgIDManager = {
-  used: string[];
+  type cgPlugin = {
+    name: string;
+    key: string;
+    version: string;
 
-  get: (length: number) => string;
-  release: (id: string) => void;
-}
-
-type cgPlugin = {
-  name: string;
-  key: string;
-  version: string;
-
-  instanceConnect: (cg: cgInstance) => void;
-  instanceStart: (cg: cgInstance) => void;
-  globalStart: () => void;
+    instanceConnect: (cg: cgInstance) => void;
+    instanceStart: (cg: cgInstance) => void;
+    globalStart: () => void;
+  }
 }
