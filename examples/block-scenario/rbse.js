@@ -23,6 +23,7 @@ cg.createCamera({
   scaleMode : "minimum",
   width : 400,
   height : 300,
+  transformInit : { x: 200, y: 150 },
 },"railways")
 .addScene(cg.createScene({},"railways"));
 
