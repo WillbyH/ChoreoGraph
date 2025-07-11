@@ -117,9 +117,9 @@ ChoreoGraph.plugin({
         this.tilemap = tilemap;
       };
 
-      createLayer(layerInit={},layerIndex=null) {
+      createLayer(chunkLayerInit={},layerIndex=null) {
         let newLayer = new ChoreoGraph.Tilemaps.ChunkLayer(this,layerIndex);
-        ChoreoGraph.applyAttributes(newLayer,layerInit);
+        ChoreoGraph.applyAttributes(newLayer,chunkLayerInit);
         if (newLayer.tiles==undefined) { newLayer.tiles = []; }
         for (let tileId of newLayer.tiles) {
           if (tileId==null) { continue; }

@@ -62,7 +62,7 @@ declare module './choreograph' {
     height: number;
     readonly layers: cgTilemapLayer[];
 
-    createLayer(init: cgTilemapLayerInit, layerIndex?: number): cgTilemapChunkLayer;
+    createLayer(init: cgTilemapChunkLayerInit, layerIndex?: number): cgTilemapChunkLayer;
   }
 
   type cgTilemapChunkInit = {
@@ -87,6 +87,11 @@ declare module './choreograph' {
     readonly index: number;
     readonly chunk: cgTilemapChunk;
     readonly cache: cgTilemapCachedChunkLayer;
+    tiles: cgTilemapTile[];
+  }
+
+  type cgTilemapChunkLayerInit = {
+    tiles: (ChoreoGraphId | null)[];
   }
 
   type cgTilemapCachedChunkLayer = {

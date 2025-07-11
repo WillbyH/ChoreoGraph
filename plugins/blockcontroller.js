@@ -4,10 +4,9 @@ ChoreoGraph.plugin({
   version : "1.2",
 
   globalPackage : new class cgBlockController {
-    Block = class Block {
+    Block = class cgBlock {
       id = null;
       override = false; // If true the block will never be clear
-      waitingForOverride = false; // If the object is waiting blocked in a block that is overridden
       clear = true; // If the block is clear to be entered, you know, basic block rules
       overrideType = 0; // 0 - allow stopping midway  1 - only at block markers
       objectCount = 0;

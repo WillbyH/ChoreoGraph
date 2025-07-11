@@ -397,6 +397,24 @@ declare module './choreograph' {
         buttonDown: ((button: cgButton, event: PointerEvent, canvas: cgCanvas) => void) | null;
         updateButtonChecks: ((cg: cgInstance) => void) | null;
       }
+
+      debug: {
+        active: boolean;
+        buttons: {
+          active: false;
+          opacity: number;
+          fadeOut: number;
+          style: {
+            fontSize: number;
+            fontFamily: string;
+            textColour: string;
+            bgNormal: string;
+            bgInactive: string;
+            bgHover: string;
+            bgClicked: string;
+          }
+        }
+      }
     }
   }
 }
