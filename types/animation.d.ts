@@ -9,6 +9,8 @@ declare module './choreograph' {
       animations: Record<ChoreoGraphId, cgAnimation>;
 
       easeFunctions: Record<cgAnimationEaseFunctionTypes, (t: number) => number>;
+
+      rawPreprocessFunctions: Record<preprocessFunctionName, (animation: cgAnimation) => void>;
     }
   }
 
@@ -23,7 +25,11 @@ declare module './choreograph' {
     readonly timeKey: boolean;
     readonly ready: boolean;
 
-    loadRaw(data: cgAnimationData, keys: cgAnimationKey[]): void;
+    loadRaw(
+      data: cgAnimationData,
+      keys: cgAnimationKey[],
+      preprocessingFunctions?: (preprocessFunctionName | string)[]
+    ): cgAnimation;
     createTrack(trackType: cgAnimationTrackType): cgAnimationTrack;
     bake(): void;
     calculateDuration(): number;
@@ -35,9 +41,11 @@ declare module './choreograph' {
     [key: string]: any;
   }
 
+  type preprocessFunctionName = "consistentSpeed" | "autoFacing" | "persistentValues";
+
   type cgAnimationData = any[][];
   type cgAnimationKey = {
-    keySet: string;
+    keySet: "time" | string[];
     sources?: string[];
   }
 
@@ -113,6 +121,13 @@ declare module './choreograph' {
       defaultPathDensity: number;
       genericDecimalRounding: number;
       timeDecimalRounding: number;
+
+      rawProcessing : {
+        xKey : string[],
+        yKey : string[],
+        rKey : string[],
+        consistentSpeed : number
+      },
 
       debug: {
         active: boolean;

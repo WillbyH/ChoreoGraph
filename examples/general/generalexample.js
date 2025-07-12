@@ -1,17 +1,29 @@
+/** @typedef {import('../../types/choreograph') } ChoreoGraphCore */
+/** @typedef {import('../../types/develop') } ChoreoGraphDevelop */
+/** @typedef {import('../../types/input') } ChoreoGraphInput */
+/** @typedef {import('../../types/audio') } ChoreoGraphAudio */
+/** @typedef {import('../../types/physics') } ChoreoGraphPhysics */
+/** @typedef {import('../../types/animation') } ChoreoGraphAnimation */
+/** @typedef {import('../../types/animationeditor') } ChoreoGraphAnimationEditor */
+/** @typedef {import('../../types/shaders') } ChoreoGraphShaders */
+/** @typedef {import('../../types/fmodconnector') } ChoreoGraphFMODConnector */
+/** @typedef {import('../../types/blockcontroller') } ChoreoGraphBlockController */
+/** @typedef {import('../../types/tilemaps') } ChoreoGraphTileMaps */
+/** @typedef {import('../../types/tiledconnector') } ChoreoGraphTiledConnector */
+/** @typedef {import('../../types/lighting') } ChoreoGraphLighting */
+
 const cg = ChoreoGraph.instantiate({
   core : {
     generateBasicEnvironment : true,
     baseImagePath : "images/",
     areaTextDebug : true
   },
-  input : {
-    preventSingleTouch : true
-  },
   audio : {
     // forceMode : "HTMLAudio",
     baseAudioPath : "audio/",
   },
   input : {
+    preventSingleTouch : true,
     preventDefaultKeys : ["space","up","down"],
     controller : {
       emulatedCursor : {
@@ -21,9 +33,6 @@ const cg = ChoreoGraph.instantiate({
     debug : {
       active : true
     }
-  },
-  shaders : {
-    debug : true
   },
   tilemaps : {
     // appendCanvases : true
@@ -83,10 +92,10 @@ cg.scenes.main.createItem("graphic",{graphic:cg.graphics.upRectangle},"upRectang
 cg.scenes.main.createItem("graphic",{graphic:cg.graphics.cursorRectangle},"cursorRectangle");
 // cg.scenes.main.createItem("graphic",{graphic:cg.graphics.canvasCursorRectangle},"canvasCursorRectangle");
 
-cg.Input.createButton({type:"rectangle",transformInit:{CGSpace:true,x:500,y:30},width:120,down:function(){
+cg.Input.createButton({type:"rectangle",transformInit:{CGSpace:true,x:500,y:30},width:120,height:100,down:function(){
   cg.Audio.masterVolume = cg.Audio.masterVolume==0 ? 1 : 0;
 }},"toggleAudio");
-cg.Input.createButton({type:"rectangle",transformInit:{CGSpace:false,canvasSpaceXAnchor:1,canvasSpaceYAnchor:1,x:-120/2,y:-100/2},width:120},"dummy");
+cg.Input.createButton({type:"rectangle",transformInit:{CGSpace:false,canvasSpaceXAnchor:1,canvasSpaceYAnchor:1,x:-120/2,y:-100/2},width:120,height:100},"dummy");
 cg.Input.createButton({type:"circle",transformInit:{CGSpace:false,canvasSpaceXAnchor:0,canvasSpaceYAnchor:1,x:35,y:-35},radius:30},"plastic");
 cg.Input.createButton({type:"polygon",transformInit:{CGSpace:true,x:-200,y:0},path:[[18,-62],[-49,-26],[-48,45],[13,65],[48,27],[30,-15]]},"grumble");
 
@@ -259,10 +268,19 @@ let tilemapGraphic = cg.createGraphic({
 },"tilemapGraphic");
 
 cg.scenes.main.createItem("graphic",{graphic:tilemapGraphic},"tilemapGraphic");
+cg.scenes.main.tree.tilemapGraphic.transform;
 cg.scenes.main.tree.tilemapGraphic.transform.sx = 0.5;
 cg.scenes.main.tree.tilemapGraphic.transform.sy = 0.5;
 cg.scenes.main.tree.tilemapGraphic.transform.x = 200;
 cg.scenes.main.tree.tilemapGraphic.transform.y = 100;
+
+cg.Animation.createAnimation({},"egg")
+.loadRaw([[24,364],[32,293,5,,10],[83,190],[89,346]],[
+  {keySet:["transform","x"]},
+  {keySet:["transform","y"]},
+  {keySet:["transform","r"]},
+  {keySet:"time"}
+],["consistentSpeed","autoFacing","persistentValues"])
 
 let shaderGraphic = cg.createGraphic({type:"shader",width:250,height:250,drawCallback:function(gl,graphic){
   gl.uniform1f(graphic.timeLocation, cg.clock/1000);
@@ -305,10 +323,10 @@ let shaderGraphic = cg.createGraphic({type:"shader",width:250,height:250,drawCal
 
 cg.scenes.main.createItem("graphic",{graphic:shaderGraphic,transform:cg.createTransform({x:200,y:200})},"shaderGraphic");
 
-cg.Physics.createCollider({type:"rectangle",transformInit:{x:500,y:60}},"rectCollider");
+cg.Physics.createCollider({type:"rectangle",width:100,height:100,transformInit:{x:500,y:60}},"rectCollider");
 // cg.Physics.createCollider({type:"rectangle",static:true,transformInit:{x:500,y:60}},"rectCollider");
-cg.Physics.createCollider({type:"circle",transformInit:{x:500,y:200}},"circleCollider");
-cg.Physics.createCollider({type:"circle",trigger:true,transformInit:{x:301,y:300}},"circleCollider");
+cg.Physics.createCollider({type:"circle",radius:50,transformInit:{x:500,y:200}},"circleCollider");
+cg.Physics.createCollider({type:"circle",radius:50,trigger:true,transformInit:{x:301,y:300}},"circleCollider");
 // cg.Physics.createCollider({type:"circle",transformInit:{x:502,y:200}},"circleCollider");
 // cg.Physics.createCollider({type:"circle",transformInit:{x:503,y:200}},"circleCollider");
 // cg.Physics.createCollider({type:"point",transformInit:{x:503,y:200}},"circleCollider");
@@ -375,7 +393,7 @@ cg.settings.core.callbacks.loopAfter = () => {
   // cg.scenes.main.items.another.transform.x += dir[0]*0.2*cg.timeDelta;
   // cg.scenes.main.items.another.transform.y += dir[1]*0.2*cg.timeDelta;
 
-  dir = cg.Input.getActionNormalisedVector("secondaryForward","secondaryBackward","secondaryLeft","secondaryRight");
+  let dir = cg.Input.getActionNormalisedVector("secondaryForward","secondaryBackward","secondaryLeft","secondaryRight");
   cg.cameras.main.transform.x += dir[0]*0.4*cg.timeDelta;
   cg.cameras.main.transform.y += dir[1]*0.4*cg.timeDelta;
 
