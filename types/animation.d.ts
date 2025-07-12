@@ -10,7 +10,7 @@ declare module './choreograph' {
 
       easeFunctions: Record<cgAnimationEaseFunctionTypes, (t: number) => number>;
 
-      rawPreprocessFunctions: Record<preprocessFunctionName, (animation: cgAnimation) => void>;
+      rawPreprocessFunctions: Record<string, (animation: cgAnimation) => void>;
     }
   }
 
@@ -28,7 +28,7 @@ declare module './choreograph' {
     loadRaw(
       data: cgAnimationData,
       keys: cgAnimationKey[],
-      preprocessingFunctions?: (preprocessFunctionName | string)[]
+      preprocessingFunctions?: string[]
     ): cgAnimation;
     createTrack(trackType: cgAnimationTrackType): cgAnimationTrack;
     bake(): void;
@@ -40,8 +40,6 @@ declare module './choreograph' {
 
     [key: string]: any;
   }
-
-  type preprocessFunctionName = "consistentSpeed" | "autoFacing" | "persistentValues";
 
   type cgAnimationData = any[][];
   type cgAnimationKey = {

@@ -81,16 +81,18 @@ ChoreoGraph.plugin({
           for (let part in animation.data) {
             const frame = animation.data[part];
             if (typeof frame[0] === "string") { continue; }
-            if (frame[xKey]===undefined || frame[yKey]===undefined || frame[timeKey]!==undefined) { continue; }
             if (lastX==null) {
               lastX = frame[xKey];
               lastY = frame[yKey];
               frame[timeKey] = 0;
               continue;
             }
+            if (frame[xKey]===undefined || frame[yKey]===undefined || frame[timeKey]!==undefined) { continue; }
             const distance = Math.sqrt(Math.pow(frame[xKey]-lastX,2)+Math.pow(frame[yKey]-lastY,2));
             if (distance==0) { continue; }
             frame[timeKey] = distance / cg.settings.animation.rawProcessing.consistentSpeed;
+            lastX = frame[xKey];
+            lastY = frame[yKey];
           }
         },
         // Automatically set the rotation based on the direction of movement
@@ -159,6 +161,18 @@ ChoreoGraph.plugin({
             for (let i=0;i<lastValues.length;i++) {
               if (frame[i]===undefined) {
                 frame[i] = lastValues[i];
+              }
+            }
+          }
+        },
+        // For each key with an undefined value set it to 0
+        setEmptyToZero : function(animation) {
+          const keyCount = animation.keys.length;
+          for (let frame of animation.data) {
+            if (typeof frame[0] === "string") { continue; }
+            for (let i=0;i<keyCount;i++) {
+              if (frame[i]===undefined) {
+                frame[i] = 0;
               }
             }
           }
@@ -314,7 +328,6 @@ ChoreoGraph.plugin({
         this.data = data;
         this.keys = keys;
         this.timeKey = this.getTimeKey();
-        this.calculateDuration();
         if (this.data.length==0) {
           this.ready = false;
           return this;
@@ -328,6 +341,7 @@ ChoreoGraph.plugin({
             console.warn("Animation preprocessing function",functionName,"does not exist");
           }
         }
+        this.calculateDuration();
         this.ready = true;
         return this;
       };
@@ -1657,7 +1671,8 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
     if (this.playhead >= this.ent) {
       this.from = this.to;
       this.part++;
-      if (this.processTriggersAndFindTo()===false) { return false; }
+      if (this.part>=this.animation.data.length) { this.setFinalValues(); this.playing = false; }
+      else if (this.processTriggersAndFindTo()===false) { return false; }
     }
     return true;
   };
