@@ -489,14 +489,14 @@ ChoreoGraph.plugin({
           c.fillStyle = cg.settings.develop.objectAnnotation.textColour;
           for (let scene of camera.scenes) {
             for (let object of scene.objects) {
-              let x = object.transform.x;
-              let y = object.transform.y;
-              let text = cg.settings.develop.objectAnnotation.keySet.reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), object);
+              const x = object.transform.x;
+              const y = object.transform.y;
+              const text = cg.settings.develop.objectAnnotation.keySet.reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), object);
               if (text===undefined||text==="") { continue; }
               x += cg.settings.develop.objectAnnotation.offsetX * cg.settings.core.debugCGScale;
               y += cg.settings.develop.objectAnnotation.offsetY * cg.settings.core.debugCGScale;
-              for (let removeText of cg.settings.develop.objectAnnotation.removeText) {
-                text = text.replace(removeText,"");
+              for (const removeText of cg.settings.develop.objectAnnotation.removeText) {
+                text = text.replaceAll(removeText,"");
               }
               c.fillText(text,x,y);
             }
