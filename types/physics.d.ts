@@ -57,8 +57,9 @@ declare module './choreograph' {
     readonly collisions: cgCollider[];
     readonly affiliations: cgCollider[];
 
-    enter: (comparison: cgCollider, collider: cgCollider) => void;
-    exit: (comparison: cgCollider, collider: cgCollider) => void;
+    collide: (collider: cgCollider, comparison: cgCollider, vector: [number, number] | null) => void;
+    enter: (collider: cgCollider, comparison: cgCollider) => void;
+    exit: (collider: cgCollider, comparison: cgCollider) => void;
 
     getPosition(): [number, number];
     delete(): void;
