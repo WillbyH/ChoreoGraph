@@ -165,8 +165,8 @@ cg.Physics.createCollider({
   width:100,
   height:100,
   transformInit:{x:200},
-  enter:function(collider) { console.info(collider.id + " entered") },
-  exit:function(collider) { console.info(collider.id + " exited") }
+  enter:function(self,collider) { console.info(collider.id + " entered") },
+  exit:function(self,collider) { console.info(collider.id + " exited") }
 },"triggerTest");
 
 cg.settings.core.callbacks.loopBefore = () => {

@@ -283,7 +283,7 @@ ChoreoGraph.plugin({
         }
         this.colliders[id] = newCollider;
         this.cg.keys.colliders.push(id);
-        if (cg.ready) {
+        if (this.cg.ready) {
           this.cg.Physics.calibrateCollisionOrder();
         }
         return newCollider;
@@ -658,7 +658,7 @@ ChoreoGraph.plugin({
       }
     }
 
-    processCollision(colliderA, colliderB, getVector) {
+    processCollision(colliderA, colliderB, getVector=true, collideCallbacks=true) {
       const compatability = ChoreoGraph.Physics.colliderCompatability[colliderA.type][colliderB.type];
       const detectionFunction = ChoreoGraph.Physics.detections[compatability[0]];
       const flip = compatability[1];
@@ -671,8 +671,10 @@ ChoreoGraph.plugin({
       if (collided) {
         colliderA.collided = true;
         colliderB.collided = true;
-        if (colliderA.collide !== null) { colliderA.collide(colliderB, vector, colliderA); }
-        if (colliderB.collide !== null) { colliderB.collide(colliderA, vector, colliderB); }
+        if (collideCallbacks) {
+          if (colliderA.collide !== null) { colliderA.collide(colliderA, colliderB, vector); }
+          if (colliderB.collide !== null) { colliderB.collide(colliderB, colliderA, vector); }
+        }
       } else {
         if (colliderA.collidedFrame !== ChoreoGraph.frame) { colliderA.collided = false; }
         if (colliderB.collidedFrame !== ChoreoGraph.frame) { colliderB.collided = false; }
@@ -701,7 +703,7 @@ ChoreoGraph.plugin({
         if (colliderA.collidedFrame !== ChoreoGraph.frame) { colliderA.collisions.length = 0; }
         if (colliderB.collidedFrame !== ChoreoGraph.frame) { colliderB.collisions.length = 0; }
 
-        const [collided] = ChoreoGraph.Physics.processCollision(colliderA, colliderB, false);
+        const [collided] = ChoreoGraph.Physics.processCollision(colliderA, colliderB, false, false);
         if (collided) {
           colliderA.collided = true;
           colliderB.collided = true;
@@ -730,7 +732,7 @@ ChoreoGraph.plugin({
           if (!whitelist.includes(colliderA.id) && !whitelist.includes(colliderB.id)) { continue; }
         }
 
-        const [collided,vector,flip] = ChoreoGraph.Physics.processCollision(colliderA, colliderB, true);
+        const [collided,vector,flip] = ChoreoGraph.Physics.processCollision(colliderA, colliderB, true, true);
         cg.Physics.collisionChecks++;
 
         if (!collided) { continue; }
@@ -798,12 +800,12 @@ ChoreoGraph.plugin({
             accounted.push(comparison);
             if (collider.memory.includes(comparison)) {
               if (collider.collide!==null) {
-                collider.collide(comparison);
+                collider.collide(collider,comparison,null);
               }
               continue;
             } else {
               if (collider.enter!==null) {
-                collider.enter(comparison,collider);
+                collider.enter(collider,comparison);
               }
               collider.memory.push(comparison);
             }
@@ -811,7 +813,7 @@ ChoreoGraph.plugin({
           for (let comparison of collider.memory) {
             if (!accounted.includes(comparison)) {
               if (collider.exit!==null) {
-                collider.exit(comparison,collider);
+                collider.exit(collider,comparison);
               }
               collider.memory = collider.memory.filter(c => c.id !== comparison.id);
             }
@@ -1011,8 +1013,8 @@ ChoreoGraph.ObjectComponents.RigidBody = class cgObjectRigidBody {
     for (let comparison of this.collider.affiliations) {
       if (comparison.trigger) { continue; }
       if (onlyOneScene===false&&comparison.scene!=null&&!relevantScenes.includes(comparison.scene)) { continue; }
-      const [collided,vector,flip] = ChoreoGraph.Physics.processCollision(this.collider, comparison, true);
-      cg.Physics.collisionChecks++;
+      const [collided,vector,flip] = ChoreoGraph.Physics.processCollision(this.collider, comparison, true, true);
+      scene.cg.Physics.collisionChecks++;
 
       if (!collided) { continue; }
 

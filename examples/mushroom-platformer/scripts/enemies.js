@@ -59,7 +59,7 @@ function createEnemy(x,y,level) {
     scene : level.scene,
     object : enemy,
     transformInit : {parent:enemy.transform},
-    enter : (collider, self) => {
+    enter : (self, collider) => {
       if (collider.id === "playerKillDetector") {
         if (cg.objects.player.invincible) { return; }
         cg.objects.player.RigidBody.yv = -250;
@@ -97,7 +97,7 @@ function createEnemy(x,y,level) {
     scene : level.scene,
     object : enemy,
     transformInit : {parent:enemy.transform,ox:-9},
-    enter : (collider, self) => {
+    enter : (self, collider) => {
       self.object.right = !self.object.right;
     }
   },"enemy-leftTrigger");
@@ -111,7 +111,7 @@ function createEnemy(x,y,level) {
     scene : level.scene,
     object : enemy,
     transformInit : {parent:enemy.transform,ox:9},
-    enter : (collider, self) => {
+    enter : (self, collider) => {
       self.object.right = !self.object.right;
     }
   },"enemy-rightTrigger");

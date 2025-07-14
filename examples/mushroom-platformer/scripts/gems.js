@@ -44,7 +44,7 @@ function createGem(x,y,scene) {
     scene : scene,
     gem : gem,
     transformInit : {parent:gem.transform},
-    enter : (collider, self) =>{
+    enter : (self, collider) =>{
       if (self.gem.Graphic.transform.o===0) { return; }
       cg.graphics.gameInterface.collectGem(self.gem);
       self.gem.Graphic.transform.o = 0;
