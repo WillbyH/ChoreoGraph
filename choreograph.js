@@ -771,8 +771,8 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       } else {
         let width, height;
         let basedOnWidth = true;
-        width = this.width == null ? this.size : this.width;
-        height = this.height == null ? this.size : this.height;
+        width = this.width === null ? this.size : this.width;
+        height = this.height === null ? this.size : this.height;
         if (this.scaleMode=="maximum") {
           basedOnWidth = canvas.width > canvas.height * (width / height);
         } else if (this.scaleMode=="minimum") {
