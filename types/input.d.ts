@@ -357,6 +357,7 @@ declare module './choreograph' {
     input: {
       preventSingleTouch: boolean;
       preventTouchScrolling: boolean;
+      preventTouchOnButtons: boolean;
       preventContextMenu: boolean;
       preventMiddleClick: boolean;
       preventCanvasSelection: boolean;

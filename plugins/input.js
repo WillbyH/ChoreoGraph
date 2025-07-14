@@ -250,7 +250,9 @@ ChoreoGraph.plugin({
         this.boundBox = canvas.element.getBoundingClientRect();
         this.canvas.element.addEventListener("touchmove", (event) => {
           let iSet = event.target.cgCanvas.cg.settings.input;
-          if (((iSet.preventSingleTouch&&event.touches.length===1)||iSet.preventTouchScrolling)&&event.cancelable) {
+          if (((iSet.preventSingleTouch&&event.touches.length===1)||iSet.preventTouchScrolling) && event.cancelable) {
+            event.preventDefault();
+          } else if (iSet.preventTouchOnButtons && cgs.Input.pressedButtons>0 && event.cancelable) {
             event.preventDefault();
           }
         }, {passive: false});
@@ -357,6 +359,7 @@ ChoreoGraph.plugin({
       cancel(event) {
         delete this.touches[event.pointerId];
         this.activeTouches.splice(this.activeTouches.indexOf(event.pointerId),1);
+        ChoreoGraph.Input.updateButtons(this.canvas,event,"up");
 
         if (ChoreoGraph.Input.downCanvases[event.pointerId]!==undefined) {
           this.up.any.x = this.x;
@@ -1237,7 +1240,7 @@ ChoreoGraph.plugin({
       if (cg.settings.input.recheckButtonsEveryFrame==false) { return; }
       for (let canvasId of cg.keys.canvases) {
         const canvas = cg.canvases[canvasId];
-        if (canvas===undefined) { continue; }
+        if (canvas===undefined||cg.Input.lastPointerMoveEvent===null) { continue; }
         ChoreoGraph.Input.updateButtons(canvas,cg.Input.lastPointerMoveEvent);
       }
     }
@@ -1412,6 +1415,7 @@ ChoreoGraph.plugin({
     cg.attachSettings("input",{
       preventSingleTouch : false, // Prevents single touches scrolling the page (starting on the canvas)
       preventTouchScrolling : false, // Prevents default on all touches
+      preventTouchOnButtons : false, // Prevents touches when they start by clicking a button
       preventContextMenu : false, // Prevents the context menu from appearing when right clicking (on the canvas)
       preventMiddleClick : false, // Prevents the middle mouse button from scrolling the page (starting on the canvas)
       preventCanvasSelection : true, // Prevents the canvas from being selected, mainly for ios safari
