@@ -968,7 +968,7 @@ ChoreoGraph.ObjectComponents.RigidBody = class cgObjectRigidBody {
     if (this.collider === null) { return; }
     if (this.collider.static) { return; }
 
-    if (scene.cg.timeSinceLastFramethis.cg.settings.core.inactiveTime) {
+    if (scene.cg.timeSinceLastFrame>this.cg.settings.core.inactiveTime) {
       return
     }
 
