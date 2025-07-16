@@ -27,7 +27,7 @@ cg.processLoops.push(function canvasScaler() {
   cg.cameras.main.canvasSpaceScale = cg.canvases.main.width/1920;
 });
 
-cg.graphicTypes.gameInterface = new class GameInterface {
+cg.graphicTypes.gameInterface = {
   setup() {
     this.gemCount = 3;
     this.displayedGems = 0;
@@ -108,7 +108,7 @@ cg.graphicTypes.gameInterface = new class GameInterface {
         this.createParticle(x,y);
       }
     }
-  };
+  },
   draw(c,ax,ay,canvas) {
     const xOffset = 100;
     const yOffset = 100;
@@ -223,6 +223,6 @@ cg.graphicTypes.gameInterface = new class GameInterface {
       c.arc(playerX,playerY,2000*progress,0,Math.PI*2,true);
       c.fill();
     }
-  };
+  }
 };
 cg.createGraphic({type : "gameInterface"},"gameInterface");

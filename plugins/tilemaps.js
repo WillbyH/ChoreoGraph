@@ -441,7 +441,7 @@ ChoreoGraph.plugin({
       appendCanvases : false
     });
 
-    cg.graphicTypes.tilemap = new class TilemapGraphic {
+    cg.graphicTypes.tilemap = {
       setup(init,cg) {
         this.manualTransform = true;
         this.tilemap = null;
@@ -460,7 +460,7 @@ ChoreoGraph.plugin({
         }
 
         if (init.imageSmoothingEnabled===undefined) { init.imageSmoothingEnabled = false; }
-      };
+      },
       draw(canvas,transform) {
         let go = transform.o;
         if (go==0) { return; }
@@ -620,7 +620,7 @@ ChoreoGraph.plugin({
             c.stroke();
           }
         }
-      };
+      }
     };
   }
 });

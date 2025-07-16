@@ -1533,7 +1533,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
   };
 
   attachCoreGraphicTypes(cg) {
-    cg.graphicTypes.rectangle = new class RectangleGraphic {
+    cg.graphicTypes.rectangle = {
       setup(init,cg) {
         this.fill = true;
         this.lineWidth = 1;
@@ -1544,7 +1544,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         this.width = 50;
         this.height = 50;
         this.colour = "#ff0000";
-      };
+      },
       draw(c,ax,ay) {
         c.beginPath();
         if (this.radius>0) {
@@ -1553,12 +1553,12 @@ const ChoreoGraph = new class ChoreoGraphEngine {
           c.rect(-this.width/2+ax, -this.height/2+ay, this.width, this.height);
         }
         if (this.fill) { c.fillStyle = this.colour; c.fill(); } else { c.lineWidth = this.lineWidth; c.strokeStyle = this.colour; c.stroke(); }
-      };
+      },
       getBounds() {
         return [this.width,this.height, 0, 0];
-      };
+      }
     };
-    cg.graphicTypes.arc = new class ArcGraphic {
+    cg.graphicTypes.arc = {
       setup(init,cg) {
         this.fill = true;
         this.closePath = false;
@@ -1570,18 +1570,18 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         this.start = 0;
         this.end = 2*Math.PI;
         this.counterclockwise = false;
-      };
+      },
       draw(c,ax,ay) {
         c.beginPath();
         cg.c.arc(ax, ay, this.radius,this.start,this.end,this.counterclockwise);
         if (this.closePath) { c.closePath(); }
         if (this.fill) { c.fillStyle = this.colour; c.fill(); } else { c.lineWidth = this.lineWidth; c.strokeStyle = this.colour; c.stroke(); }
-      };
+      },
       getBounds() {
         return [this.radius*2, this.radius*2, 0, 0];
-      };
+      }
     };
-    cg.graphicTypes.polygon = new class PolygonGraphic {
+    cg.graphicTypes.polygon = {
       setup(init,cg) {
         this.fillBeforeStroke = true;
         this.fill = true;
@@ -1594,7 +1594,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
 
         this.fillColour = "#ff0000";
         this.strokeColour = "#00ff00";
-      };
+      },
       draw(c,ax,ay) {
         c.beginPath();
         for (let i=0;i<this.path.length;i++) {
@@ -1605,7 +1605,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         if (this.fill&&this.fillBeforeStroke) { c.fillStyle = this.fillColour; c.fill(); }
         if (this.stroke) { c.lineWidth = this.lineWidth; c.strokeStyle = this.strokeColour; c.stroke(); }
         if (this.fill&&!this.fillBeforeStroke) { c.fillStyle = this.fillColour; c.fill(); }
-      };
+      },
       getBounds() {
         let minX = Infinity;
         let minY = Infinity;
@@ -1622,9 +1622,9 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         let offsetX = minX+width/2;
         let offsetY = minY+height/2;
         return [width, height, offsetX, offsetY];
-      };
+      }
     };
-    cg.graphicTypes.image = new class ImageGraphic {
+    cg.graphicTypes.image = {
       setup(init,cg) {
         if (init.image==undefined) { console.error("Image not defined in image graphic"); return; }
         this.image = init.image;
@@ -1648,7 +1648,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         this.height = this.image.height;
         this.flipX = false;
         this.flipY = false;
-      };
+      },
       draw(c,ax,ay) {
         if (this.flipX) {
           c.scale(-1, 1);
@@ -1664,12 +1664,12 @@ const ChoreoGraph = new class ChoreoGraphEngine {
           let crop = this.image.crop;
           c.drawImage(this.image.image, crop[0], crop[1], crop[2], crop[3], -(this.width/2)+ax, -(this.height/2)+ay, this.width, this.height);
         }
-      };
+      },
       getBounds() {
         return [this.width,this.height, 0, 0];
-      };
+      }
     };
-    cg.graphicTypes.pointText = new class PointTextGraphic {
+    cg.graphicTypes.pointText = {
       setup(init,cg) {
         this.text = "Point Text";
         this.fontFamily = "Arial";
@@ -1682,7 +1682,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         this.fill = true;
         this.lineWidth = 1;
         this.maxWidth = null;
-      };
+      },
       draw(c,ax,ay) {
         c.font = this.fontSize + this.sizeType + " " + this.fontFamily;
         c.textAlign = this.textAlign;
@@ -1704,7 +1704,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
             c.strokeText(this.text, ax, ay);
           }
         }
-      };
+      },
       getBounds() {
         if (this.maxWidth!=null) {
           return [this.maxWidth, this.fontSize, 0, 0];
@@ -1712,19 +1712,19 @@ const ChoreoGraph = new class ChoreoGraphEngine {
           let width = this.cg.canvas.c.measureText(this.text).width;
           return [width, this.fontSize, 0, 0];
         }
-      };
+      }
     };
-    cg.graphicTypes.areaText = new class AreaTextGraphic {
+    cg.graphicTypes.areaText = {
       setup(init,cg) {
         if (init.text!==undefined) {
           this.text = init.text;
           delete init.text;
         }
         this.options = new ChoreoGraph.AreaTextOptions(this.text, cg.canvas.c, init);
-      };
+      },
       draw(c,ax,ay,canvas) {
         canvas.drawAreaText(this.text, ax, ay, this.options);
-      };
+      },
       getBounds() {
         const lineCount = this.options.lineWords.length;
         let xo = 0;
@@ -1747,7 +1747,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
           yo += this.options.fontSize*0.5;
         }
         return [this.options.maxWidth, this.options.leading*this.options.lineWords.length, xo, yo];
-      };
+      }
     };
   };
 

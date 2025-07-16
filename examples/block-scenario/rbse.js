@@ -42,7 +42,7 @@ cg.scenes.railways.createItem("collection",{},"high");
 let cr = cg.canvases.railways.c;
 
 // GRID GRAPHIC TYPE
-cg.graphicTypes.grid = new class grid {
+cg.graphicTypes.grid = {
   draw(c,ax,ay) {
     c.lineWidth = 0.25;
     c.beginPath();
@@ -75,7 +75,7 @@ cg.graphicTypes.grid = new class grid {
 cg.createGraphic({type:"grid"},"grid");
 
 // TRACK GRAPHIC TYPE
-cg.graphicTypes.railwayVisualisation = new class railwayVisualisation {
+cg.graphicTypes.railwayVisualisation = {
   draw(c,ax,ay) {
     c.beginPath();
     let lastX = 0;
@@ -110,12 +110,12 @@ cg.graphicTypes.railwayVisualisation = new class railwayVisualisation {
 cg.createGraphic({type:"railwayVisualisation"},"railwayVisualisation");
 
 // SIGNAL GRAPHIC TYPE
-cg.graphicTypes.railwayVisualisation = new class railwayVisualisation {
+cg.graphicTypes.railwayVisualisation = {
   setup(init,cg) {
     this.block;
     this.armXO = 0;
     this.armYO = 0;
-  };
+  },
   draw(c,ax,ay) {
     let clear = cg.BlockController.blocks[this.block].isOpen();
     c.beginPath();
@@ -140,10 +140,10 @@ cg.graphicTypes.railwayVisualisation = new class railwayVisualisation {
 cg.createGraphic({type:"railwayVisualisation"},"railwayVisualisation");
 
 // FULLSCREEN TOGGLE GRAPHIC TYPE
-cg.graphicTypes.fullscreenToggle = new class fullscreenToggle {
+cg.graphicTypes.fullscreenToggle = {
   setup(init,cg) {
     this.isFullscreen = false;
-  };
+  },
   draw(c,ax,ay) {
     if (cg.Input.buttons.fullscreenToggle.hovered) {
       c.strokeStyle = "#cfcfcf";

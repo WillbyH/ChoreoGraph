@@ -383,7 +383,7 @@ ChoreoGraph.plugin({
       });
     };
 
-    cg.graphicTypes.lighting = new class LightingGraphic {
+    cg.graphicTypes.lighting = {
       setup(init,cg) {
         this.manualTransform = true;
 
@@ -658,7 +658,7 @@ ChoreoGraph.plugin({
             }
           }
         };
-      };
+      },
       draw(canvas,transform) {
         let go = transform.o;
         if (go==0) { return; }
@@ -741,7 +741,7 @@ ChoreoGraph.plugin({
         canvas.c.globalCompositeOperation = "source-over";
 
         if (cg.settings.lighting.debug.active) { this.drawDebug(canvas,lights); }
-      };
+      },
 
       getBounds() {
         if (this.shadowType === ChoreoGraph.Lighting.SHADOW_FULL) {
@@ -769,7 +769,7 @@ ChoreoGraph.plugin({
           }
           return [this.shadowWidth, this.shadowHeight, 0, 0];
         }
-      };
+      }
     };
   }
 });

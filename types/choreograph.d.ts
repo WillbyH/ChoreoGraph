@@ -73,7 +73,7 @@ interface cgInstance {
   readonly ready: boolean;
   loadChecks: ((cg: cgInstance) => void)[];
 
-  graphicTypes: Record<string, cgGraphicType>;
+  graphicTypes: cgGraphicTypes;
   processLoops: ((cg: cgInstance) => void)[];
   predrawLoops: ((cg: cgInstance) => void)[];
   overlayLoops: ((cg: cgInstance) => void)[];
@@ -603,10 +603,15 @@ declare global {
     path?: any[];
   }
 
+  type cgGraphicTypes = {
+    [type: string]: cgGraphicType;
+  }
+
   type cgGraphicType = {
     setup?(init: cgGraphicInit, cg: cgInstance): void;
-    draw(graphic: cgGraphic, init: cgGraphicInit, cg: cgInstance): void;
-    draw(item: cgSceneItem, transform: cgTransform): void;
+    draw(c: CanvasRenderingContext2D, ax: number, ay: number): void;
+    draw(canvas: cgCanvas, transform: cgTransform): void;
+    getBounds?(): [width: number, height: number, xOffset: number, yOffset: number];
   }
 
   type cgTransform = {

@@ -251,7 +251,7 @@ ChoreoGraph.plugin({
     cg.overlayLoops.push(cg.Shaders.updateShaderCanvases);
     cg.Shaders.updateIndex = cg.overlayLoops.indexOf(cg.Shaders.updateShaderCanvases);
 
-    cg.graphicTypes.shader = new class ShaderGraphic {
+    cg.graphicTypes.shader = {
       setup(init,cg) {
         this.width = init.width || 100;
         this.height = init.height || 100;
@@ -319,7 +319,7 @@ ChoreoGraph.plugin({
           this.gl.viewport(0, 0, width, height);
           this.gl.scissor(0, 0, width, height);
         }
-      };
+      },
       draw(c,ax,ay) {
         if (!this.program) {
           return;
@@ -333,11 +333,11 @@ ChoreoGraph.plugin({
         }
 
         c.drawImage(this.canvas, ax-this.width*0.5, ay-this.height*0.5, this.width, this.height);
-      };
+      },
 
       getBounds() {
         return [this.width,this.height,0,0];
-      };
+      }
     };
   }
 });

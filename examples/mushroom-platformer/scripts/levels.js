@@ -205,7 +205,7 @@ cg.createImage({
   crop : [5*16+9,5*16+1,5,10]
 },"numberThree");
 
-cg.graphicTypes.levels = new class Levels {
+cg.graphicTypes.levels = {
   draw(c,ax,ay,canvas) {
     const pixelScale = 18;
     canvas.drawImage(cg.images.title,0,-150,cg.images.title.width*pixelScale,cg.images.title.height*pixelScale);

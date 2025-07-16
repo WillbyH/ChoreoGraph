@@ -15,14 +15,14 @@ cg.createImage({
   crop : [16*5+13,16*5+12,3,4]
 },"doorGemFull");
 
-cg.graphicTypes.exitDoor = new class ExitDoor {
+cg.graphicTypes.exitDoor = {
   setup() {
     this.open = false;
 
     this.reset = () => {
       this.open = false;
     }
-  };
+  },
   draw(c,ax,ay,canvas) {
     canvas.drawImage(cg.images.doorBackground, 0, 0, 32, 32);
     if (!this.open) {
@@ -41,6 +41,6 @@ cg.graphicTypes.exitDoor = new class ExitDoor {
       const y = yOffset;
       canvas.drawImage(image, x, y);
     }
-  };
+  }
 }
 cg.createGraphic({type : "exitDoor"},"exitDoor");

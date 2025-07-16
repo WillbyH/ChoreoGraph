@@ -1438,7 +1438,7 @@ ChoreoGraph.plugin({
       },"animation_editor_dopesheet");
       canvas.setupParentElement(canvasParent);
 
-      cg.graphicTypes.animation_editor_dopesheet = new class AnimationEditorDopeSheet {
+      cg.graphicTypes.animation_editor_dopesheet = {
         setup(init,cg) {
           this.cg = cg;
           this.dragging = false;
@@ -1458,7 +1458,7 @@ ChoreoGraph.plugin({
           this.selectedKeyFrame = -1;
           this.selectedKeyFrameData = null;
           this.selectedDopeSheetTrackData = null;
-        };
+        },
         draw(c,ax,ay) {
           let cg = this.cg;
           let cursor = cg.Input.canvasCursors.animation_editor_dopesheet;
@@ -1679,7 +1679,7 @@ ChoreoGraph.plugin({
             c.lineWidth = 2 * cg.settings.core.debugCGScale;
             c.stroke();
           }
-        };
+        }
       };
       cg.createGraphic({type:"animation_editor_dopesheet"},"animation_editor_dopesheet");
 

@@ -7,10 +7,10 @@ cg.createImage({file:"controllers/PS_Triangle.png"},"psTriangle");
 cg.createImage({file:"controllers/Left_Stick.png"},"leftStick");
 
 // EXIT MENU
-cg.graphicTypes.exit = new class ExitMenu {
+cg.graphicTypes.exit = {
   setup() {
     this.controllerHover = 0;
-  };
+  },
   draw(c,ax,ay) {
     c.globalAlpha = 0.2;
     let scale = cg.camera.canvasSpaceScale;
@@ -83,7 +83,7 @@ cg.graphicTypes.exit = new class ExitMenu {
         c.strokeRect(ax-300-5,ay+188-5,600+10,100+10);
       }
     }
-  };
+  }
 };
 cg.scenes.exit.createItem("graphic",{
   graphic : cg.createGraphic({type:"exit"},"exit"),
@@ -126,10 +126,10 @@ cg.Input.createButton({
 },"leaveMenuNo");
 
 // FAIL MENU
-cg.graphicTypes.fail = new class FailMenu {
+cg.graphicTypes.fail = {
   setup() {
     this.controllerHover = 0;
-  };
+  },
   draw(c,ax,ay) {
     c.globalAlpha = 0.2;
     let scale = cg.camera.canvasSpaceScale;
@@ -200,7 +200,7 @@ cg.graphicTypes.fail = new class FailMenu {
         c.strokeRect(ax-300-5,ay+188-5,600+10,100+10);
       }
     }
-  };
+  }
 };
 cg.scenes.fail.createItem("graphic",{
   graphic : cg.createGraphic({type:"fail"},"fail"),
@@ -279,7 +279,7 @@ cg.createObject({
 cg.scenes.main.addObject(cg.objects.spoonFoundText);
 
 // CONTROLLER HINTS
-cg.graphicTypes.hints = new class ControllerHints {
+cg.graphicTypes.hints = {
   draw(c,ax,ay) {
     let hints = [];
     if (ChoreoGraph.Input.controller==null || !ChoreoGraph.Input.controller.connected) { return }
@@ -323,7 +323,7 @@ cg.graphicTypes.hints = new class ControllerHints {
       c.drawImage(image.image,ax-100,ay+50+i*45,45,45);
       c.fillText(text,-110,ay+75+i*45-5);
     }
-  };
+  }
 };
 cg.createGraphic({type:"hints"},"hints")
 cg.scenes.main.createItem("graphic",{
@@ -461,10 +461,10 @@ cg.settings.input.callbacks.updateButtonChecks = () => {
 }
 
 // JOYSTICK
-cg.graphicTypes.joystick = new class JoyStick {
+cg.graphicTypes.joystick = {
   setup() {
     this.dir = [0,0];
-  };
+  },
   draw(c,ax,ay) {
     if (cg.Input.lastInputType!=ChoreoGraph.Input.TOUCH) { return; }
     c.fillStyle = "white";
@@ -476,7 +476,7 @@ cg.graphicTypes.joystick = new class JoyStick {
     c.beginPath();
     c.arc(150*this.dir[0],150*this.dir[1],40,0,Math.PI*2);
     c.fill();
-  };
+  }
 };
 cg.scenes.main.createItem("graphic",{
   graphic : cg.createGraphic({type:"joystick"},"joystick"),
@@ -489,10 +489,10 @@ cg.createImage({file:"cg.png"},"cg");
 cg.createImage({file:"buffetSpriteSheet.png",crop:[8*16,2*16,16,32]},"bigSpoonOutline");
 cg.createImage({file:"buffetSpriteSheet.png",crop:[10*16,5*16,16,32]},"bigSpoonColoured");
 
-cg.graphicTypes.title = new class TitleScreen {
+cg.graphicTypes.title = {
   setup() {
     this.controllerHover = 0;
-  };
+  },
   draw(c,ax,ay) {
     let scale = cg.camera.canvasSpaceScale;
     c.fillStyle = "#000000";
@@ -612,7 +612,7 @@ cg.graphicTypes.title = new class TitleScreen {
     }
 
     c.textBaseline = "alphabetic";
-  };
+  }
 };
 cg.scenes.title.createItem("graphic",{
   graphic : cg.createGraphic({type:"title"},"title"),
