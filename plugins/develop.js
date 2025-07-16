@@ -1658,10 +1658,11 @@ ChoreoGraph.plugin({
   let style = document.createElement("style");
   style.innerHTML = `
     .develop_section {
+      background:black;
       color:white;
-      margin-left: 20px;
-      margin-top: 10px;
-      margin-bottom: 80px;
+      padding-left: 20px;
+      padding-top: 10px;
+      padding-bottom: 80px;
       font-family: Arial;
     }
     .develop_button {
