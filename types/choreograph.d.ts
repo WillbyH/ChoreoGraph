@@ -86,12 +86,12 @@ interface cgInstance {
   readonly camera: cgCamera;
   readonly scene: cgScene;
 
-  createCanvas(init?: cgCanvasInit, id?: ChoreoGraphId): cgCanvas;
+  createCanvas(init: cgCanvasInit, id?: ChoreoGraphId): cgCanvas;
   createCamera(init?: cgCameraInit, id?: ChoreoGraphId): cgCamera;
   createScene(init?: cgSceneInit, id?: ChoreoGraphId): cgScene;
-  createGraphic(init?: cgGraphicInit, id?: ChoreoGraphId): cgGraphic;
+  createGraphic(init: cgGraphicInit, id?: ChoreoGraphId): cgGraphic;
   createTransform(init?: cgTransformInit, id?: ChoreoGraphId): cgTransform;
-  createImage(init?: cgImageInit, id?: ChoreoGraphId): cgImage;
+  createImage(init: cgImageInit, id?: ChoreoGraphId): cgImage;
   createSequence(init?: cgSequenceInit, id?: ChoreoGraphId): cgSequence;
   createEvent(init?: cgEventInit, id?: ChoreoGraphId): cgEvent;
   createPath(path: [number, number][], id?: ChoreoGraphId): [number, number][];
@@ -320,110 +320,110 @@ type cgGraphicInit =
   | ({ type: Exclude<string, keyof cgGraphicInitMap> } & Record<string, any>);
 
 
-  interface cgObjectComponentInitBase {
-    master?: boolean;
-    key?: string;
+interface cgObjectComponentInitBase {
+  master?: boolean;
+  key?: string;
 
-    [key: string]: any;
-  }
+  [key: string]: any;
+}
 
-  type cgObjectGraphic = {
-    readonly manifest: {
-      type: 'Graphic';
-      key: string;
-      master: true;
-      functions: {
-        update: true;
-        delete: true;
-      };
+type cgObjectGraphic = {
+  readonly manifest: {
+    type: 'Graphic';
+    key: string;
+    master: true;
+    functions: {
+      update: true;
+      delete: true;
     };
+  };
 
-    graphic: cgGraphic;
-    collection: string;
-    readonly transform: cgTransform;
+  graphic: cgGraphic;
+  collection: string;
+  readonly transform: cgTransform;
 
-    deleteTransformOnDelete: boolean;
-  }
+  deleteTransformOnDelete: boolean;
+}
 
-  interface cgObjectGraphicInit extends cgObjectComponentInitBase {
-    graphic?: cgGraphic;
-    collection?: string;
+interface cgObjectGraphicInit extends cgObjectComponentInitBase {
+  graphic?: cgGraphic;
+  collection?: string;
 
-    deleteTransformOnDelete?: boolean;
+  deleteTransformOnDelete?: boolean;
 
-    transform?: cgTransform;
-    transformInit?: cgTransformInit;
-    transformId?: ChoreoGraphId;
-  }
+  transform?: cgTransform;
+  transformInit?: cgTransformInit;
+  transformId?: ChoreoGraphId;
+}
 
-  type cgObjectCamera = {
-    readonly manifest: {
-      type: 'Camera';
-      key: string;
-      master: true;
-      functions: {
-        update: true;
-      };
+type cgObjectCamera = {
+  readonly manifest: {
+    type: 'Camera';
+    key: string;
+    master: true;
+    functions: {
+      update: true;
     };
+  };
 
-    camera: cgCamera;
-    readonly transform: cgTransform;
-    active: boolean;
-    jump: boolean;
-    jumpDistance: number;
-    smoothing: boolean;
-  }
+  camera: cgCamera;
+  readonly transform: cgTransform;
+  active: boolean;
+  jump: boolean;
+  jumpDistance: number;
+  smoothing: boolean;
+}
 
-  interface cgObjectCameraInit extends cgObjectComponentInitBase {
-    camera: cgCamera | null;
+interface cgObjectCameraInit extends cgObjectComponentInitBase {
+  camera: cgCamera | null;
 
-    transform?: cgTransform;
-    transformInit?: cgTransformInit;
-    transformId?: ChoreoGraphId;
+  transform?: cgTransform;
+  transformInit?: cgTransformInit;
+  transformId?: ChoreoGraphId;
 
-    active?: boolean;
-    jump?: boolean;
-    jumpDistance?: number;
-    smoothing?: boolean;
-  }
+  active?: boolean;
+  jump?: boolean;
+  jumpDistance?: number;
+  smoothing?: boolean;
+}
 
-  type cgObjectScript = {
-    readonly manifest: {
-      type: 'Script';
-      key: string;
-      master: true;
-      functions: {
-        update: true;
-        delete: true;
-      };
+type cgObjectScript = {
+  readonly manifest: {
+    type: 'Script';
+    key: string;
+    master: true;
+    functions: {
+      update: true;
+      delete: true;
     };
+  };
 
-    startScript: ((object: cgObject) => void) | null;
-    updateScript: ((object: cgObject, scene: cgScene) => void) | null;
-    deleteScript: ((object: cgObject) => void) | null;
-  }
+  startScript: ((object: cgObject) => void) | null;
+  updateScript: ((object: cgObject, scene: cgScene) => void) | null;
+  deleteScript: ((object: cgObject) => void) | null;
+}
 
-  interface cgObjectScriptInit extends cgObjectComponentInitBase {
-    startScript?: ((object: cgObject) => void) | null;
-    updateScript?: ((object: cgObject, scene: cgScene) => void) | null;
-    deleteScript?: ((object: cgObject) => void) | null;
-  }
+interface cgObjectScriptInit extends cgObjectComponentInitBase {
+  startScript?: ((object: cgObject) => void) | null;
+  updateScript?: ((object: cgObject, scene: cgScene) => void) | null;
+  deleteScript?: ((object: cgObject) => void) | null;
+}
 
-  interface cgObjectComponentMap {
-    Graphic: cgObjectGraphic;
-    Camera: cgObjectCamera;
-    Script: cgObjectScript;
-  }
+interface cgObjectComponentMap {
+  Graphic: cgObjectGraphic;
+  Camera: cgObjectCamera;
+  Script: cgObjectScript;
+}
 
-  type cgObjectComponent = cgObjectComponentMap[keyof cgObjectComponentMap];
+type cgObjectComponent = cgObjectComponentMap[keyof cgObjectComponentMap];
 
-  interface cgObjectComponentInitMap {
-    Graphic: cgObjectGraphicInit;
-    Camera: cgObjectCameraInit;
-    Script: cgObjectScriptInit;
-  }
+interface cgObjectComponentInitMap {
+  Graphic: cgObjectGraphicInit;
+  Camera: cgObjectCameraInit;
+  Script: cgObjectScriptInit;
+}
 
-  type cgObjectComponentInit = cgObjectComponentInitMap[keyof cgObjectComponentInitMap];
+type cgObjectComponentInit = cgObjectComponentInitMap[keyof cgObjectComponentInitMap];
 
 declare global {
   interface Window {
@@ -694,7 +694,7 @@ declare global {
 
   type cgSequence = {
     readonly id: ChoreoGraphId;
-    data: any[];
+    data: (string | number)[];
     callbacks: Record<string, Function>;
 
     run(): void;
@@ -704,7 +704,7 @@ declare global {
   }
 
   type cgSequenceInit = {
-    data?: any[];
+    data?: (string | number)[];
     callbacks?: Record<string, Function>;
 
     [key: string]: any;
@@ -740,9 +740,9 @@ declare global {
 
     [key: string]: any;
 
-    attach(
-      componentName: keyof cgObjectComponentMap,
-      init?: cgObjectComponentInit
+    attach<TComponentName extends keyof cgObjectComponentMap>(
+      componentName: TComponentName,
+      init?: cgObjectComponentInitMap[TComponentName],
     ): cgObject;
     update(scene: cgScene): void;
     delete(): void;

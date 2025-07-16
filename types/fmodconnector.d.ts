@@ -115,7 +115,7 @@ declare module './choreograph' {
   }
 
   interface cgObjectFMODSourceInit extends cgObjectComponentInitBase {
-
+    events: FMODStudioEventDescription[];
   }
 
   interface cgObjectComponentMap {

@@ -80,8 +80,9 @@ declare module './choreograph' {
 
     [key: string]: any;
 
-    enter?: (comparison: cgCollider, collider: cgCollider) => void;
-    exit?: (comparison: cgCollider, collider: cgCollider) => void;
+    collide?: (collider: cgCollider, comparison: cgCollider, vector: [number, number] | null) => void;
+    enter?: (collider: cgCollider, comparison: cgCollider) => void;
+    exit?: (collider: cgCollider, comparison: cgCollider) => void;
   }
 
   interface cgRectangleCollider extends cgColliderBase {
@@ -158,6 +159,7 @@ declare module './choreograph' {
     xv: number;
     /** Y Velocity */
     yv: number;
+
     collider: cgCollider;
     drag: number;
     dragX: number | null;
@@ -170,7 +172,15 @@ declare module './choreograph' {
   }
 
   interface cgObjectRigidBodyInit extends cgObjectComponentInitBase {
+    collider: cgCollider;
+    mass?: number;
+    drag?: number;
+    dragX?: number;
+    dragY?: number;
+    bounce?: boolean;
+    minimumVelocity?: number;
 
+    deleteColliderWithObject?: boolean;
   }
 
   interface cgObjectComponentMap {

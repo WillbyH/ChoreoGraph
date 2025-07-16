@@ -83,10 +83,10 @@ declare module './choreograph' {
       createAction(init: cgActionInit, id?: ChoreoGraphId): cgAction;
 
       getActionNormalisedVector(
-        up: cgKeyType | cgAction | cgButton | cgInputControllerAxes | ChoreoGraphId,
-        down: cgKeyType | cgAction | cgButton | cgInputControllerAxes | ChoreoGraphId,
-        left: cgKeyType | cgAction | cgButton | cgInputControllerAxes | ChoreoGraphId,
-        right: cgKeyType | cgAction | cgButton | cgInputControllerAxes | ChoreoGraphId
+        up: cgAction | ChoreoGraphId,
+        down: cgAction | ChoreoGraphId,
+        left: cgAction | ChoreoGraphId,
+        right: cgAction | ChoreoGraphId
       ): [number, number];
     }
   }
@@ -347,7 +347,7 @@ declare module './choreograph' {
   }
 
   type cgActionInit = {
-    keys: (cgKeyType | cgInputControllerAxes | cgButton | cgAction)[];
+    keys: (cgKeyType | cgInputControllerAxes | cgButton | cgActionKey)[];
 
     down?: (value: number) => void;
     up?: () => void;

@@ -185,6 +185,7 @@ declare module './choreograph' {
   }
 
   interface cgTilemapGraphicInit extends cgGraphicInitBase {
+    type: "tilemap";
     tilemap: cgTilemap;
     visibleLayers?: ChoreoGraphId[];
     culling?: boolean;

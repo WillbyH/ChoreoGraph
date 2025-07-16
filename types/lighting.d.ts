@@ -179,6 +179,7 @@ declare module './choreograph' {
   }
 
   interface cgLightingGraphicInit extends cgGraphicInitBase {
+    type: "lighting";
     shadowType: cgShadowFullType | cgShadowPathType | cgShadowRectangleType | cgShadowImageType;
     lights?: cgLight[];
     occluders?: cgOccluder[];

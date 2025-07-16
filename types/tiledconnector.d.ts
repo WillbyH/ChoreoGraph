@@ -9,10 +9,10 @@ declare module './choreograph' {
       readonly loadedExternalTileMaps: number;
       readonly tileSets: Record<string, object>;
 
-      importTileSetFromFile: (dataUrl: string, callback?: (tileSet: any) => void) => void;
-      importTileSet(data: object, id: string, callback?: (tileSet: any) => void): void;
-      importTileMapFromFile: (importData: cgTiledTileMapImportData, callback?: (tilemap: any) => void) => void;
-      importTileMap: (importData: cgTiledTileMapImportData, callback?: (tilemap: any) => void) => void;
+      importTileSetFromFile: (dataUrl: string, callback?: (tiles: cgTilemapTile[]) => void) => void;
+      importTileSet(data: object, id: string, callback?: (tiles: cgTilemapTile[]) => void): void;
+      importTileMapFromFile: (importData: cgTiledTileMapImportData, callback?: (tilemap: cgTilemap) => void) => void;
+      importTileMap: (importData: cgTiledTileMapImportData, callback?: (tilemap: cgTilemap) => void) => void;
     }
   }
 
