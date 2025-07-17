@@ -33,11 +33,11 @@ ChoreoGraph.plugin({
     `;
 
     createVertexAndFragmentShader(gl, vertexShaderCode, fragmentShaderCode) {
-      if (vertexShaderCode===undefined) {
+      if (vertexShaderCode===undefined||vertexShaderCode==="") {
         vertexShaderCode = ChoreoGraph.Shaders.defaultVertexShaderCode;
       }
 
-      if (fragmentShaderCode===undefined) {
+      if (fragmentShaderCode===undefined||fragmentShaderCode==="") {
         fragmentShaderCode = ChoreoGraph.Shaders.defaultFragmentShaderCode;
       }
 
