@@ -1,30 +1,30 @@
 cg.createGraphic({
   type:"image",imageSmoothingEnabled:false,
-  image:cg.createImage({file:"buffetSpriteSheet.png",crop:[8*16,4*16,16,16]},"cameraDown")
+  image:cg.createImage({file:"BuffetSpriteSheet.png",crop:[8*16,4*16,16,16]},"cameraDown")
 },"cameraDown");
 cg.createGraphic({
   type:"image",imageSmoothingEnabled:false,
-  image:cg.createImage({file:"buffetSpriteSheet.png",crop:[8*16,4*16+16,16,16]},"cameraUp")
+  image:cg.createImage({file:"BuffetSpriteSheet.png",crop:[8*16,4*16+16,16,16]},"cameraUp")
 },"cameraUp");
 cg.createGraphic({
   type:"image",imageSmoothingEnabled:false,
-  image:cg.createImage({file:"buffetSpriteSheet.png",crop:[8*16,4*16+32,16,16]},"cameraLeft")
+  image:cg.createImage({file:"BuffetSpriteSheet.png",crop:[8*16,4*16+32,16,16]},"cameraLeft")
 },"cameraLeft");
 cg.createGraphic({
   type:"image",imageSmoothingEnabled:false,
-  image:cg.createImage({file:"buffetSpriteSheet.png",crop:[8*16,4*16+48,16,16]},"cameraRight")
+  image:cg.createImage({file:"BuffetSpriteSheet.png",crop:[8*16,4*16+48,16,16]},"cameraRight")
 },"cameraRight");
 cg.createGraphic({
   type:"image",imageSmoothingEnabled:false,
-  image:cg.createImage({file:"buffetSpriteSheet.png",crop:[9*16,5*16,16,16]},"camMountDown")
+  image:cg.createImage({file:"BuffetSpriteSheet.png",crop:[9*16,5*16,16,16]},"camMountDown")
 },"camMountDown");
 cg.createGraphic({
   type:"image",imageSmoothingEnabled:false,
-  image:cg.createImage({file:"buffetSpriteSheet.png",crop:[9*16,6*16,16,16]},"camMountUp")
+  image:cg.createImage({file:"BuffetSpriteSheet.png",crop:[9*16,6*16,16,16]},"camMountUp")
 },"camMountUp");
 cg.createGraphic({
   type:"image",imageSmoothingEnabled:false,
-  image:cg.createImage({file:"buffetSpriteSheet.png",crop:[9*16,7*16,16,16]},"camMountRight")
+  image:cg.createImage({file:"BuffetSpriteSheet.png",crop:[9*16,7*16,16,16]},"camMountRight")
 },"camMountRight");
 
 stst.cameras = [];

@@ -486,8 +486,8 @@ cg.scenes.main.createItem("graphic",{
 // TITLE SCREEN
 cg.createImage({file:"stst.png"},"logo");
 cg.createImage({file:"cg.png"},"cg");
-cg.createImage({file:"buffetSpriteSheet.png",crop:[8*16,2*16,16,32]},"bigSpoonOutline");
-cg.createImage({file:"buffetSpriteSheet.png",crop:[10*16,5*16,16,32]},"bigSpoonColoured");
+cg.createImage({file:"BuffetSpriteSheet.png",crop:[8*16,2*16,16,32]},"bigSpoonOutline");
+cg.createImage({file:"BuffetSpriteSheet.png",crop:[10*16,5*16,16,32]},"bigSpoonColoured");
 
 cg.graphicTypes.title = {
   setup() {

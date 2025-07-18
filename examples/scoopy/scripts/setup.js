@@ -45,7 +45,7 @@ const stst = {};
 
 // TILEMAP
 cg.createImage({
-  file : "buffetSpriteSheet.png"
+  file : "BuffetSpriteSheet.png"
 },"buffetSheet");
 
 cg.Tiled.importTileSetFromFile("tiled/buffetSet.json",() => {

@@ -1,6 +1,6 @@
 cg.createGraphic({
   type:"image",imageSmoothingEnabled:false,
-  image:cg.createImage({file:"buffetSpriteSheet.png",crop:[5*16,6*16,16,16]},"frontEndLoader")
+  image:cg.createImage({file:"BuffetSpriteSheet.png",crop:[5*16,6*16,16,16]},"frontEndLoader")
 },"frontEndLoader");
 
 cg.Animation.createAnimationFromPacked("1:transform,oy;1,v&fixedtime=t:3:2&value=,0,6,0",{},"bob");
