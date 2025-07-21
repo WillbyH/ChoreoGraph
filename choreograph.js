@@ -400,7 +400,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     keepCursorHidden = false;
     hideDebugOverlays = false;
 
-    #imageRendering = "pixelated"; // Remove anti-aliasing
+    #imageRendering = "auto";
     set imageRendering(value) {
       this.#imageRendering = value;
       if (this.element!=null) {
