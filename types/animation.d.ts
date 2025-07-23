@@ -139,6 +139,13 @@ declare module './choreograph' {
 
         showMarkers: boolean;
         markerColours: Record<string, string>;
+        markerStyle: {
+          size: number;
+          fontSize: number;
+          font: string;
+          offset: [number, number];
+          opacity: number;
+        }
         width: number;
       }
     }
