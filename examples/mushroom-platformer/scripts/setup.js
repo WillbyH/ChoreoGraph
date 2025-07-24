@@ -65,3 +65,20 @@ function loadTilemaps() {
     id : "level3"
   });
 }
+
+cg.settings.core.callbacks.loadingLoop = (checkData) => {
+  cg.canvas.c.resetTransform();
+  cg.canvas.c.clearRect(0, 0, cg.canvas.width, cg.canvas.height);
+  cg.canvas.c.font = "16px Arial";
+  cg.canvas.c.textAlign = "left";
+  for (let i=0;i<Object.keys(checkData).length;i++) {
+    let key = Object.keys(checkData)[i];
+    if (checkData[key].pass) {
+      cg.canvas.c.fillStyle = "#00ff00";
+    } else {
+      cg.canvas.c.fillStyle = "#ff0000";
+    }
+    const text = `${key} ${checkData[key].loaded}/${checkData[key].total}`;
+    cg.canvas.c.fillText(text, 10, 30 + i * 30);
+  }
+}
