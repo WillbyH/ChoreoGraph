@@ -114,7 +114,7 @@ interface cgSettings {
     defaultCursor: string;
     assumptions: boolean;
     imageSmoothingEnabled: boolean;
-    skipLoadChecks: boolean;
+    ignoredLoadChecks: string[];
     areaTextDebug: boolean;
 
     callbacks: {

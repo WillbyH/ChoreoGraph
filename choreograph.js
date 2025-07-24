@@ -132,7 +132,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         defaultCursor : "default",
         assumptions : false,
         imageSmoothingEnabled : true,
-        skipLoadChecks : false,
+        ignoredLoadChecks : [],
         areaTextDebug : false,
 
         callbacks : {
@@ -203,7 +203,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     };
 
     handleLoading() {
-      if ((this.loadChecks.length===0||this.settings.core.skipLoadChecks)&&ChoreoGraph.frame>0) {
+      if ((this.loadChecks.length===0)&&ChoreoGraph.frame>0) {
         this.ready = true;
         this.onReady();
         return;
@@ -212,6 +212,9 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       let fullPass = true;
       for (let check of this.loadChecks) {
         let [checkId,pass,loaded,total] = check(this);
+        if (this.settings.core.ignoredLoadChecks.includes(checkId)) {
+          continue;
+        }
         output[checkId] = {id:checkId,pass:pass,loaded:loaded,total:total};
         if (!pass) {
           fullPass = false;
