@@ -56,7 +56,7 @@ interface cgInstance {
   readonly canvases: Record<ChoreoGraphId, cgCanvas>;
   readonly cameras: Record<ChoreoGraphId, cgCamera>;
   readonly scenes: Record<ChoreoGraphId, cgScene>;
-  readonly graphics: Record<ChoreoGraphId, cgGraphicMap[keyof cgGraphicMap]>;
+  readonly graphics: Record<ChoreoGraphId, cgGraphic>;
   readonly transforms: Record<ChoreoGraphId, cgTransform>;
   readonly images: Record<ChoreoGraphId, cgImage>;
   readonly sequences: Record<ChoreoGraphId, cgSequence>;
@@ -71,7 +71,7 @@ interface cgInstance {
   readonly clock: number;
   readonly timeSinceLastFrame: number;
   readonly ready: boolean;
-  loadChecks: ((cg: cgInstance) => void)[];
+  loadChecks: (() => [checkId: string, pass: boolean, loaded: number, total: number])[];
 
   graphicTypes: cgGraphicTypes;
   processLoops: ((cg: cgInstance) => void)[];
@@ -89,7 +89,7 @@ interface cgInstance {
   createCanvas(init: cgCanvasInit, id?: ChoreoGraphId): cgCanvas;
   createCamera(init?: cgCameraInit, id?: ChoreoGraphId): cgCamera;
   createScene(init?: cgSceneInit, id?: ChoreoGraphId): cgScene;
-  createGraphic(init: cgGraphicInit, id?: ChoreoGraphId): cgGraphic;
+  createGraphic<T extends cgGraphicInit>(init: T, id?: ChoreoGraphId): cgGraphicMap[T["type"]];
   createTransform(init?: cgTransformInit, id?: ChoreoGraphId): cgTransform;
   createImage(init: cgImageInit, id?: ChoreoGraphId): cgImage;
   createSequence(init?: cgSequenceInit, id?: ChoreoGraphId): cgSequence;
@@ -559,7 +559,12 @@ declare global {
     readonly cameras: cgCamera[];
     readonly items: Record<string, cgSceneItem>;
 
-    createItem(type: 'graphic' | 'collection', init: cgSceneItemInit, id?: ChoreoGraphId, collection?: ChoreoGraphId): cgSceneItem;
+    createItem<T extends 'graphic' | 'collection'>(
+      type: T,
+      init: cgSceneItemInit,
+      id?: ChoreoGraphId,
+      collection?: ChoreoGraphId
+    ): cgSceneItemMap[T];
     addObject(object: cgObject): void;
     removeObject(object: cgObject): void;
     addToBuffer(graphic: cgGraphic, transform: cgTransform, collection: string): void;
@@ -587,6 +592,11 @@ declare global {
     readonly id: ChoreoGraphId;
     readonly children: cgSceneItem[];
     readonly path: string[];
+  }
+
+  type cgSceneItemMap = {
+    graphic: cgSceneItemGraphic;
+    collection: cgSceneItemCollection;
   }
 
   type cgSceneItemInit = cgSceneItemGraphicInit | cgSceneItemCollectionInit;
