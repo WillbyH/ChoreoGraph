@@ -465,6 +465,14 @@ cg.settings.core.callbacks.loopAfter = () => {
   cg.canvas.drawAreaText(text,500,370,options);
 }
 
+cg.loadChecks.push(()=>{
+  return ["you_can_make_custom_load_checks", true, 1, 1];
+})
+
+cg.loadChecks.push(()=>{
+  return ["interaction", ChoreoGraph.Audio.interacted, 0, 0];
+})
+
 cg.settings.core.callbacks.loadingLoop = (checkData) => {
   cg.canvas.c.resetTransform();
   cg.canvas.c.clearRect(0, 0, cg.canvas.width, cg.canvas.height);

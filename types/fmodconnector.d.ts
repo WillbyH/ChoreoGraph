@@ -6,6 +6,9 @@ declare module './choreograph' {
       readonly FMODReady: boolean;
       readonly audioReady: boolean;
 
+      readonly totalAutoloadBanks: number;
+      readonly loadedAutoloadBanks: number;
+
       readonly FMOD: FMOD;
       readonly System: FMODStudioSystem;
       readonly SystemCore: FMODSystem;

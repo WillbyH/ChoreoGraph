@@ -7,6 +7,9 @@ ChoreoGraph.plugin({
     FMODReady = false;
     audioReady = false;
 
+    totalAutoloadBanks = 0;
+    loadedAutoloadBanks = 0;
+
     FMOD = {};
     System = null;
     SystemCore = null;
@@ -106,6 +109,10 @@ ChoreoGraph.plugin({
           this.folderPath = folderPath;
           this.filename = filename;
           this.autoload = autoload;
+
+          if (this.autoload) {
+            ChoreoGraph.FMOD.totalAutoloadBanks++;
+          }
         };
         load() { // Loads the bank file data into memory
           let cgFMOD = ChoreoGraph.FMOD;
@@ -115,6 +122,9 @@ ChoreoGraph.plugin({
           cgFMOD.errorCheck(cgFMOD.System.loadBankFile(this.filename, cgFMOD.FMOD.STUDIO_LOAD_BANK_NORMAL, bankHandle),"Loading bank: " + this.filename);
           this.bank = bankHandle.val;
           this.loaded = true;
+          if (this.autoload) {
+            ChoreoGraph.FMOD.loadedAutoloadBanks++;
+          }
 
           this.events = this.listEvents();
           this.buses = this.listBuses();
@@ -275,6 +285,15 @@ ChoreoGraph.plugin({
       }
       console.info(output);
     };
+
+    bankLoadChecks() { // Checks if all autoload banks are loaded
+      let pass = ChoreoGraph.FMOD.loadedAutoloadBanks === ChoreoGraph.FMOD.totalAutoloadBanks;
+      return ["fmodbanks",pass,ChoreoGraph.FMOD.loadedAutoloadBanks,ChoreoGraph.FMOD.totalAutoloadBanks];
+    }
+  },
+
+  instanceConnect(cg) {
+    cg.loadChecks.push(ChoreoGraph.FMOD.bankLoadChecks);
   },
 
   globalStart() {
@@ -349,6 +368,7 @@ ChoreoGraph.plugin({
 });
 
 document.addEventListener("visibilitychange", function() {
+  if (!ChoreoGraph.FMOD.FMODReady) { return; }
   let cgFMOD = ChoreoGraph.FMOD;
   if (cgFMOD.pauseOnVisibilityChange==false) { return; }
 
