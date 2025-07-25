@@ -49,11 +49,11 @@ cg.scenes.main.createItem("graphic",{
 let dragging = false;
 let draggedObject = null;
 
-function createLight(id,r,g,b) {
+function createLight(id,r,g,b,xo=0,yo=0) {
   let newObject = cg.createObject({
     transformInit : {
-      x : 100*Math.random()-50,
-      y : 100*Math.random()-50
+      x : 100*Math.random()-50+xo,
+      y : 100*Math.random()-50+yo,
     }
   },id);
 
@@ -101,8 +101,12 @@ function createOccluder(id,path) {
 createLight("athena",255,0,0);
 createLight("linkley",0,255,0);
 createLight("magna",0,0,255);
+createLight("halt",0,255,255,0,500);
 createOccluder("cormac",[[259,297],[175,282],[194,206],[273,157],[332,248]]);
 createOccluder("partridge",[[-532,161],[-662,256],[-470,443],[-318,267],[-420,202],[-450,368],[-595,238],[-436,184]]);
+createOccluder("jellaby",[[-319,-505],[-212,-371],[-313,-394],[-354,-312],[-357,-416],[-450,-433]]);
+createOccluder("duo",[[643,-641],[644,-246],[268,-245],[635,-256]]);
+createOccluder("lockheart",[[555,549],[254,549],[384,449],[415,519],[438,445],[378,374],[229,481],[370,314],[592,487]]);
 
 cg.Input.createAction({keys:["w","up","condpadup","conrightup"]},"moveUp");
 cg.Input.createAction({keys:["s","down","condpaddown","conrightdown"]},"moveDown");
