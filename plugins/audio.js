@@ -289,6 +289,96 @@ ChoreoGraph.plugin({
         this.buses[id] = bus;
         ChoreoGraph.Audio.busLoadBuffer.push(bus);
         return bus;
+      };
+
+      beep(options={}) {
+        if (!this.ready) { return; }
+
+        if (options.frequency===undefined) { options.frequency = 440; }
+        if (options.duration===undefined) { options.duration = 0.1; }
+        if (options.type===undefined) { options.type = "sine"; }
+        if (options.volume===undefined) { options.volume = 0.8; }
+
+        const currentTime = ChoreoGraph.Audio.ctx.currentTime;
+        const beep = {};
+        let out;
+      
+        if (options.type==="noise") {
+          beep.bufferSource = ChoreoGraph.Audio.ctx.createBufferSource();
+          beep.bufferSource.buffer = ChoreoGraph.Audio.ctx.createBuffer(1, ChoreoGraph.Audio.ctx.sampleRate * options.duration, ChoreoGraph.Audio.ctx.sampleRate);
+          const channelData = beep.bufferSource.buffer.getChannelData(0);
+          for (let i = 0; i < channelData.length; i++) {
+            channelData[i] = Math.random() * 2 - 1;
+          }
+          beep.bufferSource.loop = false;
+
+          out = beep.bufferSource;
+        } else {
+          beep.osc = ChoreoGraph.Audio.ctx.createOscillator();
+          beep.osc.type = options.type;
+          beep.osc.frequency.value = options.frequency;
+          if (options.endFrequency!==undefined) {
+            beep.osc.frequency.setValueAtTime(options.frequency, currentTime);
+            beep.osc.frequency.exponentialRampToValueAtTime(options.endFrequency+0.000000001, currentTime + options.duration);
+          }
+          out = beep.osc;
+        }
+
+        if (options.biquadType!==undefined) {
+          beep.biquadFilter = ChoreoGraph.Audio.ctx.createBiquadFilter();
+          beep.biquadFilter.type = options.biquadType;
+          if (options.biquadFrequency===undefined) { options.biquadFrequency = options.frequency; }
+          beep.biquadFilter.frequency.value = options.biquadFrequency;
+          if (options.biquadQ!==undefined) { beep.biquadFilter.Q.value = options.biquadQ; }
+          if (options.biquadGain!==undefined) { beep.biquadFilter.gain.value = options.biquadGain; }
+          if (options.biquadDetune!==undefined) { beep.biquadFilter.detune.value = options.biquadDetune; }
+          out.connect(beep.biquadFilter);
+          out = beep.biquadFilter;
+        }
+        
+        beep.gainNode = ChoreoGraph.Audio.ctx.createGain();
+        out.connect(beep.gainNode);
+        beep.gainNode.gain.value = options.volume;
+        beep.gainNode.gain.cancelScheduledValues(currentTime);
+        if (options.attack!==undefined) {
+          beep.gainNode.gain.setValueAtTime(0, currentTime);
+          beep.gainNode.gain.linearRampToValueAtTime(options.volume, currentTime + options.attack);
+        }
+        if (options.decay!==undefined) {
+          beep.gainNode.gain.setValueAtTime(options.volume, currentTime + options.duration - options.decay);
+          beep.gainNode.gain.linearRampToValueAtTime(0, currentTime + options.duration);
+        }
+        out = beep.gainNode;
+
+        if (options.bus!==undefined) {
+          let bus = this.buses[options.bus];
+          if (bus==undefined) {
+            bus = new ChoreoGraph.Audio.Bus(options.bus, this.cg);
+            this.buses[options.bus] = bus;
+          }
+          out.connect(bus.gainNode);
+        } else {
+          out.connect(this.masterGain);
+        }
+
+        if (options.type==="noise") {
+          beep.bufferSource.start();
+          beep.bufferSource.stop(currentTime + options.duration);
+          beep.bufferSource.onended = () => {
+            beep.bufferSource.disconnect();
+            if (beep.biquadFilter) beep.biquadFilter.disconnect();
+            beep.gainNode.disconnect();
+          };
+        } else {
+          beep.osc.start();
+          beep.osc.stop(currentTime + options.duration);
+          beep.osc.onended = () => {
+            beep.osc.disconnect();
+            if (beep.biquadFilter) beep.biquadFilter.disconnect();
+            beep.gainNode.disconnect();
+          };
+        }
+        return beep;
       }
     };
 
@@ -470,6 +560,7 @@ ChoreoGraph.plugin({
       soundSetupSource.play();
       ChoreoGraph.Audio.interacted = true;
       document.removeEventListener("pointerdown", ChoreoGraph.Audio.documentClicked, false);
+      ChoreoGraph.Audio.ready = true;
     };
 
     generateImpulseResponse(duration, decay, cache=true) {

@@ -11,7 +11,7 @@ declare module './choreograph' {
       readonly nextId: number;
 
       readonly mode: cgWebAudio | cgHTMLAudio | null;
-      ctx: AudioContext | null;
+      ctx: AudioContext;
 
       onReady: (callback: () => void) => void;
       readonly hasCalledOnReady: boolean;
@@ -45,6 +45,7 @@ declare module './choreograph' {
       setVolume(id: ChoreoGraphId, volume: number, seconds: number): void;
       setSpeed(id: ChoreoGraphId, speed: number): void;
       declareBus(id: ChoreoGraphId): cgAudioBus;
+      beep(options: cgAudioBeepOptions): OscillatorNode;
     }
   }
 
@@ -103,6 +104,25 @@ declare module './choreograph' {
     paused?: boolean;
     nodes?: AudioNode[];
     soundInstanceId?: ChoreoGraphId;
+    bus?: ChoreoGraphId;
+  }
+
+  type cgAudioBeepOptions = {
+    frequency?: number;
+    endFrequency?: number;
+    duration?: number;
+    type?: "sine" | "square" | "sawtooth" | "triangle" | "noise";
+
+    attack?: number;
+    decay?: number;
+    volume?: number;
+
+    biquadType?: "lowpass" | "highpass" | "bandpass" | "lowshelf" | "highshelf" | "notch" | "allpass";
+    biquadFrequency?: number;
+    biquadQ?: number;
+    biquadGain?: number;
+    biquadDetune?: number;
+
     bus?: ChoreoGraphId;
   }
 
