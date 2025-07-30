@@ -652,7 +652,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       if (item.graphic.manualTransform) {
         if (this.checkGraphicBoundCull(item)==false) { return; }
         this.c.resetTransform();
-        item.graphic.draw(this,item.transform);
+        item.graphic.draw(this,item.transform,item);
       } else {
         let go = item.transform.o;
         if (go==0) { return; }
@@ -674,7 +674,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         ChoreoGraph.transformContext(this.camera,gx,gy,gr,gsx,gsy,CGSpace,flipX,flipY,canvasSpaceXAnchor,canvasSpaceYAnchor);
 
         this.c.globalAlpha = go;
-        item.graphic.draw(this.c,gax,gay,this);
+        item.graphic.draw(this.c,gax,gay,this,item);
       }
     };
 

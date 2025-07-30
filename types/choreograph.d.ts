@@ -619,8 +619,8 @@ declare global {
 
   type cgGraphicType = {
     setup?(init: cgGraphicInit, cg: cgInstance): void;
-    draw(c: CanvasRenderingContext2D, ax: number, ay: number): void;
-    draw(canvas: cgCanvas, transform: cgTransform): void;
+    draw(c: CanvasRenderingContext2D, ax: number, ay: number, canvas: cgCanvas, sceneItem: cgSceneItem): void;
+    draw(canvas: cgCanvas, transform: cgTransform, sceneItem: cgSceneItem): void;
     getBounds?(): [width: number, height: number, xOffset: number, yOffset: number];
   }
 
