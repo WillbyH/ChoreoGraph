@@ -30,6 +30,7 @@ declare module './choreograph' {
     id: ChoreoGraphId;
     width: number;
     height: number;
+    disabled: boolean;
 
     element: HTMLCanvasElement;
     clearColor: { r: number; g: number; b: number; a: number; };

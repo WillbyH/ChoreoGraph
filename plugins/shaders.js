@@ -142,6 +142,7 @@ ChoreoGraph.plugin({
     ShaderCanvas = class cgShadersCanvas {
       width = 600;
       height = 400;
+      disabled = false;
 
       element = null;
       clearColor = {r:0,g:0,b:0,a:0};
@@ -238,6 +239,9 @@ ChoreoGraph.plugin({
         }
         for (let i=0;i<cg.keys.shaderCanvases.length;i++) {
           let canvas = cg.Shaders.shaderCanvases[cg.keys.shaderCanvases[i]];
+          if (canvas.disabled) {
+            continue;
+          }
           canvas.draw();
         }
       };
