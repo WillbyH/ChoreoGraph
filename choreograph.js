@@ -934,6 +934,10 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     };
 
     addObject(object) {
+      if (typeof object !== "object" || !object instanceof ChoreoGraph.Object) {
+        console.warn("cgScene.addObject did not recieve a cgObject and instead recieved:",object);
+        return;
+      }
       this.objects.push(object);
     };
 
