@@ -984,6 +984,10 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       if (collection===null) {
         this.drawBuffer.push({type:"graphic",transform:transform,graphic:graphic});
       } else {
+        if (this.drawBufferCollections[collection]===undefined) {
+          console.warn(`Scene with id ${this.id} does not have a collection with the id ${collection}`);
+          return;
+        }
         this.drawBufferCollections[collection].push({type:"graphic",transform:transform,graphic:graphic});
       }
     };
@@ -1825,19 +1829,22 @@ const ChoreoGraph = new class ChoreoGraphEngine {
     return ["images",pass,count,total];
   };
 
-  transformContext(camera,x=0,y=0,r=0,sx=1,sy=1,CGSpace=true,flipX=false,flipY=false,canvasSpaceXAnchor,canvasSpaceYAnchor,ctx=camera?.canvas.c,cx=camera?.cx,cy=camera?.cy,cz=camera?.cz,canvasSpaceScale=camera?.canvasSpaceScale,w=camera?.canvas.width,h=camera?.canvas.height,manualScaling=false) {
+  transformContext(camera,x=0,y=0,r=0,sx=1,sy=1,CGSpace=true,flipX=false,flipY=false,canvasSpaceXAnchor,canvasSpaceYAnchor,ctx=camera?.canvas?.c,cx=camera?.cx,cy=camera?.cy,cz=camera?.cz,canvasSpaceScale=camera?.canvasSpaceScale,w=camera?.canvas?.width,h=camera?.canvas?.height,manualScaling=false) {
     if (camera===undefined&&ChoreoGraph.instances.length===1&&ChoreoGraph.instances[0].keys.cameras.length===1) {
       camera = ChoreoGraph.instances[0].cameras[ChoreoGraph.instances[0].keys.cameras[0]];
-      if (camera.canvas==null) { return; }
-      ctx = camera.canvas.c;
       cx = camera.cx;
       cy = camera.cy;
       cz = camera.cz;
       canvasSpaceScale = camera.canvasSpaceScale;
-      w = camera.canvas.width;
-      h = camera.canvas.height;
     }
     if (camera==undefined) { return; }
+    if (camera.canvas===null && camera.inactiveCanvas!==null) {
+      ctx = camera.inactiveCanvas.c;
+      w = camera.inactiveCanvas.width;
+      h = camera.inactiveCanvas.height;
+    } else if (camera.canvas===null && camera.inactiveCanvas===null) {
+      return;
+    }
     let z = 1;
     if (CGSpace) {
       z = cz;
