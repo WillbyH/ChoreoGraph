@@ -504,9 +504,9 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       return this;
     };
 
-    drawImage(image, x, y, width=image.width, height=image.height, rotation=0, ax=0, ay=0, flipX=false, flipY=false) {
-      if (image==undefined) {
-        console.warn("Image is undefined in cgCanvas.drawImage");
+    drawImage(image, x=0, y=0, width=image.width, height=image.height, rotation=0, ax=0, ay=0, flipX=false, flipY=false) {
+      if (!(image instanceof ChoreoGraph.Image)) {
+        console.warn("Image in cgCanvas.drawImage is not a cgImage, instead recieved",image);
         return;
       }
       let c = this.c;
