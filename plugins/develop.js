@@ -1444,7 +1444,15 @@ ChoreoGraph.plugin({
         }
         text += '],"' + selectedPathId + '")';
       }
-      navigator.clipboard.writeText(text);
+      if (navigator.clipboard===undefined) {
+        if (ChoreoGraph.Develop.hasWarnedAboutMissingClipboard === undefined) {
+          console.warn("Clipboard not available, using console instead");
+          ChoreoGraph.Develop.hasWarnedAboutMissingClipboard = true;
+        }
+        console.info(text);
+      } else {
+        navigator.clipboard.writeText(text);
+      }
     };
 
     UIToggleButton = class UIToggleButton {
