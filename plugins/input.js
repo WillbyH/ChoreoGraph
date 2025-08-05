@@ -1017,12 +1017,13 @@ ChoreoGraph.plugin({
         ChoreoGraph.transformContext(canvas.camera,cx,cy,0,1,1,this.transform.CGSpace,false,false,this.transform.canvasSpaceXAnchor,this.transform.canvasSpaceYAnchor);
         const c = canvas.c;
         const style = canvas.cg.settings.input.debug.buttons.style;
-        const debugCanvasScale = canvas.cg.settings.core.debugCanvasScale;
+        const coreSettings = canvas.cg.settings.core;
+        let debugScale = this.transform.CGSpace ? coreSettings.debugCGScale : coreSettings.debugCanvasScale;
         c.save();
         c.globalAlpha = 1;
         c.textAlign = "center";
         c.textBaseline = "middle";
-        c.font = style.fontSize*debugCanvasScale+"px "+style.fontFamily;
+        c.font = style.fontSize*debugScale+"px "+style.fontFamily;
         c.fillStyle = style.textColour;
         c.fillText(this.id, 0, 0);
         c.restore();
