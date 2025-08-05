@@ -882,6 +882,9 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         if (itemInit.graphic===undefined) {
           console.warn("createItem missing graphic in itemInit");
           return;
+        } else if (!(itemInit.graphic instanceof ChoreoGraph.Graphic)) {
+          console.warn(`cgScene.createItem graphic is not a cgGraphic on scene ${this.id}, instead recieved:`,itemInit.graphic);
+          return;
         }
         ChoreoGraph.initTransform(this.cg,itemInit,itemInit);
         newItem = new ChoreoGraph.SceneItem({
