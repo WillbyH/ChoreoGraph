@@ -457,6 +457,7 @@ ChoreoGraph.plugin({
           topLeftText.countByCanvas[canvas.id] = 0;
         }
         let c = canvas.c;
+        c.save();
         let scale = cg.settings.core.debugCanvasScale;
         let height = 26*scale;
         let yOffset = topLeftText.countByCanvas[canvas.id] * height;
@@ -474,6 +475,7 @@ ChoreoGraph.plugin({
         c.fillText(text,5*scale,7*scale+yOffset);
 
         topLeftText.countByCanvas[canvas.id]++;
+        c.restore();
       };
 
       overlayObjectAnnotation(cg) {
