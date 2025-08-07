@@ -219,7 +219,7 @@ cg.Lighting.createLight({
   hexColour : "#66ffc2"
 },"exit");
 
-cg.processLoops.push(() => {
+cg.callbacks.listen("core","process",() => {
   for (let i=0;i<cg.paths.candlePositions.length;i++) {
     if (cg.Lighting.lights["candle"+i] == undefined) { continue; }
     let candle = cg.Lighting.lights["candle"+i];
@@ -255,7 +255,7 @@ stst.cheatsActive = false;
 cg.Input.createAction({keys:["conleftleft","conrightleft"]},"sliderLeft");
 cg.Input.createAction({keys:["conleftright","conrightright"]},"sliderRight");
 
-cg.settings.input.callbacks.keyDown = (key) => {
+cg.callbacks.listen("input","keyDown",(key) => {
   if (key==stst.cheatCode[stst.cheatsProgress.length]) {
     stst.cheatsProgress += key;
     if (stst.cheatsProgress==stst.cheatCode) {
@@ -322,7 +322,7 @@ cg.settings.input.callbacks.keyDown = (key) => {
       cg.canvas.camera.z = cg.canvas.camera.z == 1 ? 0.2 : 1;
     }
   }
-};
+});
 
 stst.caught = () => {
   if (ChoreoGraph.Input.controller!=null && ChoreoGraph.Input.controller.connected) {
@@ -362,7 +362,7 @@ stst.reset = (resetScoopy) => {
   }
 };
 
-cg.settings.core.callbacks.loadingLoop = (checkData) => {
+cg.callbacks.listen("core","loading",(checkData) => {
   cg.canvas.c.resetTransform();
   cg.canvas.c.clearRect(0, 0, cg.canvas.width, cg.canvas.height);
   cg.canvas.c.font = "16px Arial";
@@ -377,4 +377,4 @@ cg.settings.core.callbacks.loadingLoop = (checkData) => {
     const text = `${key} ${checkData[key].loaded}/${checkData[key].total}`;
     cg.canvas.c.fillText(text, 10, 30 + i * 30);
   }
-}
+})

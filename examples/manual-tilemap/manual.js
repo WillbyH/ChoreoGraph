@@ -165,7 +165,7 @@ cg.Input.createAction({keys:["k"]},"secondaryBackward");
 cg.Input.createAction({keys:["j"]},"secondaryLeft");
 cg.Input.createAction({keys:["l"]},"secondaryRight");
 
-cg.settings.core.callbacks.loopBefore = () => {
+cg.callbacks.listen("core","overlay",() => {
   let dir = cg.Input.getActionNormalisedVector("secondaryForward","secondaryBackward","secondaryLeft","secondaryRight");
   cg.cameras.main.transform.x += dir[0]*0.1*cg.timeDelta;
   cg.cameras.main.transform.y += dir[1]*0.1*cg.timeDelta;
@@ -173,6 +173,6 @@ cg.settings.core.callbacks.loopBefore = () => {
   dir = cg.Input.getActionNormalisedVector("primaryForward","primaryBackward","primaryLeft","primaryRight");
   cg.objects.player.RigidBody.xv = dir[0]*30;
   cg.objects.player.RigidBody.yv = dir[1]*30;
-};
+});
 
 ChoreoGraph.start();

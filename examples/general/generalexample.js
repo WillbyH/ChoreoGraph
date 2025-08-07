@@ -102,10 +102,6 @@ cg.Input.createButton({type:"polygon",transformInit:{CGSpace:true,x:-200,y:0},pa
 cg.Audio.createSound({source:"magneticPlane.mp3"},"magneticPlane");
 cg.Audio.sounds.magneticPlane.play({allowBuffer:true,loop:true});
 
-// cg.settings.input.callbacks.keyDown = function(key,event) {
-//   console.log(key);
-// }
-
 let testAnim = cg.Animation.createAnimationFromPacked("4:transform,x;0,x|transform,y;0,y|transform,r;0,r|Graphic,graphic,width;1,v&path=15:154,369,102,315,116,202~169,157,222,112,315,91,349,141^424,309,452,363,359,383~296,356,233,329,220,271~255,234,290,197,410,154,498,196&value=,5+4!10+1,20+7!15+1,5+14!10+3,50+16!60+3,100",{},"testAnim");
 
 cg.createObject({},"animatedObject")
@@ -332,7 +328,7 @@ cg.Physics.createCollider({type:"circle",radius:50,trigger:true,transformInit:{x
 // cg.Physics.createCollider({type:"point",transformInit:{x:503,y:200}},"circleCollider");
 cg.Physics.createCollider({type:"raycast",dx:100,dy:50,transformInit:{x:203,y:200}},"raycastCollider");
 
-cg.settings.core.callbacks.loopBefore = () => {
+cg.callbacks.listen("core","predraw",() => {
   cg.scenes.main.items.cursorRectangle.transform.x = cg.Input.cursor.x;
   cg.scenes.main.items.cursorRectangle.transform.y = cg.Input.cursor.y;
   if (cg.Input.lastCursorType=="controller") {
@@ -354,7 +350,7 @@ cg.settings.core.callbacks.loopBefore = () => {
     cg.Physics.colliders.rectCollider.transform.x = cg.Input.cursor.x;
     cg.Physics.colliders.rectCollider.transform.y = cg.Input.cursor.y;
   }
-}
+});
 
 cg.createGraphic({
   type:"areaText",
@@ -369,7 +365,7 @@ cg.scenes.main.createItem("graphic",{
   transformInit:{x:-100,y:250},
 },"areaTextItem");
 
-cg.settings.core.callbacks.loopAfter = () => {
+cg.callbacks.listen("core","overlay",() => {
   ChoreoGraph.transformContext(cg.canvases.main.camera);
   cg.c.strokeStyle = "white";
   cg.c.font = "20px Arial";
@@ -463,7 +459,7 @@ cg.settings.core.callbacks.loopAfter = () => {
     fontWeight : "bold"
   });
   cg.canvas.drawAreaText(text,500,370,options);
-}
+})
 
 cg.loadChecks.push(()=>{
   return ["you_can_make_custom_load_checks", true, 1, 1];
@@ -473,7 +469,7 @@ cg.loadChecks.push(()=>{
   return ["interaction", ChoreoGraph.Audio.interacted, 0, 0];
 })
 
-cg.settings.core.callbacks.loadingLoop = (checkData) => {
+cg.callbacks.listen("core","loading",(checkData) => {
   cg.canvas.c.resetTransform();
   cg.canvas.c.clearRect(0, 0, cg.canvas.width, cg.canvas.height);
   cg.canvas.c.font = "16px Arial";
@@ -488,6 +484,6 @@ cg.settings.core.callbacks.loadingLoop = (checkData) => {
     const text = `${key} ${checkData[key].loaded}/${checkData[key].total}`;
     cg.canvas.c.fillText(text, 10, 30 + i * 30);
   }
-}
+});
 
 ChoreoGraph.start();

@@ -23,7 +23,7 @@ cg.createImage({
   crop : [5*16+12,6*16+1,4,4]
 },"gemParticle3");
 
-cg.processLoops.push(function canvasScaler() {
+cg.callbacks.listen("core","process",function canvasScaler() {
   cg.cameras.main.canvasSpaceScale = cg.canvases.main.width/1920;
 });
 

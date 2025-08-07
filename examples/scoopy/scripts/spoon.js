@@ -56,7 +56,7 @@ stst.alarm = false;
 stst.alarmEndTime = 0;
 stst.hasEscapedWithSpoon = false;
 
-cg.processLoops.push(function alarmLighting() {
+cg.callbacks.listen("core","process",function alarmLighting() {
   if (stst.alarm) {
     let pulseSpeed = 1;
     let pingPong = Math.abs(cg.clock%(1000*(1/pulseSpeed))-(1000*(1/pulseSpeed))/2)/(1000*(1/pulseSpeed)/2);

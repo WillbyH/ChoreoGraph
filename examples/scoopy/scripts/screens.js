@@ -453,7 +453,7 @@ cg.Input.createButton({
   }
 },"restartButton");
 
-cg.settings.input.callbacks.updateButtonChecks = () => {
+cg.Input.updateButtonChecks = () => {
   return {
     touchAndAlarm : cg.Input.lastCursorType == ChoreoGraph.Input.TOUCH && stst.alarm,
     touch : cg.Input.lastInputType == ChoreoGraph.Input.TOUCH,
@@ -685,7 +685,7 @@ cg.Input.createButton({type:"rectangle",
   },
 },"fullscreenToggle");
 
-cg.settings.input.callbacks.cursorMove = () => {
+cg.callbacks.listen("input","cursorMove",() => {
   let master = cg.Input.buttons.masterVolume;
   let music = cg.Input.buttons.musicVolume;
   let sfx = cg.Input.buttons.sfxVolume;
@@ -703,9 +703,9 @@ cg.settings.input.callbacks.cursorMove = () => {
   if (sfx.hovered&&cg.Input.cursor.hold.any) {
     cg.Audio.buses.sfx.volume = transform(sfx.hoveredX);
   }
-}
+})
 
-cg.processLoops.push(function canvasScaler() {
+cg.callbacks.listen("core","process",function canvasScaler() {
   cg.cameras.main.canvasSpaceScale = cg.canvases.main.width/1920;
 });
 
@@ -781,6 +781,6 @@ stst.start = () => {
   }
 }
 
-cg.settings.input.callbacks.cursorDown = () => {
+cg.callbacks.listen("input","cursorDown",() => {
   stst.start();
-}
+})

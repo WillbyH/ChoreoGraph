@@ -66,7 +66,7 @@ function loadTilemaps() {
   });
 }
 
-cg.settings.core.callbacks.loadingLoop = (checkData) => {
+cg.callbacks.listen("core","loading",(checkData) => {
   cg.canvas.c.resetTransform();
   cg.canvas.c.clearRect(0, 0, cg.canvas.width, cg.canvas.height);
   cg.canvas.c.font = "16px Arial";
@@ -81,4 +81,4 @@ cg.settings.core.callbacks.loadingLoop = (checkData) => {
     const text = `${key} ${checkData[key].loaded}/${checkData[key].total}`;
     cg.canvas.c.fillText(text, 10, 30 + i * 30);
   }
-}
+})

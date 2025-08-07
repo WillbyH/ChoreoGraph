@@ -120,7 +120,7 @@ cg.scenes.main.addObject(stst.scoopy);
 cg.cameras.main.transform.parent = stst.scoopy.transform;
 cg.cameras.main.transform.oy = -3;
 
-cg.processLoops.push(() => {
+cg.callbacks.listen("core","process",() => {
   let dir = [0,0];
   if (cg.Input.cursor.hold.any&&cg.Input.lastCursorType==ChoreoGraph.Input.TOUCH) {
     if (cg.Input.buttons.joystick.hovered) {

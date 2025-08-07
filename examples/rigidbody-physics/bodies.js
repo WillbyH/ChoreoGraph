@@ -169,7 +169,7 @@ cg.Physics.createCollider({
   exit:function(self,collider) { console.info(collider.id + " exited") }
 },"triggerTest");
 
-cg.settings.core.callbacks.loopBefore = () => {
+cg.callbacks.listen("core","predraw",() => {
   let speed = 5;
   for (let buttonId of cg.keys.buttons) {
     let button = cg.Input.buttons[buttonId];
@@ -180,9 +180,9 @@ cg.settings.core.callbacks.loopBefore = () => {
       button.object.RigidBody.yv = (cy - button.object.transform.y) * speed;
     }
   }
-};
+});
 
-cg.settings.core.callbacks.loopAfter = () => {
+cg.callbacks.listen("core","overlay",() => {
   for (let buttonId of cg.keys.buttons) {
     let button = cg.Input.buttons[buttonId];
     if (button.pressed && button.object) {
@@ -201,6 +201,6 @@ cg.settings.core.callbacks.loopAfter = () => {
       c.globalAlpha = 1;
     }
   }
-};
+});
 
 ChoreoGraph.start();

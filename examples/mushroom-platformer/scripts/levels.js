@@ -152,7 +152,7 @@ function createLevel(init={}) {
   levels[newLevel.id] = newLevel;
 }
 
-cg.settings.core.callbacks.start = () => {
+cg.callbacks.listen("core","start",() => {
   createLevel({
     id : "level1",
     startPosition : [70,105],
@@ -185,7 +185,7 @@ cg.settings.core.callbacks.start = () => {
     enemyPositions : [[405,53],[576,429],[1026,175]],
     tilemap : cg.Tilemaps.tilemaps.level3
   });
-}
+})
 
 // LEVELS SCREEN
 cg.createImage({

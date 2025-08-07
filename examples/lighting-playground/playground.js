@@ -113,16 +113,16 @@ cg.Input.createAction({keys:["s","down","condpaddown","conrightdown"]},"moveDown
 cg.Input.createAction({keys:["a","left","condpadleft","conrightleft"]},"moveLeft");
 cg.Input.createAction({keys:["d","right","condpadright","conrightright"]},"moveRight");
 
-cg.settings.core.callbacks.loopBefore=()=> {
+cg.callbacks.listen("core","predraw",() => {
   if (dragging) {
     let dx = cg.Input.cursor.x - cg.Input.cursor.down.left.x;
     let dy = cg.Input.cursor.y - cg.Input.cursor.down.left.y;
     draggedObject.transform.x = draggedObject.downX + dx;
     draggedObject.transform.y = draggedObject.downY + dy;
   }
-}
+})
 
-cg.settings.core.callbacks.loopAfter=()=> {
+cg.callbacks.listen("core","overlay",() => {
   let dir = cg.Input.getActionNormalisedVector("moveUp","moveDown","moveLeft","moveRight");
   cg.cameras.main.transform.x += dir[0] * cg.timeDelta;
   cg.cameras.main.transform.y += dir[1] * cg.timeDelta;
@@ -142,11 +142,11 @@ cg.settings.core.callbacks.loopAfter=()=> {
     c.strokeStyle = "#ffffff";
     c.stroke();
   }
-}
+})
 
-cg.settings.input.callbacks.cursorUp=()=> {
+cg.callbacks.listen("input","cursorUp",() => {
   dragging = false;
   draggedObject = null;
-}
+})
 
 ChoreoGraph.start();

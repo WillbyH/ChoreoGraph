@@ -138,10 +138,10 @@ cg.scenes.main.createItem("graphic",{
   transform : cg.createTransform({canvasSpaceXAnchor:0.2,canvasSpaceYAnchor:0.5,r:10,CGSpace:false})
 },"single");
 
-cg.settings.core.callbacks.resize = function(canvas){
+cg.callbacks.listen("core","resize",(canvas) => {
   cg.graphics.background.setSize(canvas.width, canvas.height);
   cg.camera.canvasSpaceScale = canvas.width / 400;
-}
+})
 
 cg.Shaders.createCanvas({element:document.createElement("canvas"),redrawCanvas : cg.canvas},"shaderCanvas");
 

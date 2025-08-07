@@ -175,7 +175,7 @@ cg.Input.createButton({type:"rectangle",
   transform : cg.createTransform({x:390,y:290}),
   width : 20,
   height : 20,
-  down : ()=> {
+  down : () => {
     cg.graphics.fullscreenToggle.isFullscreen = !cg.graphics.fullscreenToggle.isFullscreen;
     if (cg.graphics.fullscreenToggle.isFullscreen) {
       cg.cameras.railways.height = 320;
@@ -428,7 +428,11 @@ const rwManager = new class RailwayManager {
         newCarriage.isBackOfTrain = true;
       }
 
-      let carriageButton = cg.Input.createButton({type:"circle",transformInit:{parent:newCarriage.transform},radius:12},"train_"+trainId+"_carriage_"+carriageIndex+"_button");
+      let carriageButton = cg.Input.createButton({
+        type : "circle",
+        transformInit : {parent:newCarriage.transform},
+        radius : 12
+      },"train_"+trainId+"_carriage_"+carriageIndex+"_button");
       carriageButton.trainId = trainId;
 
       cg.scenes.railways.addObject(newCarriage);
@@ -516,7 +520,7 @@ rwManager.createSignal("B4", 132, 228, 132, 236);
 // A button that prevents deselection of trains where the speed slider is
 cg.Input.createButton({type:"rectangle",width:110,height:30,transformInit:{x:90,y:34}},"noDeselectionZone");
 
-cg.settings.core.callbacks.loopBefore = ()=>{
+cg.callbacks.listen("core","predraw",() => {
   // SET TRAIN HOVER GRAPHIC OPACITY
   for (let trainId=0;trainId<13;trainId++) {
     let train = cg.BlockController.blockGroups["train_"+trainId];
@@ -542,9 +546,9 @@ cg.settings.core.callbacks.loopBefore = ()=>{
       carriage.object.Hover.transform.o = 0.3;
     }
   }
-};
+});
 
-cg.settings.core.callbacks.loopAfter = ()=>{
+cg.callbacks.listen("core","overlay",() => {
   ChoreoGraph.transformContext(cg.canvases.railways.camera);
   let c = cg.canvases.railways.c;
 
@@ -578,28 +582,37 @@ cg.settings.core.callbacks.loopAfter = ()=>{
 
       // CREATE A BUTTON FOR EACH NOTCH
       if (cg.Input.buttons[buttonId]==undefined) {
-        cg.Input.createButton({type:"rectangle",width:spacing,height:20,speed:notches[i+1],transformInit:{x:notchesX + i*spacing + 3,y:notchesY + 2},down:(button)=>{
-          if (rwManager.selectedTrain==-1) { return; }
-          button.setTrainSpeed(button);
-        },enter:(button)=>{
-          if (!cg.Input.cursor.hold.any||rwManager.selectedTrain==-1) { return; }
-          button.setTrainSpeed(button);
-        },setTrainSpeed:(button)=>{
-          let train = cg.BlockController.blockGroups["train_"+rwManager.selectedTrain];
-          for (let carriage of train) {
-            if (carriage.Animator.speed==1&&button.speed==1) {
-              carriage.Animator.speed = 0;
-            } else {
-              carriage.Animator.speed = button.speed;
+        cg.Input.createButton({
+          type : "rectangle",
+          width : spacing,
+          height : 20,
+          speed : notches[i+1],
+          transformInit : {x:notchesX + i*spacing + 3,y:notchesY + 2},
+          down : (button) => {
+            if (rwManager.selectedTrain==-1) { return; }
+            button.setTrainSpeed(button);
+          },
+          enter : (button) => {
+            if (!cg.Input.cursor.hold.any||rwManager.selectedTrain==-1) { return; }
+            button.setTrainSpeed(button);
+          },
+          setTrainSpeed : (button) => {
+            let train = cg.BlockController.blockGroups["train_"+rwManager.selectedTrain];
+            for (let carriage of train) {
+              if (carriage.Animator.speed==1&&button.speed==1) {
+                carriage.Animator.speed = 0;
+              } else {
+                carriage.Animator.speed = button.speed;
+              }
             }
           }
-        }},buttonId);
+        },buttonId);
       }
     }
   }
-};
+});
 
-cg.settings.input.callbacks.keyDown = (key)=>{
+cg.callbacks.listen("input","keyDown",(key) => {
   // CHANGE THE SELECTED TRAIN SPEED
   if (rwManager.selectedTrain>=0) {
     let train = cg.BlockController.blockGroups["train_"+rwManager.selectedTrain];
@@ -666,9 +679,9 @@ cg.settings.input.callbacks.keyDown = (key)=>{
   } else if (key=="escape") {
     rwManager.selectedTrain = -1;
   }
-};
+});
 
-cg.settings.input.callbacks.cursorDown = (key)=>{
+cg.callbacks.listen("input","cursorDown",() => {
   // DESELECT TRAIN IF NO BUTTONS ARE HOVERED
   let isHoveringButton = false;
   for (let buttonId of cg.keys.buttons) {
@@ -681,6 +694,6 @@ cg.settings.input.callbacks.cursorDown = (key)=>{
   if (isHoveringButton==false) {
     rwManager.selectedTrain = -1;
   }
-};
+});
 
 ChoreoGraph.start();
