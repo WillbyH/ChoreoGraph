@@ -1772,7 +1772,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
   applyAttributes(obj,attributes,strict=false) {
     for (let key in attributes) {
       if (strict&&obj[key]===undefined) { continue; }
-      obj[key] = attributes[key];
+      Object.assign(obj, {[key]: attributes[key]});
     }
   };
 
@@ -1795,7 +1795,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         obj.transform = cg.createTransform(transformInit);
       }
     }
-  }
+  };
 
   colourLerp(colourFrom, colourTo, amount) {
     let splitcolourTo = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(colourTo);
