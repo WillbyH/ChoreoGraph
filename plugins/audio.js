@@ -115,8 +115,13 @@ ChoreoGraph.plugin({
           source.buffer = sound.audio;
           source.gainNode = ChoreoGraph.Audio.ctx.createGain();
           source.gainNode.gain.value = options.volume; // Volume
-          source.loop = options.loop; // Looping
+          // Looping
+          source.loop = options.loop;
+          if (options.loopStart!==0) { source.loopStart = options.loopStart; }
+          if (options.loopEnd!==0) { source.loopEnd = options.loopEnd; }
           source.playbackRate.value = options.speed; // Speed
+
+          if (options.onCreateSource!=null) { options.onCreateSource(source, options); }
 
           source.connect(source.gainNode);
 
@@ -302,7 +307,7 @@ ChoreoGraph.plugin({
         const currentTime = ChoreoGraph.Audio.ctx.currentTime;
         const beep = {};
         let out;
-      
+
         if (options.type==="noise") {
           beep.bufferSource = ChoreoGraph.Audio.ctx.createBufferSource();
           beep.bufferSource.buffer = ChoreoGraph.Audio.ctx.createBuffer(1, ChoreoGraph.Audio.ctx.sampleRate * options.duration, ChoreoGraph.Audio.ctx.sampleRate);
@@ -335,7 +340,7 @@ ChoreoGraph.plugin({
           out.connect(beep.biquadFilter);
           out = beep.biquadFilter;
         }
-        
+
         beep.gainNode = ChoreoGraph.Audio.ctx.createGain();
         out.connect(beep.gainNode);
         beep.gainNode.gain.value = options.volume;
@@ -385,6 +390,8 @@ ChoreoGraph.plugin({
     PlayOptions = class PlayOptions {
       id = null;
       loop = false;
+      loopStart = 0;
+      loopEnd = 0;
       allowBuffer = false;
       fadeIn = 0; // Seconds
       volume = 1; // 0 - silent  1 - normal  2 - double
@@ -393,6 +400,7 @@ ChoreoGraph.plugin({
       nodes = [];
       soundInstanceId = null;
       bus = null;
+      onCreateSource = null; // Callback when source is created
       constructor(playOptionsInit={},cgAudio) {
         this.cgAudio = cgAudio;
         ChoreoGraph.applyAttributes(this,playOptionsInit);

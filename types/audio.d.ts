@@ -83,20 +83,25 @@ declare module './choreograph' {
   }
 
   type cgPlayOptions = {
-    id?: ChoreoGraphId;
-    loop?: boolean;
-    allowBuffer?: boolean;
-    fadeIn?: number;
-    volume?: number;
-    speed?: number;
-    paused?: boolean;
-    nodes?: AudioNode[];
-    soundInstanceId?: ChoreoGraphId | null;
-    bus?: string;
+    id: ChoreoGraphId;
+    loop: boolean;
+    loopStart: number;
+    loopEnd: number;
+    allowBuffer: boolean;
+    fadeIn: number;
+    volume: number;
+    speed: number;
+    paused: boolean;
+    nodes: AudioNode[];
+    soundInstanceId: ChoreoGraphId | null;
+    bus: string;
+    onCreateSource: (source: AudioBufferSourceNode, options: cgPlayOptions) => void | null;
   }
 
   type cgPlayOptionsInit = {
     loop?: boolean;
+    loopStart?: number;
+    loopEnd?: number;
     allowBuffer?: boolean;
     fadeIn?: number;
     volume?: number;
@@ -105,6 +110,7 @@ declare module './choreograph' {
     nodes?: AudioNode[];
     soundInstanceId?: ChoreoGraphId;
     bus?: ChoreoGraphId;
+    onCreateSource?: (source: AudioBufferSourceNode, options: cgPlayOptions) => void;
   }
 
   type cgAudioBeepOptions = {
