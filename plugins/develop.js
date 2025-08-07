@@ -897,7 +897,7 @@ ChoreoGraph.plugin({
       section.style.marginBottom = "20px";
       ChoreoGraph.Develop.section.prepend(section);
 
-      cg.debugLoops.push(ChoreoGraph.Develop.pathEditorOverlayLoop);
+      cg.callbacks.listen("core","debug",ChoreoGraph.Develop.pathEditorOverlayLoop);
 
       // SELECTED PATH DROPDOWN
       let dropdown = document.createElement("select");
@@ -1624,8 +1624,8 @@ ChoreoGraph.plugin({
       }
     });
     cg.Develop = new ChoreoGraph.Develop.InstanceObject(cg);
-    cg.processLoops.push(cg.Develop.developProcessLoop);
-    cg.debugLoops.push(cg.Develop.developOverlayLoop);
+    cg.callbacks.listen("core","process",cg.Develop.developProcessLoop);
+    cg.callbacks.listen("core","debug",cg.Develop.developOverlayLoop);
   },
 
   globalStart() {

@@ -386,19 +386,6 @@ declare module './choreograph' {
         }
       }
 
-      callbacks: {
-        keyDown: ((key: cgKeyType, event: PointerEvent) => void) | null;
-        keyUp: ((key: cgKeyType, event: PointerEvent) => void) | null;
-        cursorUp: ((cursor: cgInputCanvasCursorData, event: PointerEvent) => void) | null;
-        cursorDown: ((cursor: cgInputCanvasCursorData, event: PointerEvent) => void) | null;
-        cursorMove: ((cursor: cgInputCanvasCursorData, event: PointerEvent) => void) | null;
-        cursorEnter: ((cursor: cgInputCanvasCursorData, event: PointerEvent) => void) | null;
-        cursorExit: ((cursor: cgInputCanvasCursorData, event: PointerEvent) => void) | null;
-        wheel: ((cursor: cgInputCanvasCursorData, event: WheelEvent) => void) | null;
-        buttonDown: ((button: cgButton, event: PointerEvent, canvas: cgCanvas) => void) | null;
-        updateButtonChecks: ((cg: cgInstance) => void) | null;
-      }
-
       debug: {
         active: boolean;
         buttons: {
@@ -416,6 +403,21 @@ declare module './choreograph' {
           }
         }
       }
+    }
+  }
+
+  interface cgCallbacksStore {
+    input : {
+      keyDown: (key: cgKeyType, event: PointerEvent) => void;
+      keyUp: (key: cgKeyType, event: PointerEvent) => void;
+      cursorUp: (cursor: cgInputCanvasCursorData, event: PointerEvent) => void;
+      cursorDown: (cursor: cgInputCanvasCursorData, event: PointerEvent) => void;
+      cursorMove: (cursor: cgInputCanvasCursorData, event: PointerEvent) => void;
+      cursorEnter: (cursor: cgInputCanvasCursorData, event: PointerEvent) => void;
+      cursorExit: (cursor: cgInputCanvasCursorData, event: PointerEvent) => void;
+      wheel: (cursor: cgInputCanvasCursorData, event: WheelEvent) => void;
+      buttonDown: (button: cgButton, event: PointerEvent, canvas: cgCanvas) => void;
+      updateButtonChecks: (cg: cgInstance) => void;
     }
   }
 }

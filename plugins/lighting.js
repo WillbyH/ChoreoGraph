@@ -365,7 +365,7 @@ ChoreoGraph.plugin({
           this.#active = value;
           if (value&&!this.#cg.Lighting.hasActivatedDebugLoop) {
             this.#cg.Lighting.hasActivatedDebugLoop = true;
-            this.#cg.debugLoops.push(this.#cg.Lighting.lightingDebugLoop);
+            this.#cg.callbacks.listen("core","debug",this.#cg.Lighting.lightingDebugLoop);
           }
         }
         get active() { return this.#active; }

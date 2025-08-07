@@ -1689,7 +1689,7 @@ ChoreoGraph.plugin({
       cg.canvases.animation_editor_dopesheet.setCamera(cg.cameras.animation_editor_dopesheet);
       cg.scenes.animation_editor_dopesheet.createItem("graphic",{graphic:cg.graphics.animation_editor_dopesheet,transform:cg.createTransform({},"animation_editor_dopesheet")},"animation_editor_dopesheet");
 
-      cg.processLoops.push(function dopeSheetProcessLoop(cg){
+      cg.callbacks.listen("core","process",function dopeSheetProcessLoop(cg){
         let cursor = cg.Input.canvasCursors.animation_editor_dopesheet;
         if (cursor===undefined) { return; }
         let graphic = cg.graphics.animation_editor_dopesheet;

@@ -58,10 +58,43 @@ const ChoreoGraph = new class ChoreoGraphEngine {
 
     graphicTypes = {};
 
-    processLoops = [];
-    predrawLoops = [];
-    overlayLoops = [];
-    debugLoops = [];
+    callbacks = new class Callbacks {
+      core = {
+        process : [],
+        predraw : [],
+        overlay : [],
+        debug : [],
+        loading : [], // loading(checkData,cg) runs when the loop is loading
+        resume : [], // resume(ms,cg) runs when the loop is resumed
+        start : [], // start() runs once when the loop starts
+        resize : [] // resize(cgCanvas) runs when a canvas is resized
+      }
+
+      registerCallbacks(category,callbacks) {
+        if (this[category]===undefined) {
+          this[category] = {};
+        }
+        for (const name of callbacks) {
+          this[category][name] = [];
+        }
+      };
+
+      listen(category,name,callback) {
+        if (this[category]===undefined) {
+          console.warn("Callbacks category does not exist:",category);
+          return;
+        }
+        if (this[category][name]===undefined) {
+          console.warn("Callback:",name,"does not exist in category",category);
+          return;
+        }
+        if (callback===undefined) {
+          console.warn("Callback is undefined for",category,name);
+          return;
+        }
+        this[category][name].push(callback);
+      };
+    }
 
     get cw() {
       if (this.settings.core.defaultCanvas !== null) {
@@ -133,16 +166,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         assumptions : false,
         imageSmoothingEnabled : true,
         ignoredLoadChecks : [],
-        areaTextDebug : false,
-
-        callbacks : {
-          loopBefore : null, // loopBefore(cg) runs before canvases are drawn
-          loopAfter : null, // loopAfter(cg) runs after canvases are drawn
-          resume : null, // resume(ms,cg) runs when the loop is resumed
-          loadingLoop : null, // loadingLoop(checkData,cg) runs when the loop is loading
-          start : null, // start() runs once when the loop starts
-          resize : null // resize(cgCanvas) runs when a canvas is resized
-        }
+        areaTextDebug : false
       });
     };
 
@@ -167,13 +191,11 @@ const ChoreoGraph = new class ChoreoGraphEngine {
 
       if (this.timeSinceLastFrame < this.settings.core.inactiveTime) {
         this.clock += this.timeSinceLastFrame*this.settings.core.timeScale;
-      } else if (this.settings.core.callbacks.resume!=null) {
-        this.settings.core.callbacks.resume(this.timeSinceLastFrame*this.settings.core.timeScale,this);
+      } else {
+        this.callbacks.core.resume.forEach(callback => callback(this.timeSinceLastFrame*this.settings.core.timeScale,this));
       }
 
-      for (let loop of this.processLoops) {
-        loop(this);
-      }
+      this.callbacks.core.process.forEach(callback => callback(this));
 
       for (let sceneId of this.keys.scenes) {
         let scene = this.scenes[sceneId];
@@ -181,25 +203,15 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         scene.update();
       }
 
-      if (this.settings.core.callbacks.loopBefore!=null) { this.settings.core.callbacks.loopBefore(this); }
-
-      for (let loop of this.predrawLoops) {
-        loop(this);
-      }
+      this.callbacks.core.predraw.forEach(callback => callback(this));
 
       for (let canvasId of this.keys.canvases) {
         let canvas = this.canvases[canvasId];
         canvas.draw();
       }
 
-      if (this.settings.core.callbacks.loopAfter!=null) { this.settings.core.callbacks.loopAfter(this); }
-
-      for (let loop of this.overlayLoops) {
-        loop(this);
-      }
-      for (let loop of this.debugLoops) {
-        loop(this);
-      }
+      this.callbacks.core.overlay.forEach(callback => callback(this));
+      this.callbacks.core.debug.forEach(callback => callback(this));
     };
 
     handleLoading() {
@@ -224,7 +236,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
         this.ready = true;
         this.onReady();
       }
-      if (this.settings.core.callbacks.loadingLoop!=null) { this.settings.core.callbacks.loadingLoop(output,this); }
+      this.callbacks.core.loading.forEach(callback => callback(output,this));
     };
 
     onReady() {
@@ -234,7 +246,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
           plugin.instanceStart(this);
         }
       }
-      if (this.settings.core.callbacks.start!=null) { this.settings.core.callbacks.start(this); }
+      this.callbacks.core.start.forEach(callback => callback(this));
     };
 
     createCanvas(canvasInit={},id=ChoreoGraph.id.get()) {
@@ -317,7 +329,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       this.keys.sequences.push(id);
       if (this.sequenceManager.runningUpdateLoop==false) {
         this.sequenceManager.runningUpdateLoop = true;
-        this.processLoops.push(this.sequenceManager.sequenceManagerUpdate);
+        this.callbacks.listen("core","process",this.sequenceManager.sequenceManagerUpdate);
       }
       return newSequence;
     };
@@ -331,7 +343,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       this.keys.events.push(id);
       if (this.eventManager.runningUpdateLoop==false) {
         this.eventManager.runningUpdateLoop = true;
-        this.processLoops.push(this.eventManager.eventManagerUpdate);
+        this.callbacks.listen("core","process",this.eventManager.eventManagerUpdate);
       }
       return newEvent;
     };
@@ -489,9 +501,7 @@ const ChoreoGraph = new class ChoreoGraphEngine {
           if (copyContent.width!=0&&copyContent.height!=0) {
             this.c.drawImage(copyContent,0,0,width,height);
           }
-          if (this.cg.settings.core.callbacks.resize!=null) {
-            this.cg.settings.core.callbacks.resize(this);
-          }
+          this.cg.callbacks.core.resize.forEach(callback => callback(this));
           ChoreoGraph.forceNextFrame();
         }
       });

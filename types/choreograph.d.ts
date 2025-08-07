@@ -74,10 +74,7 @@ interface cgInstance {
   loadChecks: (() => [checkId: string, pass: boolean, loaded: number, total: number])[];
 
   graphicTypes: cgGraphicTypes;
-  processLoops: ((cg: cgInstance) => void)[];
-  predrawLoops: ((cg: cgInstance) => void)[];
-  overlayLoops: ((cg: cgInstance) => void)[];
-  debugLoops: ((cg: cgInstance) => void)[];
+  callbacks: cgCallbacks;
 
   readonly cw: number;
   readonly ch: number;
@@ -116,25 +113,43 @@ interface cgSettings {
     imageSmoothingEnabled: boolean;
     ignoredLoadChecks: string[];
     areaTextDebug: boolean;
-
-    callbacks: {
-      loopBefore: ((cg: cgInstance) => void);
-      loopAfter: ((cg: cgInstance) => void);
-      resume: ((ms: number, cg: cgInstance) => void);
-      loadingLoop: ((checkData: Record<
-        ChoreoGraphId,
-        {
-          id: ChoreoGraphId;
-          pass: boolean;
-          loaded: boolean;
-          total: number;
-        }
-      >, cg: cgInstance) => void);
-      start: (() => void | null);
-      resize: ((cgCanvas: cgCanvas) => void);
-    };
   };
 }
+
+interface cgCallbacks {
+  registerCallbacks(category: string, callbacks: string[]): void;
+  listen<Category extends keyof cgCallbacksStore, CallbackName extends keyof cgCallbacksStore[Category]>(
+    category: Category,
+    callbackName: CallbackName,
+    callback: cgCallbacksStore[Category][CallbackName]
+  ): void;
+  [category: keyof cgCallbacksStore]: {
+    [callbackName: string]: (...args: any[]) => void;
+  }
+}
+
+interface cgCallbacksStore {
+  core : {
+    process: (cg: cgInstance) => void;
+    predraw: (cg: cgInstance) => void;
+    overlay: (cg: cgInstance) => void;
+    debug: (cg: cgInstance) => void;
+    loading: (checkData: cgLoadCheckData, cg: cgInstance) => void;
+    resume: (ms: number, cg: cgInstance) => void;
+    start: () => void;
+    resize: (canvas: cgCanvas) => void;
+  }
+}
+
+type cgLoadCheckData = Record<
+  ChoreoGraphId,
+  {
+    id: ChoreoGraphId;
+    pass: boolean;
+    loaded: number;
+    total: number;
+  }
+>
 
 interface cgGraphicBase {
   readonly id: string;

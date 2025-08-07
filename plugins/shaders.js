@@ -233,9 +233,9 @@ ChoreoGraph.plugin({
       };
 
       updateShaderCanvases(cg) {
-        if (cg.Shaders.updateIndex < cg.overlayLoops.length - 1) {
-          cg.overlayLoops.splice(cg.overlayLoops.indexOf(cg.Shaders.updateShaderCanvases), 1);
-          cg.overlayLoops.push(cg.Shaders.updateShaderCanvases);
+        if (cg.Shaders.updateIndex < cg.callbacks.core.overlay.length - 1) {
+          cg.callbacks.core.overlay.splice(cg.callbacks.core.overlay.indexOf(cg.Shaders.updateShaderCanvases), 1);
+          cg.callbacks.core.overlay.push(cg.Shaders.updateShaderCanvases);
         }
         for (let i=0;i<cg.keys.shaderCanvases.length;i++) {
           let canvas = cg.Shaders.shaderCanvases[cg.keys.shaderCanvases[i]];
@@ -252,8 +252,8 @@ ChoreoGraph.plugin({
     cg.Shaders = new ChoreoGraph.Shaders.InstanceObject(cg);
     cg.keys.shaderCanvases = [];
 
-    cg.overlayLoops.push(cg.Shaders.updateShaderCanvases);
-    cg.Shaders.updateIndex = cg.overlayLoops.indexOf(cg.Shaders.updateShaderCanvases);
+    cg.callbacks.listen("core","overlay",cg.Shaders.updateShaderCanvases);
+    cg.Shaders.updateIndex = cg.callbacks.core.overlay.indexOf(cg.Shaders.updateShaderCanvases);
 
     cg.graphicTypes.shader = {
       setup(init,cg) {

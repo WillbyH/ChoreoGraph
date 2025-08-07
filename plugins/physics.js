@@ -873,8 +873,8 @@ ChoreoGraph.plugin({
     cg.Physics = new ChoreoGraph.Physics.InstanceObject(cg);
     cg.keys.colliders = [];
 
-    cg.processLoops.push(ChoreoGraph.Physics.triggerProcessingLoop);
-    cg.predrawLoops.push(ChoreoGraph.Physics.physicsProcessingLoop);
+    cg.callbacks.listen("core","process",ChoreoGraph.Physics.triggerProcessingLoop);
+    cg.callbacks.listen("core","process",ChoreoGraph.Physics.physicsProcessingLoop);
 
     cg.attachSettings("physics",{
       maximumIterations : 10,
@@ -899,7 +899,7 @@ ChoreoGraph.plugin({
           this.#active = value;
           if (value&&!this.#cg.Physics.hasActivatedDebugLoop) {
             this.#cg.Physics.hasActivatedDebugLoop = true;
-            this.#cg.debugLoops.push(ChoreoGraph.Physics.physicsDebugLoop);
+            this.#cg.callbacks.listen("core","debug",ChoreoGraph.Physics.physicsDebugLoop);
           }
         }
         get active() { return this.#active; }

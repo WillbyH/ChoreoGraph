@@ -69,13 +69,15 @@ ChoreoGraph.plugin({
 
       actions = {};
 
+      updateButtonChecks = null; // updateButtonChecks(cg) for ChoreoGraph to request button checks
+
       get buttonChecks() {
-        if (this.cg.settings.input.callbacks.updateButtonChecks!==null) {
+        if (this.cg.Input.updateButtonChecks!==null) {
           if (this.lastCheckedButtonChecks===ChoreoGraph.frame) {
             return this.cachedButtonChecks;
           }
           this.lastCheckedButtonChecks = ChoreoGraph.frame;
-          this.cachedButtonChecks = this.cg.settings.input.callbacks.updateButtonChecks(this.cg);
+          this.cachedButtonChecks = this.cg.Input.updateButtonChecks(this.cg);
           return this.cachedButtonChecks;
         }
         return {};
@@ -345,16 +347,10 @@ ChoreoGraph.plugin({
         };
       };
       enter(event) {
-        let cursorEnter = event.target.cgCanvas.cg.settings.input.callbacks.cursorEnter;
-        if (cursorEnter!==null) {
-          cursorEnter(this,event);
-        }
+        event.target.cgCanvas.cg.callbacks.input.cursorEnter.forEach(callback => callback(this,event));
       };
       exit(event) {
-        let cursorExit = event.target.cgCanvas.cg.settings.input.callbacks.cursorExit;
-        if (cursorExit!==null) {
-          cursorExit(this,event);
-        }
+        event.target.cgCanvas.cg.callbacks.input.cursorExit.forEach(callback => callback(this,event));
       };
       cancel(event) {
         delete this.touches[event.pointerId];
@@ -396,9 +392,7 @@ ChoreoGraph.plugin({
       ChoreoGraph.Input.downCanvases[event.pointerId] = canvas;
       ChoreoGraph.Input.updateButtons(canvas,event,"down");
 
-      if (cg.settings.input.callbacks.cursorDown!==null) {
-        cg.settings.input.callbacks.cursorDown(cg.Input.canvasCursors[canvas.id],event);
-      }
+      cg.callbacks.input.cursorDown.forEach(callback => callback(cg.Input.canvasCursors[canvas.id],event));
 
       if (event.pointerType==="mouse") {
         let fakeEvent = new class FakeKeyboardEvent {
@@ -416,9 +410,7 @@ ChoreoGraph.plugin({
       ChoreoGraph.Input.updateButtons(canvas,event,"up");
       delete ChoreoGraph.Input.downCanvases[event.pointerId];
 
-      if (canvas.cg.settings.input.callbacks.cursorUp!==null) {
-        canvas.cg.settings.input.callbacks.cursorUp(canvas.cg.Input.canvasCursors[canvas.id],event);
-      }
+      cg.callbacks.input.cursorUp.forEach(callback => callback(cg.Input.canvasCursors[canvas.id],event));
 
       if (event.pointerType=="mouse") {
         let fakeEvent = new class FakeKeyboardEvent {
@@ -438,9 +430,7 @@ ChoreoGraph.plugin({
           cg.Input.updateCursor(canvas,event);
           ChoreoGraph.Input.updateButtons(canvas,event);
 
-          if (cg.settings.input.callbacks.cursorMove!==null) {
-            cg.settings.input.callbacks.cursorMove(cg.Input.canvasCursors[canvas.id],event);
-          }
+          cg.callbacks.input.cursorMove.forEach(callback => callback(cg.Input.canvasCursors[canvas.id],event));
         }
       }
     };
@@ -465,9 +455,7 @@ ChoreoGraph.plugin({
         if (cg.settings.input.preventScrollWheel) {
           event.preventDefault();
         }
-        if (cg.settings.input.callbacks.wheel!==null) {
-          cg.settings.input.callbacks.wheel(event);
-        }
+        cg.callbacks.input.wheel.forEach(callback => callback(event));
       }
 
       let key = null;
@@ -563,9 +551,7 @@ ChoreoGraph.plugin({
         ChoreoGraph.Input.lastKeyDownFrame = ChoreoGraph.frame;
         ChoreoGraph.Input.keyStates[key] = true;
         ChoreoGraph.Input.activeKeys++;
-        if (cg.settings.input.callbacks.keyDown!==null) {
-          cg.settings.input.callbacks.keyDown(key,event);
-        }
+        cg.callbacks.input.keyDown.forEach(callback => callback(key,event));
       }
     };
 
@@ -579,9 +565,7 @@ ChoreoGraph.plugin({
         if (ChoreoGraph.Input.keyStates[key]==false) { return; }
         ChoreoGraph.Input.keyStates[key] = false;
         ChoreoGraph.Input.activeKeys--;
-        if (cg.settings.input.callbacks.keyUp!==null) {
-          cg.settings.input.callbacks.keyUp(key,event);
-        }
+        cg.callbacks.input.keyUp.forEach(callback => callback(key,event));
         if (ChoreoGraph.Input.activeKeys==0) {
           ChoreoGraph.Input.altKey = false;
           ChoreoGraph.Input.ctrlKey = false;
@@ -1178,9 +1162,7 @@ ChoreoGraph.plugin({
               cursor.setStyle(ChoreoGraph.Input.CURSOR_PRESSING,button.pressCursor);
               if (button.down!==null) {
                 button.down(button,event,canvas);
-                if (cg.settings.input.callbacks.buttonDown!==null) {
-                  cg.settings.input.callbacks.buttonDown(button,event,canvas);
-                }
+                cg.callbacks.input.buttonDown.forEach(callback => callback(button,event,canvas));
               }
             }
           } else if (special==="up") {
@@ -1445,19 +1427,6 @@ ChoreoGraph.plugin({
         },
       },
 
-      callbacks : {
-        keyDown : null, // keyDown(keyName,event) when any known key is pressed it will activate this function
-        keyUp : null, // keyUp(keyName,event) when any known key is released it will activate this function
-        cursorUp : null, // cursorUp(cursor,event)
-        cursorDown : null, // cursorDown(cursor,event)
-        cursorMove : null, // cursorMove(cursor,event)
-        cursorEnter : null, // cursorEnter(cursor,event) when the cursor enters a canvas
-        cursorExit : null, // cursorExit(cursor,event) when the cursor exits a canvas
-        wheel : null, // wheel(event) when the mouse wheel is used
-        buttonDown : null, // buttonDown(button,event,canvas) when a button is clicked
-        updateButtonChecks : null // updateButtonChecks(cg) for ChoreoGraph to request button checks
-      },
-
       debug : new class {
         buttons = {
           active : false,
@@ -1479,12 +1448,24 @@ ChoreoGraph.plugin({
           this.#active = value;
           if (value&&!this.#cg.Input.hasActivatedDebugLoop) {
             this.#cg.Input.hasActivatedDebugLoop = true;
-            this.#cg.debugLoops.push(this.#cg.Input.inputDebugLoop);
+            this.#cg.callbacks.listen("core","debug",this.#cg.Input.inputDebugLoop);
           }
         }
         get active() { return this.#active; }
       }
     });
+
+    cg.callbacks.registerCallbacks("input",[
+      "keyDown", // keyDown(keyName,event) when any known key is pressed it will activate this function
+      "keyUp", // keyUp(keyName,event) when any known key is released it will activate this function
+      "cursorUp", // cursorUp(cursor,event)
+      "cursorDown", // cursorDown(cursor,event)
+      "cursorMove", // cursorMove(cursor,event)
+      "cursorEnter", // cursorEnter(cursor,event) when the cursor enters a canvas
+      "cursorExit", // cursorExit(cursor,event) when the cursor exits a canvas
+      "wheel", // wheel(event) when the mouse wheel is used
+      "buttonDown" // buttonDown(button,event,canvas) when a button is clicked
+    ]);
 
     if (cg.Develop!==undefined) {
       cg.Develop.interfaceItems.push({
@@ -1514,13 +1495,13 @@ ChoreoGraph.plugin({
       canvas.element.addEventListener("pointerleave", cursor.exit, false);
 
       ChoreoGraph.globalAfterLoops.push(ChoreoGraph.Input.cursorImpulseReset);
-      cg.processLoops.push(ChoreoGraph.Input.controllerButtonLoop);
-      cg.processLoops.push(ChoreoGraph.Input.actionUpdateLoop);
+      cg.callbacks.listen("core","process",ChoreoGraph.Input.controllerButtonLoop);
+      cg.callbacks.listen("core","process",ChoreoGraph.Input.actionUpdateLoop);
       if (cg.settings.input.controller.emulatedCursor.active) {
-        cg.processLoops.push(ChoreoGraph.Input.emulatedCursorLoop);
+        cg.callbacks.listen("core","process",ChoreoGraph.Input.emulatedCursorLoop);
       }
       if (cg.settings.input.recheckButtonsEveryFrame) {
-        cg.processLoops.push(ChoreoGraph.Input.buttonRecheckLoop);
+        cg.callbacks.listen("core","process",ChoreoGraph.Input.buttonRecheckLoop);
       }
     }
   }
