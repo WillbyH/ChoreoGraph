@@ -1770,9 +1770,22 @@ const ChoreoGraph = new class ChoreoGraphEngine {
   };
 
   applyAttributes(obj,attributes,strict=false) {
-    for (let key in attributes) {
-      if (strict&&obj[key]===undefined) { continue; }
-      Object.assign(obj, {[key]: attributes[key]});
+    const keys = Reflect.ownKeys(attributes);
+
+    for (const key of keys) {
+      if (strict&& !(key in obj)) { continue; }
+      const descriptor = Object.getOwnPropertyDescriptor(attributes, key);
+
+      if (descriptor.get || descriptor.set) {
+        Object.defineProperty(obj, key, {
+          get: descriptor.get,
+          set: descriptor.set,
+          configurable: true,
+          enumerable: true
+        });
+      } else {
+        obj[key] = attributes[key];
+      }
     }
   };
 
