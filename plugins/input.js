@@ -392,7 +392,7 @@ ChoreoGraph.plugin({
       ChoreoGraph.Input.downCanvases[event.pointerId] = canvas;
       ChoreoGraph.Input.updateButtons(canvas,event,"down");
 
-      cg.callbacks.input.cursorDown.forEach(callback => callback(cg.Input.canvasCursors[canvas.id],event));
+      canvas.cg.callbacks.input.cursorDown.forEach(callback => callback(canvas.cg.Input.canvasCursors[canvas.id],event));
 
       if (event.pointerType==="mouse") {
         let fakeEvent = new class FakeKeyboardEvent {
@@ -410,7 +410,7 @@ ChoreoGraph.plugin({
       ChoreoGraph.Input.updateButtons(canvas,event,"up");
       delete ChoreoGraph.Input.downCanvases[event.pointerId];
 
-      cg.callbacks.input.cursorUp.forEach(callback => callback(cg.Input.canvasCursors[canvas.id],event));
+      canvas.cg.callbacks.input.cursorUp.forEach(callback => callback(canvas.cg.Input.canvasCursors[canvas.id],event));
 
       if (event.pointerType=="mouse") {
         let fakeEvent = new class FakeKeyboardEvent {
@@ -430,7 +430,7 @@ ChoreoGraph.plugin({
           cg.Input.updateCursor(canvas,event);
           ChoreoGraph.Input.updateButtons(canvas,event);
 
-          cg.callbacks.input.cursorMove.forEach(callback => callback(cg.Input.canvasCursors[canvas.id],event));
+          canvas.cg.callbacks.input.cursorMove.forEach(callback => callback(canvas.cg.Input.canvasCursors[canvas.id],event));
         }
       }
     };
