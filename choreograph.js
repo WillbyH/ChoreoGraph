@@ -60,10 +60,10 @@ const ChoreoGraph = new class ChoreoGraphEngine {
 
     callbacks = new class Callbacks {
       core = {
-        process : [],
-        predraw : [],
-        overlay : [],
-        debug : [],
+        process : [], // process(cg) runs before updating scenes and forming the draw buffer
+        predraw : [], // predraw(cg) runs after draw buffers are created but before they are drawn
+        overlay : [], // overlay(cg) runs after drawing
+        debug : [], // debug(cg) runs after overlays
         loading : [], // loading(checkData,cg) runs when the loop is loading
         resume : [], // resume(ms,cg) runs when the loop is resumed
         start : [], // start() runs once when the loop starts
