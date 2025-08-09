@@ -1,454 +1,303 @@
 ChoreoGraph.plugin({
-  name: "Physics",
-  key: "Physics",
-  version: "1.0",
-  settings: {
-    "showColliders" : false,
-    "additionalColliderInformation" : false,
-    "outlineWidth" : 1,
-    "physicsCol" : "#00ffff",
-    "triggerCol" : "#ff9900",
-    "collidedCol" : "#ff0000",
-    "opacity" : 0.2
-  },
-  getCollision(collider, comparison, getVector=false) {
-    let detect = ChoreoGraph.plugins.Physics.detect;
-    let collided = false;
-    let forwardVector = [0,0];
-    let backwardVector = [0,0];
-    let vector = [0,0];
-    if (collider.type=="rectangle"&&comparison.type=="rectangle") {
-      [collided,vector] = detect.rectRect(collider, comparison, getVector);
-      forwardVector = vector;
-      backwardVector = [-vector[0], -vector[1]];
-    } else if (collider.type=="circle"&&comparison.type=="circle") {
-      [collided,vector] = detect.circleCircle(collider, comparison, getVector);
-      forwardVector = vector;
-      backwardVector = [-vector[0], -vector[1]];
-    } else if (collider.type=="circle"&&comparison.type=="rectangle") {
-      [collided,vector] = detect.circleRect(collider, comparison, getVector);
-      forwardVector = vector;
-      backwardVector = [-vector[0], -vector[1]];
-    } else if (collider.type=="rectangle"&&comparison.type=="circle") {
-      [collided,vector] = detect.circleRect(comparison, collider, getVector);
-      forwardVector = [-vector[0], -vector[1]];
-      backwardVector = vector;
-    } else if (collider.type=="point"&&comparison.type=="rectangle") {
-      [collided,vector] = detect.pointRect(collider, comparison, getVector);
-      forwardVector = vector;
-      backwardVector = [-vector[0], -vector[1]];
-    } else if (collider.type=="rectangle"&&comparison.type=="point") {
-      [collided,vector] = detect.pointRect(comparison, collider, getVector);
-      forwardVector = [-vector[0], -vector[1]];
-      backwardVector = vector;
-    } else if (collider.type=="point"&&comparison.type=="circle") {
-      [collided,vector] = detect.pointCircle(collider, comparison, getVector);
-      forwardVector = vector;
-      backwardVector = [-vector[0], -vector[1]];
-    } else if (collider.type=="circle"&&comparison.type=="point") {
-      [collided,vector] = detect.pointCircle(comparison, collider, getVector);
-      forwardVector = [-vector[0], -vector[1]];
-      backwardVector = vector;
-    } else if (collider.type=="raycast"&&comparison.type=="circle") {
-      [collided,vector] = detect.raycastCircle(collider, comparison);
-    } else if (collider.type=="circle"&&comparison.type=="raycast") {
-      [collided,vector] = detect.raycastCircle(comparison, collider);
-    } else if (collider.type=="raycast"&&comparison.type=="rectangle") {
-      [collided,vector] = detect.raycastRectangle(collider, comparison);
-    } else if (collider.type=="rectangle"&&comparison.type=="raycast") {
-      [collided,vector] = detect.raycastRectangle(comparison, collider);
-    }
-    return [collided,forwardVector,backwardVector];
-  },
-  processCollision(collider, comparison, getVector, cg) {
-    // Reset Collisions
-    if (collider.collided&&collider.collidedOn!=ChoreoGraph.run) { collider.collided = false; collider.collisions = []; collider.resolutionVector = [0,0]; }
-    if (comparison.collided&&comparison.collidedOn!=ChoreoGraph.run) { comparison.collided = false; comparison.collisions = []; comparison.resolutionVector = [0,0]; }
-    // Get information about the comparison of the two colliders
-    let [collided,forwardVector,backwardVector] = ChoreoGraph.plugins.Physics.getCollision(collider,comparison,getVector);
-    let resolve = !(collider.trigger||comparison.trigger)
-    if (collided) {
-      collider.collided = true;
-      collider.collidedOn = ChoreoGraph.run;
-      
-      if (!collider.collisions.includes(comparison)) { collider.collisions.push(comparison); }
-      comparison.collided = true;
-      comparison.collidedOn = ChoreoGraph.run;
-      if (!comparison.collisions.includes(collider)) { comparison.collisions.push(collider); }
-      if (resolve) { // Physics
-        if (collider.collide!=null) { collider.collide(comparison); }
-        if (comparison.collide!=null) { comparison.collide(collider); }
-        if (forwardVector[0]!=0) { collider.resolutionVector[0] = forwardVector[0]; }
-        if (forwardVector[1]!=0) { collider.resolutionVector[1] = forwardVector[1]; }
-        if (backwardVector[0]!=0) { comparison.resolutionVector[0] = backwardVector[0]; }
-        if (backwardVector[1]!=0) { comparison.resolutionVector[1] = backwardVector[1]; }
-      }
-    }
-  },
-  processTriggerChanges(collider, cg) {
-    let collisionIds = collider.collisions.map(collider => collider.id);
-    for (let id of collisionIds) {
-      if (!collider.memory.includes(id)) { // If this collision is new
-        let comparison = cg.colliders[id];
-        if (collider.enter!=null) { collider.enter(comparison); }
-        if (comparison.enter!=null) { comparison.enter(collider);
-          comparison.memory = comparison.collisions.map(collider => collider.id);
-        }
-      }
-    }
-    for (let id of collider.memory) {
-      if (!collisionIds.includes(id)) { // If this collision has ended
-        let comparison = cg.colliders[id];
-        if (collider?.exit!=null) { collider.exit(comparison,0,comparison,collider.memory); }
-        if (comparison?.exit!=null) { comparison.exit(collider,1);
-          comparison.memory = comparison.collisions.map(collider => collider.id);
-        }
-      }
-    }
-    collider.memory = collisionIds;
-  },
-  instanceExternalLoops: [function checkCollisions(cg) {
-    let settings = ChoreoGraph.plugins.Physics.settings;
-    for (let check of cg.collisionOrder) {
-      // Collision Check Information
-      let collider = check[0];
-      let comparison = check[1];
-      let getVector = check[2];
-      ChoreoGraph.plugins.Physics.processCollision(collider, comparison, getVector, cg);
-    }
-    for (let id in cg.colliders) {
-      let collider = cg.colliders[id];
-      if (collider.trigger) {
-        ChoreoGraph.plugins.Physics.processTriggerChanges(collider, cg);
-      }
-    }
-    if (settings.showColliders) {
-      for (let key in cg.colliders) {
-        let collider = cg.colliders[key];
-        cg.c.save();
-        ChoreoGraph.transformContext(cg,collider.x,collider.y);
-        collider.draw();
-        if (settings.additionalColliderInformation) {
-          cg.c.globalAlpha = 1;
-          cg.c.font = 1/cg.z*20+"px Arial";
-          cg.c.textBaseline = "middle";
-          cg.c.textAlign = "center";
-          cg.c.fillStyle = "#999999";
-          if (collider.resolutionVector[0]!=0||collider.resolutionVector[1]!=0) {
-            cg.c.fillText(collider.resolutionVector,0,-7*(1/cg.z));
-          }
-          cg.c.fillText(collider.groups,0,7*(1/cg.z));
-        }
-        cg.c.restore();
-      }
-    }
-  }],
-  detect: {
-    rectRect(collider1, collider2, getVector=false) {
-      let x1 = collider1.x - collider1.width/2;
-      let y1 = collider1.y - collider1.height/2;
-      let x2 = collider2.x - collider2.width/2;
-      let y2 = collider2.y - collider2.height/2;
-      let collided = (x1 < x2 + collider2.width && x1 + collider1.width > x2 && y1 < y2 + collider2.height && y1 + collider1.height > y2);
-      let vector = [0,0];
-      if (getVector&&collided) {
-        let dx = (collider1.x - collider2.x);
-        let dy = (collider1.y - collider2.y);
-        let overlapX = collider1.width/2 + collider2.width/2 - Math.abs(dx);
-        let overlapY = collider1.height/2 + collider2.height/2 - Math.abs(dy);
-        if (overlapX < overlapY) {
-          vector = [overlapX*(dx>0?1:-1), 0];
+  name : "Physics",
+  key : "Physics",
+  version : "1.1",
+
+  globalPackage : new class cgPhysics {
+
+    Collider = class cgCollider {
+      trigger = false; // Physics operations (false) vs just checks (true)
+      static = false; // An intent that this collider will never move or change shape
+      manual = false; // Excludes this from collision orders
+      groups = [0];
+      scene = null;
+
+      transform = null;
+      collided = false;
+      resolutionVector = [0,0];
+      collidedFrame = -1;
+      collisions = [];
+      memory = [];
+      affiliations = [];
+
+      enter = null;
+      exit = null;
+      collide = null;
+
+      _deleteAfterProcessing = false;
+
+      constructor(colliderInit,cg) {
+        this.cg = cg;
+      };
+
+      getPosition() {
+        let cx = this.transform.x;
+        let cy = this.transform.y;
+        let cr = this.transform.r;
+        let cax = this.transform.ax;
+        let cay = this.transform.ay;
+        if (cr!=0) {
+          let rad = cr*Math.PI/180;
+          cx += cax*Math.cos(rad) - cay*Math.sin(rad);
+          cy += cax*Math.sin(rad) + cay*Math.cos(rad);
         } else {
-          vector = [0, overlapY*(dy>0?1:-1)];
+          cx += cax;
+          cy += cay;
         }
+        return [cx,cy];
+      };
+
+      delete() {
+        this._deleteAfterProcessing = true;
+        this.cg.Physics.hasPendingColliderDeletions = true;
+      };
+    };
+
+    colliderTypes = {
+      rectangle : "RectangleCollider",
+      circle : "CircleCollider",
+      point : "PointCollider",
+      raycast : "RaycastCollider"
+    };
+
+    colliderCompatability = {
+      rectangle : {
+        rectangle : ["rectangleRectangle",false],
+        circle : ["circleRectangle",true],
+        point : ["pointRectangle",true],
+        raycast : ["raycastRectangle",true]
+      },
+      circle : {
+        circle : ["circleCircle",false],
+        rectangle : ["circleRectangle",false],
+        point : ["pointCircle",true],
+        raycast : ["raycastCircle",true]
+      },
+      point : {
+        rectangle : ["pointRectangle",false],
+        circle : ["pointCircle",false]
+      },
+      raycast : {
+        rectangle : ["raycastRectangle",false],
+        circle : ["raycastCircle",false]
       }
-      return [collided, vector];
-    },
-    circleCircle(collider1, collider2, getVector=false) {
-      let dx = collider1.x - collider2.x;
-      let dy = collider1.y - collider2.y;
-      let rc = collider1.radius + collider2.radius;
-      let collided = rc**2 > dx**2 + dy**2;
-      let vector = [0,0];
-      if (getVector&&collided) {
-        let overlap = rc - Math.sqrt(dx**2 + dy**2)+0.1;
-        vector = [dx*(overlap/rc), dy*(overlap/rc)];
+    };
+
+    RectangleCollider = class cgRectangleCollider extends this.Collider {
+      type = "rectangle";
+      physicsCapable = true;
+
+      width = 100;
+      height = 100;
+
+      draw(c) {
+        let opacity = this.cg.Physics.setDebugStyles(this,c);
+        c.beginPath();
+        c.rect(-this.width/2, -this.height/2, this.width, this.height);
+        c.globalAlpha = 1;
+        c.stroke();
+        c.globalAlpha = opacity;
+        c.fill();
+        c.globalAlpha = 1;
+        c.font = 15 * this.cg.settings.core.debugCGScale+"px Arial";
+        c.textBaseline = "middle";
+        c.textAlign = "center";
+        c.fillText(this.groups.join(","), 0, 0);
+      };
+    };
+
+    CircleCollider = class cgCircleCollider extends this.Collider {
+      type = "circle";
+      physicsCapable = true;
+
+      radius = 50;
+
+      draw(c) {
+        let opacity = this.cg.Physics.setDebugStyles(this,c);
+        c.beginPath();
+        c.arc(0, 0, this.radius, 0, Math.PI * 2);
+        c.globalAlpha = 1;
+        c.stroke();
+        c.globalAlpha = opacity;
+        c.fill();
+        c.globalAlpha = 1;
+        c.font = 15 * this.cg.settings.core.debugCGScale+"px Arial";
+        c.textBaseline = "middle";
+        c.textAlign = "center";
+        c.fillText(this.groups.join(","), 0, 0);
       }
-      return [collided, vector];
-    },
-    circleRect(circle, rectangle, getVector=false) {
-      let dx = circle.x - Math.max(rectangle.x - rectangle.width/2, Math.min(circle.x, rectangle.x + rectangle.width/2));
-      let dy = circle.y - Math.max(rectangle.y - rectangle.height/2, Math.min(circle.y, rectangle.y + rectangle.height/2));
-      let collided = dx**2 + dy**2 < circle.radius**2;
-      let vector = [0,0];
-      if (getVector&&collided) {
-        let overlap = circle.radius - Math.sqrt(dx**2 + dy**2)+0.1;
-        vector = [dx*(overlap/circle.radius), dy*(overlap/circle.radius)];
+    };
+
+    PointCollider = class cgPointCollider extends this.Collider {
+      type = "point";
+      physicsCapable = true;
+
+      draw(c) {
+        this.cg.Physics.setDebugStyles(this,c);
+        c.globalAlpha = 1;
+        c.beginPath();
+        c.moveTo(0, 6);
+        c.lineTo(0, -6);
+        c.moveTo(6, 0);
+        c.lineTo(-6, 0);
+        c.stroke();
       }
-      return [collided, vector];
-    },
-    pointRect(point, rectangle, getVector=false) {
-      let collided = point.x > rectangle.x - rectangle.width/2 && point.x < rectangle.x + rectangle.width/2 && point.y > rectangle.y - rectangle.height/2 && point.y < rectangle.y + rectangle.height/2;
-      let vector = [0,0];
-      if (getVector&&collided) {
-        let dx = point.x - rectangle.x;
-        let dy = point.y - rectangle.y;
-        let overlapX = rectangle.width/2 - Math.abs(dx);
-        let overlapY = rectangle.height/2 - Math.abs(dy);
-        if (overlapX < overlapY) {
-          vector = [overlapX*(dx>0?1:-1), 0];
+    };
+
+    RaycastCollider = class cgRaycastCollider extends this.Collider {
+      type = "raycast";
+      physicsCapable = false;
+
+      dx = 0;
+      dy = 0;
+      collidedDistance = -1;
+      collidedCollider = null;
+      collidedX = 0;
+      collidedY = 0;
+      unitVectorX = 0;
+      unitVectorY = 0;
+
+      draw(c) {
+        this.cg.Physics.setDebugStyles(this,c);
+        let size = this.cg.settings.core.debugCGScale;
+        c.beginPath();
+        c.moveTo(-this.unitVectorY*10*size, this.unitVectorX*10*size);
+        c.lineTo(-this.unitVectorY*-10*size, this.unitVectorX*-10*size);
+        c.moveTo(0, 0);
+        if (this.collided) {
+          let x = this.unitVectorX*this.collidedDistance;
+          let y = this.unitVectorY*this.collidedDistance;
+          c.lineTo(x, y);
+          c.moveTo(x, y+6*size);
+          c.lineTo(x, y-6*size);
+          c.moveTo(6*size+x, y);
+          c.lineTo(-6*size+x, y);
+          c.stroke();
+          c.setLineDash([5*size, 5*size]);
+          c.beginPath();
+          c.moveTo(x, y);
+          c.lineTo(this.dx,this.dy)
         } else {
-          vector = [0, overlapY*(dy>0?1:-1)];
+          c.moveTo(0, 0);
+          c.lineTo(this.dx, this.dy);
         }
+        c.globalAlpha = 1;
+        c.stroke();
       }
-      return [collided, vector];
-    },
-    pointCircle(point, circle, getVector=false) {
-      let dx = point.x - circle.x;
-      let dy = point.y - circle.y;
-      let collided = dx**2 + dy**2 < circle.radius**2;
-      let vector = [0,0];
-      if (getVector&&collided) {
-        let overlap = circle.radius - Math.sqrt(dx**2 + dy**2)+0.1;
-        vector = [dx*(overlap/circle.radius), dy*(overlap/circle.radius)];
-      }
-      return [collided, vector];
-    },
-    raycastCircle(raycast, circle) {
-      let rayX = raycast.x;
-      let rayY = raycast.y;
-      let cirX = circle.x;
-      let cirY = circle.y;
-      let collided = Math.sqrt((rayX-cirX)**2+(rayY-cirY)**2)<circle.radius;
-      let newDistance = 0;
-      let newXCollision = rayX;
-      let newYCollision = rayY;
+    };
 
-      if (collided==false) {
-        let CirVecx = circle.x - raycast.x; // Vector from ray to circle x
-        let CirVecy = circle.y - raycast.y; // Vector from ray to circle y
-        let magRay = Math.sqrt(raycast.dx*raycast.dx+raycast.dy*raycast.dy); // Magnitude of ray vector
-        let magCir = Math.sqrt(CirVecx**2 + CirVecy**2); // Magnitude of circle centre vector
-        let unitVx = raycast.dx/magRay; // Unit vector of ray x
-        let unitVy = raycast.dy/magRay; // Unit vector of ray y
-        let a = CirVecx * unitVx + CirVecy * unitVy; // Projection of circle vector onto ray vector
-        let b = magCir**2 - a**2; // Distance from circle to ray
-        let f = Math.sqrt(circle.radius**2 - b);
-        let t = a-f;
+    InstanceObject = class cgInstancePhysics {
+      colliders = {};
+      hasActivatedDebugLoop = false;
+      triggerCollisionOrder = [];
+      physicsCollisionOrder = [];
 
-        raycast.unitVectorX = unitVx;
-        raycast.unitVectorY = unitVy;
+      iterationNumber = 0;
+      collisionChecks = 0;
 
-        collided = t > 0 && t < magRay;
-        if (collided) {
-          newDistance = t;
-          newXCollision = rayX + unitVx*t;
-          newYCollision = rayY + unitVy*t;
-        }
-      }
-      if (collided&&raycast.collided&&raycast.collidedDistance>newDistance) { // If this collision is closer than the previous one, undo the further collision
-        raycast.collidedCollider.collisions = raycast.collidedCollider.collisions.filter(collider => collider.id!=raycast.id);
-        if (raycast.collidedCollider.collisions.length==0) { raycast.collidedCollider.collided = false; }
-      } else if (raycast.collided&&raycast.collidedDistance<newDistance) {
-        collided = false;
-      }
-      if (collided) {
-        raycast.collidedDistance = newDistance;
-        raycast.collidedCollider = circle;
-        raycast.collidedX = newXCollision;
-        raycast.collidedY = newYCollision;
-      }
-      return [collided, [0,0]];
-    },
-    raycastRectangle(raycast, rectangle) {
-      let rayX = raycast.x;
-      let rayY = raycast.y;
-      let recX = rectangle.x;
-      let recY = rectangle.y;
-      let recW = rectangle.width;
-      let recH = rectangle.height;
-      let collided = rayX>recX-recW/2&&rayX<recX+recW/2&&rayY<recY+recH/2&&rayY>recY-recH/2; // if the ray is inside the rectangle
-      let top = rectangle.y + rectangle.height/2;
-      let bottom = rectangle.y - rectangle.height/2;
-      let left = rectangle.x - rectangle.width/2;
-      let right = rectangle.x + rectangle.width/2;
-      let m = raycast.dy/raycast.dx;
-      let c = raycast.y - m*raycast.x;
-      let newDistance = 0;
-      let newXCollision = rayX;
-      let newYCollision = rayY;
-      if (raycast.dx>0&&collided==false) { // Check left side
-        if (raycast.x+raycast.dx>left) { // If ray is horizontally across the left side
-          let y = m*(left)+c;
-          let within = (raycast.dy>0&&y>rayY)||(raycast.dy<0&&y<rayY);
-          if (y<top&&y>bottom&&within) {
-            collided = true;
-            newDistance = Math.sqrt((raycast.x-left)**2+(raycast.y-y)**2);
-            newXCollision = left;
-            newYCollision = y;
-          }
-        }
-      } else if (collided==false) { // Check right side
-        if (raycast.x+raycast.dx<right) { // If ray is horizontally across the right side
-          let y = m*(right)+c;
-          let within = (raycast.dy>0&&y>rayY)||(raycast.dy<0&&y<rayY);
-          if (y<top&&y>bottom&&within) {
-            collided = true;
-            newDistance = Math.sqrt((raycast.x-right)**2+(raycast.y-y)**2);
-            newXCollision = right;
-            newYCollision = y;
-          }
-        }
-      }
-      if (raycast.dy>0&&collided==false) { // Check bottom side
-        if (raycast.y+raycast.dy>bottom) { // If ray is vertically across the bottom side
-          let x = (bottom-c)/m;
-          let within = (raycast.dx>0&&x>rayX)||(raycast.dx<0&&x<rayX);
-          if (x<right&&x>left&&within) {
-            collided = true;
-            newDistance = Math.sqrt((raycast.x-x)**2+(raycast.y-bottom)**2);
-            newXCollision = x;
-            newYCollision = bottom;
-          }
-        }
-      } else if (collided==false) { // Check top side
-        if (raycast.y+raycast.dy<top) { // If ray is vertically across the top side
-          let x = (top-c)/m;
-          let within = (raycast.dx>0&&x>rayX)||(raycast.dx<0&&x<rayX);
-          if (x<right&&x>left&&within) {
-            collided = true;
-            newDistance = Math.sqrt((raycast.x-x)**2+(raycast.y-top)**2);
-            newXCollision = x;
-            newYCollision = top;
-          }
-        }
-      }
-      if (collided&&raycast.collided&&raycast.collidedDistance>newDistance) { // If this collision is closer than the previous one, undo the further collision
-        // At this instance the "collidedCollider" is not going to be the final collision
-        raycast.collidedCollider.collisions = raycast.collidedCollider.collisions.filter(collider => collider.id!=raycast.id);
-        raycast.collisions = raycast.collisions.filter(collider => collider.id!=raycast.collidedCollider.id);
-        if (raycast.collidedCollider.collisions.length==0) { raycast.collidedCollider.collided = false; }
-      } else if (raycast.collided&&raycast.collidedDistance<newDistance) {
-        collided = false;
-      }
-      if (collided) {
-        raycast.collidedDistance = newDistance;
-        raycast.collidedCollider = rectangle;
-        raycast.collidedX = newXCollision;
-        raycast.collidedY = newYCollision;
-        if (newDistance!=0) {
-          raycast.unitVectorX = (newXCollision - raycast.x)/newDistance;
-          raycast.unitVectorY = (newYCollision - raycast.y)/newDistance;
-        }
-      }
-      return [collided, [0,0]];
-    },
-    canCompare(collider1, collider2) {
-      let alphabeticalType1 = collider1.type;
-      let alphabeticalType2 = collider2.type;
-      if (collider1.type.localeCompare(collider2.type)===1) {
-        alphabeticalType1 = collider2.type;
-        alphabeticalType2 = collider1.type;
-      }
-      if (alphabeticalType1=="rectangle"&&alphabeticalType2=="rectangle") { return true; }
-      else if (alphabeticalType1=="circle"&&alphabeticalType2=="circle") { return true; }
-      else if (alphabeticalType1=="circle"&&alphabeticalType2=="rectangle") { return true; }
-      else if (alphabeticalType1=="circle"&&alphabeticalType2=="raycast") { return true; }
-      else if (alphabeticalType1=="circle"&&alphabeticalType2=="point") { return true; }
-      else if (alphabeticalType1=="raycast"&&alphabeticalType2=="rectangle") { return true; }
-      else if (alphabeticalType1=="raycast"&&alphabeticalType2=="raycast") { return false; }
-      else if (alphabeticalType1=="raycast"&&alphabeticalType2=="point") { return false; }
-      else if (alphabeticalType1=="rectangle"&&alphabeticalType2=="point") { return true; }
-      else if (alphabeticalType1=="point"&&alphabeticalType2=="point") { return false; }
-      else { console.warn("Unknown collider comparison",collider1,collider2); return false; }
-    }
-  },
-  instanceConnect(cg) {
-    cg.colliders = {};
-    cg.colliderCount = 0;
-    cg.colliderIds = [];
-    cg.collisionOrder = []; // Order of collisions checks
-    cg.calibrateCollisionOrder = function () {
-      this.collisionOrder = [];
-      for (let mi=0;mi<cg.colliderCount;mi++) { // Main Key
-        let mid = cg.colliderIds[mi];
-        let collider = cg.colliders[mid];
-        for (let ci=mi+1;ci<cg.colliderCount;ci++) { // Comparison Key
-          let cid = cg.colliderIds[ci];
-          let comparison = cg.colliders[cid];
+      hasPendingColliderDeletions = false;
 
-          if (collider.exclude&&comparison.trigger==false) { continue; } // Triggers should be compared to every collider
-          if (comparison.exclude&&collider.trigger==false) { continue; }
-          if (collider.static&&comparison.static) { continue; } // Two static colliders should never be compared
-          if (ChoreoGraph.plugins.Physics.detect.canCompare(collider,comparison)==false) { continue; } // Hardcoded manual override
-          let sharesAGroup = false;
-          for (let group of collider.groups) { if (comparison.groups.includes(group)) { sharesAGroup = true; break; } }
-          if (!sharesAGroup) { continue; }
-
-          let requireResolution = false;  
-          if (collider.trigger==false&&comparison.trigger==false) { requireResolution = true; } // A resolution should be calculated for any two vectors where neither are triggers
-          this.collisionOrder.push([collider, comparison, requireResolution]);
-        }
+      constructor(cg) {
+        this.cg = cg;
       }
-    }
-    cg.createCollider = function(colliderInit) {
-      let newCollider = null;
-      if (colliderInit!=undefined) {
-        if (colliderInit.type=="rectangle") {
-          newCollider = new ChoreoGraph.plugins.Physics.RectangleCollider();
-        } else if (colliderInit.type=="circle") {
-          newCollider = new ChoreoGraph.plugins.Physics.CircleCollider();
-        } else if (colliderInit.type=="point") {
-          newCollider = new ChoreoGraph.plugins.Physics.PointCollider();
-        } else if (colliderInit.type=="raycast") {
-          newCollider = new ChoreoGraph.plugins.Physics.RaycastCollider();
+
+      setDebugStyles(collider,c) {
+        let style = this.cg.settings.physics.debug.style;
+        if (collider.collided) {
+          c.strokeStyle = style.colours.collided;
+          c.fillStyle = style.colours.collided;
+        } else if (collider.trigger) {
+          c.strokeStyle = style.colours.trigger;
+          c.fillStyle = style.colours.trigger;
         } else {
-          console.error("Unknown collider type: " + colliderInit.type);
+          c.strokeStyle = style.colours.physics;
+          c.fillStyle = style.colours.physics;
+        }
+        c.lineWidth = style.outlineWidth * collider.cg.settings.core.debugCGScale;
+        return style.opacity;
+      };
+
+      calibrateCollisionOrder() {
+        this.triggerCollisionOrder = [];
+        this.physicsCollisionOrder = [];
+        for (let colliderId of this.cg.keys.colliders) {
+          let collider = this.cg.Physics.colliders[colliderId];
+          collider.affiliations = [];
+        }
+        for (let mi=0;mi<this.cg.keys.colliders.length;mi++) {
+          for (let ci=mi+1;ci<this.cg.keys.colliders.length;ci++) {
+            let mId = this.cg.keys.colliders[mi];
+            let cId = this.cg.keys.colliders[ci];
+            let collider = this.cg.Physics.colliders[mId];
+            let comparison = this.cg.Physics.colliders[cId];
+            if (collider.static && comparison.static) { continue; } // Don't compare two static colliders
+            if (collider.scene !== null && comparison.scene !== null && collider.scene !== comparison.scene) { continue; } // Don't compare colliders in different scenes
+            let compatible = Object.keys(ChoreoGraph.Physics.colliderCompatability[collider.type]).includes(comparison.type);
+            if (!compatible) { continue; } // Don't compare incompatible colliders
+            let sharesAGroup = false;
+            for (let group of collider.groups) {
+              if (comparison.groups.includes(group)) {
+                sharesAGroup = true;
+                break;
+              }
+            }
+            if (!sharesAGroup) { continue; } // Don't compare colliders that don't share a group
+            collider.affiliations.push(comparison);
+            comparison.affiliations.push(collider);
+            if (collider.trigger || comparison.trigger) {
+              this.triggerCollisionOrder.push([collider, comparison]);
+            } else {
+              if (collider.manual || comparison.manual) { continue; } // Don't physics compare excluded colliders
+              this.physicsCollisionOrder.push([collider, comparison]);
+            }
+          }
+        }
+      };
+
+      createCollider(colliderInit={}, id=ChoreoGraph.id.get()) {
+        if (this.cg.keys.colliders.includes(id)) { id += "-" + ChoreoGraph.id.get(); }
+        let type = colliderInit.type;
+        if (type === undefined) { console.warn("createCollider requires a collider type"); return; }
+        delete colliderInit.type;
+        if (ChoreoGraph.Physics.colliderTypes[type] === undefined) {
+          console.warn('Unknown collider type: "' + type + '". Valid types:',Object.keys(ChoreoGraph.Physics.colliderTypes).join(", "));
           return;
         }
-
-        newCollider.collidedOn = 0; // Run/frame that this Collider last collided on
-
-        newCollider.object = null;
-
-        if (newCollider.trigger!==true) { newCollider.trigger = false; } // If true this collider will not do any physics calculations and will only trigger events
-        newCollider.static = false; // If true this collider will not be checked against other static colliders
-        newCollider.exclude = false; // If true this Collider will not be checked against any other non-trigger collider
-        newCollider.groups = [0]; // Groups that this Collider belongs to
-
-        newCollider.collided = false; // If true this Collider is currently colliding with another Collider
-        newCollider.collisions = []; // A list of Colliders that this Collider is currently colliding with
-        newCollider.resolutionVector = [0,0]; // The resolution vector for the collision
-        newCollider.memory = []; // A list of previous collisions
-        newCollider.x = 0;
-        newCollider.y = 0;
-
-        newCollider.enter = null;
-        newCollider.exit = null;
-        newCollider.collide = null;
-
-        newCollider.ChoreoGraph = this;
-        for (let key in colliderInit) {
-          newCollider[key] = colliderInit[key];
+        let newCollider = new ChoreoGraph.Physics[ChoreoGraph.Physics.colliderTypes[type]](colliderInit,this.cg);
+        newCollider.id = id;
+        newCollider.cg = this.cg;
+        ChoreoGraph.initTransform(this.cg,newCollider,colliderInit);
+        if (colliderInit.physicsCapable !== undefined) {
+          delete colliderInit.physicsCapable;
+          console.warn("physicsCapable is readonly in createCollider",id);
         }
-        if (newCollider.id===undefined) { newCollider.id = "collider_" + ChoreoGraph.createId(5); }
-        this.colliders[newCollider.id] = newCollider;
-        this.colliderIds.push(newCollider.id);
-        this.colliderCount++;
-      }
-      this.calibrateCollisionOrder();
-      return newCollider;
-    }
-    if (ChoreoGraph.plugins.TileMaps!==undefined) {
+        ChoreoGraph.applyAttributes(newCollider,colliderInit);
+        if (!newCollider.physicsCapable && !newCollider.trigger) {
+          newCollider.trigger = true;
+          if (colliderInit.trigger === false) {
+            console.warn("Collider type " + newCollider.type + " is not physics capable.",id);
+          }
+        }
+        if (newCollider.trigger===false && (typeof colliderInit.enter === "function" || typeof colliderInit.exit === "function")) {
+          console.warn("Only trigger colliders can use enter and exit callbacks for collider:",id,colliderInit.enter,colliderInit.exit);
+        }
+        this.colliders[id] = newCollider;
+        this.cg.keys.colliders.push(id);
+        if (this.cg.ready) {
+          this.cg.Physics.calibrateCollisionOrder();
+        }
+        return newCollider;
+      };
 
-      cg.createCollidersFromTileMap = function(TileMap,xo=0,yo=0,layer=0) {
-        if (TileMap===undefined) { console.warn("No TileMap given in createCollidersFromTileMap"); return; }
+      createCollidersFromTilemap(tilemap,layerIndex=0,targetTileId=null,scene=null,groups=[0]) {
+        if (tilemap===undefined) { console.warn("No Tilemap provided in createCollidersFromTileMap"); return; }
+
         let pool = [];
-        for (let chunk of TileMap.chunks) {
-          if (chunk.layers[layer]==undefined) { continue; }
-          for (let t=0; t<chunk.layers[layer].length; t++) {
-            let tileNum = chunk.layers[layer][t];
-            if (tileNum!=0) {
+        for (let chunk of tilemap.chunks) {
+          if (chunk.layers[layerIndex]==undefined) { continue; }
+          for (let t=0;t<chunk.layers[layerIndex].tiles.length;t++) {
+            let tileId = chunk.layers[layerIndex].tiles[t];
+            if ((targetTileId!==null&&tileId===targetTileId)||(targetTileId===null&&tileId!==null)) {
               let x = t % chunk.width + chunk.x;
               let y = Math.floor(t / chunk.width) + chunk.y;
               pool.push(x+","+y);
@@ -456,13 +305,13 @@ ChoreoGraph.plugin({
           }
         }
         let colliderNumber = 0;
-        let colliderGroupName = TileMap.id;
+        let colliderGroupName = tilemap.id;
         while (pool.length>0) {
-          biggestArea = 0;
-          biggestPool = [];
-          biggestWidth = 0;
-          biggestHeight = 0;
-          biggestStart = "";
+          let biggestArea = 0;
+          let biggestPool = [];
+          let biggestWidth = 0;
+          let biggestHeight = 0;
+          let biggestStart = "";
           for (let i=0;i<pool.length;i++) { // Go through every tile in the pool and find which has the largest rectangle
             let start = pool[i];
             let x = parseInt(start.split(",")[0]);
@@ -524,246 +373,778 @@ ChoreoGraph.plugin({
           }
           let biggestX = parseInt(biggestStart.split(",")[0]);
           let biggestY = parseInt(biggestStart.split(",")[1]);
-          let topLeftX = xo - (TileMap.tileWidth*TileMap.width)/2;
-          let topLeftY = yo - (TileMap.tileHeight*TileMap.height)/2;
-          let x = topLeftX + biggestX*TileMap.tileWidth + TileMap.tileWidth/2;
-          let y = topLeftY + biggestY*TileMap.tileHeight + TileMap.tileHeight/2;
-          let cx = x+(TileMap.tileWidth*biggestWidth)/2-TileMap.tileWidth/2;
-          let cy = y+(TileMap.tileHeight*biggestHeight)/2-TileMap.tileHeight/2;
-          cg.createCollider({type:"rectangle",id:colliderGroupName+"_"+colliderNumber,x:cx,y:cy,width:TileMap.tileWidth*biggestWidth,height:TileMap.tileHeight*biggestHeight,trigger:false,static:true});
+          let x = biggestX*tilemap.tileWidth + tilemap.tileWidth/2;
+          let y = biggestY*tilemap.tileHeight + tilemap.tileHeight/2;
+          let cx = x+(tilemap.tileWidth*biggestWidth)/2-tilemap.tileWidth/2;
+          let cy = y+(tilemap.tileHeight*biggestHeight)/2-tilemap.tileHeight/2;
+          this.createCollider({
+            static : true,
+            type : "rectangle",
+            width : tilemap.tileWidth * biggestWidth,
+            height : tilemap.tileHeight * biggestHeight,
+            transformInit : { x: cx, y: cy },
+            groups : groups,
+            scene : scene
+          }, colliderGroupName + "_" + colliderNumber);
           colliderNumber++;
         }
-      }
-    }
-  },
-  setStyles(collider,cg) {
-    let settings = ChoreoGraph.plugins.Physics.settings;
-    if (collider.collided) {
-      cg.c.strokeStyle = settings.collidedCol;
-      cg.c.fillStyle = settings.collidedCol;
-    } else if (collider.trigger) {
-      cg.c.strokeStyle = settings.triggerCol;
-      cg.c.fillStyle = settings.triggerCol;
-    } else {
-      cg.c.strokeStyle = settings.physicsCol;
-      cg.c.fillStyle = settings.physicsCol;
-    }
-    cg.c.lineWidth = settings.outlineWidth;
-  },
-  RectangleCollider: class RectangleCollider {
-    type = "rectangle";
-    width = 100;
-    height = 100;
-    draw() {
-      let cg = this.ChoreoGraph;
-      ChoreoGraph.plugins.Physics.setStyles(this,cg);
-      cg.c.beginPath();
-      cg.c.rect(-this.width/2, -this.height/2, this.width, this.height);
-      cg.c.globalAlpha = 1;
-      cg.c.stroke();
-      cg.c.globalAlpha = ChoreoGraph.plugins.Physics.settings.opacity;
-      cg.c.fill();
-    }
-  },
-  CircleCollider: class CircleCollider {
-    type = "circle";
-    radius = 50;
-    draw() {
-      let cg = this.ChoreoGraph;
-      ChoreoGraph.plugins.Physics.setStyles(this,cg);
-      cg.c.beginPath();
-      cg.c.arc(0, 0, this.radius, 0, 2*Math.PI);
-      cg.c.globalAlpha = 1;
-      cg.c.stroke();
-      cg.c.globalAlpha = ChoreoGraph.plugins.Physics.settings.opacity;
-      cg.c.fill();
-    }
-  },
-  PointCollider: class PointCollider {
-    type = "point";
-    draw() {
-      let cg = this.ChoreoGraph;
-      ChoreoGraph.plugins.Physics.setStyles(this,cg);
-      cg.c.beginPath();
-      cg.c.moveTo(0, 6);
-      cg.c.lineTo(0, -6);
-      cg.c.moveTo(6, 0);
-      cg.c.lineTo(-6, 0);
-      cg.c.globalAlpha = 1;
-      cg.c.stroke();
-    }
-  },
-  RaycastCollider: class RaycastCollider {
-    type = "raycast";
-    dx = 1;
-    dy = 1;
+      };
+    };
 
-    trigger = true;
-    collidedDistance = -1;
-    collidedCollider = null;
-    collidedX = 0;
-    collidedY = 0;
-    unitVectorX = 0;
-    unitVectorY = 0;
-    draw() {
-      let cg = this.ChoreoGraph;
-      let settings = ChoreoGraph.plugins.Physics.settings;
-      cg.c.lineWidth = settings.outlineWidth;
-      cg.c.beginPath();
-      cg.c.moveTo(-this.unitVectorY*10, this.unitVectorX*10);
-      cg.c.lineTo(-this.unitVectorY*-10, this.unitVectorX*-10);
-      cg.c.moveTo(0, 0);
-      if (this.collided) {
-        cg.c.strokeStyle = settings.collidedCol;
-        let x = this.unitVectorX*this.collidedDistance;
-        let y = this.unitVectorY*this.collidedDistance;
-        cg.c.lineTo(x, y);
-        cg.c.moveTo(x, y+6);
-        cg.c.lineTo(x, y-6);
-        cg.c.moveTo(6+x, y);
-        cg.c.lineTo(-6+x, y);
-        cg.c.stroke();
-        cg.c.setLineDash([5, 5]);
-        cg.c.strokeStyle = settings.triggerCol;
-        cg.c.beginPath();
-        cg.c.moveTo(x, y);
-        cg.c.lineTo(this.dx,this.dy)
-      } else {
-        cg.c.strokeStyle = settings.triggerCol;
-        cg.c.moveTo(0, 0);
-        cg.c.lineTo(this.dx, this.dy);
+    detections = {
+      rectangleRectangle(colliderA, colliderB, getVector) {
+        let [acx,axy] = colliderA.getPosition();
+        let [bcx,bcy] = colliderB.getPosition();
+        let x1 = acx - colliderA.width/2;
+        let y1 = axy - colliderA.height/2;
+        let x2 = bcx - colliderB.width/2;
+        let y2 = bcy - colliderB.height/2;
+        let collided = (x1 < x2 + colliderB.width && x1 + colliderA.width > x2 && y1 < y2 + colliderB.height && y1 + colliderA.height > y2);
+        let vector = [0,0];
+        if (getVector&&collided) {
+          let dx = (acx - bcx);
+          let dy = (axy - bcy);
+          let overlapX = colliderA.width/2 + colliderB.width/2 - Math.abs(dx);
+          let overlapY = colliderA.height/2 + colliderB.height/2 - Math.abs(dy);
+          if (overlapX < overlapY) {
+            vector = [overlapX*(dx>0?1:-1), 0];
+          } else {
+            vector = [0, overlapY*(dy>0?1:-1)];
+          }
+        }
+        return [collided, vector];
+      },
+      circleCircle(colliderA, colliderB, getVector) {
+        let [acx,axy] = colliderA.getPosition();
+        let [bcx,bcy] = colliderB.getPosition();
+        let dx = acx - bcx;
+        let dy = axy - bcy;
+        let rc = colliderA.radius + colliderB.radius;
+        let collided = rc**2 > dx**2 + dy**2;
+        let vector = [0,0];
+        if (getVector&&collided) {
+          let overlap = rc - Math.sqrt(dx**2 + dy**2)+0.1;
+          vector = [dx*(overlap/rc), dy*(overlap/rc)];
+        }
+        return [collided, vector];
+      },
+      circleRectangle(circle, rectangle, getVector) {
+        let [cx,cy] = circle.getPosition();
+        let [rx,ry] = rectangle.getPosition();
+        let hw = rectangle.width * 0.5;
+        let hh = rectangle.height * 0.5;
+
+        if (rx===cx&&ry===cy) {
+          return [true,[0,0]];
+        }
+
+        let dx = cx - Math.max(rx - hw, Math.min(cx, rx + hw));
+        let dy = cy - Math.max(ry - hh, Math.min(cy, ry + hh));
+
+        let collided = dx**2 + dy**2 < circle.radius**2;
+        let vector = [0,0];
+        if (getVector&&collided) {
+          if (dx===0&&dy===0) {
+            let left = cx - (rx - hw);
+            let right = (rx + hw) - cx;
+            let top = cy - (ry - hh);
+            let bottom = (ry + hh) - cy;
+            let minX = Math.min(left, right);
+            let minY = Math.min(top, bottom);
+            if (minX < minY) {
+              if (left < right) {
+                vector = [-(left + circle.radius), 0];
+              } else {
+                vector = [right + circle.radius, 0];
+              }
+            } else {
+              if (top < bottom) {
+                vector = [0, -(top + circle.radius)];
+              } else {
+                vector = [0, bottom + circle.radius];
+              }
+            }
+          } else {
+            let length = Math.sqrt(dx**2 + dy**2);
+            let overlap = circle.radius - length + circle.radius * 0.001;
+            let xInfluence = dx / length;
+            let yInfluence = dy / length;
+            vector = [overlap * xInfluence, overlap * yInfluence];
+          }
+        }
+
+        return [collided, vector];
+      },
+      pointRectangle(point, rectangle, getVector) {
+        let [px,py] = point.getPosition();
+        let [rx,ry] = rectangle.getPosition();
+        let hw = rectangle.width * 0.5;
+        let hh = rectangle.height * 0.5;
+
+        let collided = px > rx - hw && px < rx + hw && py > ry - hh && py < ry + hh;
+
+        let vector = [0,0];
+        if (getVector&&collided) {
+          let dx = px - rx;
+          let dy = py - ry;
+          let overlapX = hw - Math.abs(dx);
+          let overlapY = hh - Math.abs(dy);
+          if (overlapX < overlapY) {
+            vector = [overlapX*(dx>0?1:-1), 0];
+          } else {
+            vector = [0, overlapY*(dy>0?1:-1)];
+          }
+        }
+        return [collided, vector];
+      },
+      pointCircle(point, circle, getVector) {
+        let [px,py] = point.getPosition();
+        let [cx,cy] = circle.getPosition();
+        let dx = px - cx;
+        let dy = py - cy;
+        let collided = dx**2 + dy**2 < circle.radius**2;
+        let vector = [0,0];
+        if (getVector&&collided) {
+          let overlap = circle.radius - Math.sqrt(dx**2 + dy**2)+0.1;
+          vector = [dx*(overlap/circle.radius), dy*(overlap/circle.radius)];
+        }
+        return [collided, vector];
+      },
+      raycastCircle(raycast, circle) {
+        let [rayX,rayY] = raycast.getPosition();
+        let [cirX,cirY] = circle.getPosition();
+        let collided = Math.sqrt((rayX-cirX)**2+(rayY-cirY)**2)<circle.radius;
+        let newDistance = 0;
+        let newXCollision = rayX;
+        let newYCollision = rayY;
+
+        if (collided==false) {
+          let cirVecX = cirX - rayX; // Vector from ray to circle x
+          let cirVecY = cirY - rayY; // Vector from ray to circle y
+          let magRay = Math.sqrt(raycast.dx*raycast.dx+raycast.dy*raycast.dy); // Magnitude of ray vector
+          let magCir = Math.sqrt(cirVecX**2 + cirVecY**2); // Magnitude of circle centre vector
+          let unitVx, unitVy;
+          if (magRay!=0) {
+            unitVx = raycast.dx/magRay; // Unit vector of ray x
+            unitVy = raycast.dy/magRay; // Unit vector of ray y
+          } else {
+            unitVx = 0;
+            unitVy = 0;
+          }
+          let a = cirVecX * unitVx + cirVecY * unitVy; // Projection of circle vector onto ray vector
+          let b = magCir**2 - a**2; // Distance from circle to ray
+          let f = Math.sqrt(circle.radius**2 - b);
+          let t = a-f;
+
+          raycast.unitVectorX = unitVx;
+          raycast.unitVectorY = unitVy;
+
+          collided = t > 0 && t < magRay;
+          if (collided) {
+            newDistance = t;
+            newXCollision = rayX + unitVx*t;
+            newYCollision = rayY + unitVy*t;
+          }
+        }
+        if (collided&&raycast.collidedCollider!==circle) {
+          collided = ChoreoGraph.Physics.raycastReevaluate(raycast,newDistance);
+          if (collided) {
+            ChoreoGraph.Physics.setRaycastData(raycast,circle,newDistance,newXCollision,newYCollision);
+          }
+        } else if (collided) {
+          ChoreoGraph.Physics.setRaycastData(raycast,circle,newDistance,newXCollision,newYCollision);
+        }
+        return [collided, null];
+      },
+      raycastRectangle(raycast, rectangle) {
+        let [rayX,rayY] = raycast.getPosition();
+        let [recX,recY] = rectangle.getPosition();
+        let recHW = rectangle.width*0.5;
+        let recHH = rectangle.height*0.5;
+        let collided = rayX>recX-recHW&&rayX<recX+recHW&&rayY<recY+recHH&&rayY>recY-recHH; // if the ray is inside the rectangle
+        let top = recY + recHH;
+        let bottom = recY - recHH;
+        let left = recX - recHW;
+        let right = recX + recHW;
+        let m = raycast.dy/raycast.dx;
+        let c = rayY - m*rayX;
+        let newDistance = 0;
+        let newXCollision = rayX;
+        let newYCollision = rayY;
+        if (collided==false) {
+          if (raycast.dx>0) { // Check left side
+            if (rayX+raycast.dx>left) { // If ray is horizontally across the left side
+              let y = m*(left)+c;
+              let within = (raycast.dy>0&&y>rayY)||(raycast.dy<0&&y<rayY);
+              if (y<top&&y>bottom&&within) {
+                collided = true;
+                newDistance = Math.sqrt((rayX-left)**2+(rayY-y)**2);
+                newXCollision = left;
+                newYCollision = y;
+              }
+            }
+          } else { // Check right side
+            if (rayX+raycast.dx<right) { // If ray is horizontally across the right side
+              let y = m*(right)+c;
+              let within = (raycast.dy>0&&y>rayY)||(raycast.dy<0&&y<rayY);
+              if (y<top&&y>bottom&&within) {
+                collided = true;
+                newDistance = Math.sqrt((rayX-right)**2+(rayY-y)**2);
+                newXCollision = right;
+                newYCollision = y;
+              }
+            }
+          }
+        }
+        if (collided==false) {
+          if (raycast.dy>0) { // Check bottom side
+            if (rayY+raycast.dy>bottom) { // If ray is vertically across the bottom side
+              let x = (bottom-c)/m;
+              let within = (raycast.dx>0&&x>rayX)||(raycast.dx<0&&x<rayX);
+              if (x<right&&x>left&&within) {
+                collided = true;
+                newDistance = Math.sqrt((rayX-x)**2+(rayY-bottom)**2);
+                newXCollision = x;
+                newYCollision = bottom;
+              }
+            }
+          } else { // Check top side
+            if (rayY+raycast.dy<top) { // If ray is vertically across the top side
+              let x = (top-c)/m;
+              let within = (raycast.dx>0&&x>rayX)||(raycast.dx<0&&x<rayX);
+              if (x<right&&x>left&&within) {
+                collided = true;
+                newDistance = Math.sqrt((rayX-x)**2+(rayY-top)**2);
+                newXCollision = x;
+                newYCollision = top;
+              }
+            }
+          }
+        }
+        if (collided&&raycast.collidedCollider!==rectangle) {
+          collided = ChoreoGraph.Physics.raycastReevaluate(raycast,newDistance);
+          if (collided) {
+            ChoreoGraph.Physics.setRaycastData(raycast,rectangle,newDistance,newXCollision,newYCollision);
+          }
+        } else if (collided) {
+          ChoreoGraph.Physics.setRaycastData(raycast,rectangle,newDistance,newXCollision,newYCollision);
+        }
+        return [collided, null];
       }
-      cg.c.globalAlpha = 1;
-      cg.c.stroke();
+    };
+
+    raycastReevaluate(raycast,distance) {
+      if (raycast.collided) {
+        if (raycast.collidedDistance>distance) {
+          raycast.collidedCollider.collisions = raycast.collidedCollider.collisions.filter(collider => collider.id!=raycast.id);
+          raycast.collisions = raycast.collisions.filter(collider => collider.id!=raycast.collidedCollider.id);
+          if (raycast.collidedCollider.collisions.length==0) { raycast.collidedCollider.collided = false; }
+        } else {
+          return false;
+        }
+      }
+      return true;
+    };
+
+    setRaycastData(raycast,collider,distance,x,y) {
+      raycast.collidedDistance = distance;
+      raycast.collidedCollider = collider;
+      raycast.collidedX = x;
+      raycast.collidedY = y;
+      if (distance!=0) {
+        let [rx,ry] = raycast.getPosition();
+        raycast.unitVectorX = (x - rx)/distance;
+        raycast.unitVectorY = (y - ry)/distance;
+      }
     }
+
+    processCollision(colliderA, colliderB, getVector=true, collideCallbacks=true) {
+      const compatability = ChoreoGraph.Physics.colliderCompatability[colliderA.type][colliderB.type];
+      const detectionFunction = ChoreoGraph.Physics.detections[compatability[0]];
+      const flip = compatability[1];
+      let collided, vector;
+      if (flip) {
+        [collided,vector] = detectionFunction(colliderB, colliderA, getVector);
+      } else {
+        [collided,vector] = detectionFunction(colliderA, colliderB, getVector);
+      }
+      if (collided) {
+        colliderA.collided = true;
+        colliderB.collided = true;
+        if (collideCallbacks) {
+          if (colliderA.collide !== null) { colliderA.collide(colliderA, colliderB, vector); }
+          if (colliderB.collide !== null) { colliderB.collide(colliderB, colliderA, vector); }
+        }
+      } else {
+        if (colliderA.collidedFrame !== ChoreoGraph.frame) { colliderA.collided = false; }
+        if (colliderB.collidedFrame !== ChoreoGraph.frame) { colliderB.collided = false; }
+      }
+      return [collided, vector, flip];
+    };
+
+    triggerProcessingLoop(cg) {
+      cg.Physics.iterationNumber = 0;
+      cg.Physics.collisionChecks = 0;
+      const onlyOneScene = cg.keys.scenes.length === 1;
+
+      for (let pairs of cg.Physics.triggerCollisionOrder) {
+        const colliderA = pairs[0];
+        const colliderB = pairs[1];
+        if (!onlyOneScene) {
+          let scenesActive = true;
+          for (let canvasId of cg.keys.canvases) {
+            const canvas = cg.canvases[canvasId];
+            if (colliderA.scene!==null&&!canvas.camera.scenes.includes(colliderA.scene)) { scenesActive = false; break; }
+            if (colliderB.scene!==null&&!canvas.camera.scenes.includes(colliderB.scene)) { scenesActive = false; break; }
+          }
+          if (!scenesActive) { continue; }
+        }
+
+        if (colliderA.collidedFrame !== ChoreoGraph.frame) { colliderA.collisions.length = 0; }
+        if (colliderB.collidedFrame !== ChoreoGraph.frame) { colliderB.collisions.length = 0; }
+
+        const [collided] = ChoreoGraph.Physics.processCollision(colliderA, colliderB, false, false);
+        if (collided) {
+          colliderA.collided = true;
+          colliderB.collided = true;
+          colliderA.collidedFrame = ChoreoGraph.frame;
+          colliderB.collidedFrame = ChoreoGraph.frame;
+          colliderA.collisions.push(colliderB);
+          colliderB.collisions.push(colliderA);
+        } else {
+          if (colliderA.collidedFrame !== ChoreoGraph.frame) { colliderA.collided = false; }
+          if (colliderB.collidedFrame !== ChoreoGraph.frame) { colliderB.collided = false; }
+        }
+        cg.Physics.collisionChecks++;
+      }
+    };
+
+    physicsProcessingLoop(cg,whitelist=null) {
+      let collidersToResolve = [];
+      let nextWhitelist = [];
+
+      // FIND COLLISIONS AND RESOLUTIONS
+      for (let pairs of cg.Physics.physicsCollisionOrder) {
+        const colliderA = pairs[0];
+        const colliderB = pairs[1];
+
+        if (whitelist!== null) {
+          if (!whitelist.includes(colliderA.id) && !whitelist.includes(colliderB.id)) { continue; }
+        }
+
+        const [collided,vector,flip] = ChoreoGraph.Physics.processCollision(colliderA, colliderB, true, true);
+        cg.Physics.collisionChecks++;
+
+        if (!collided) { continue; }
+
+        if (colliderA.static&&!colliderB.static) {
+          if (flip) {
+            if (colliderB.resolutionVector[0]==0) { colliderB.resolutionVector[0] += vector[0]; }
+            if (colliderB.resolutionVector[1]==0) { colliderB.resolutionVector[1] += vector[1]; }
+          } else {
+            if (colliderB.resolutionVector[0]==0) { colliderB.resolutionVector[0] -= vector[0]; }
+            if (colliderB.resolutionVector[1]==0) { colliderB.resolutionVector[1] -= vector[1]; }
+          }
+          if (!collidersToResolve.includes(colliderB.id)) { collidersToResolve.push(colliderB.id); }
+          colliderB.collidedFrame = ChoreoGraph.frame;
+        } else if (!colliderA.static&&colliderB.static) {
+          if (flip) {
+            if (colliderA.resolutionVector[0]==0) { colliderA.resolutionVector[0] -= vector[0]; }
+            if (colliderA.resolutionVector[1]==0) { colliderA.resolutionVector[1] -= vector[1]; }
+          } else {
+            if (colliderA.resolutionVector[0]==0) { colliderA.resolutionVector[0] += vector[0]; }
+            if (colliderA.resolutionVector[1]==0) { colliderA.resolutionVector[1] += vector[1]; }
+          }
+          if (!collidersToResolve.includes(colliderA.id)) { collidersToResolve.push(colliderA.id); }
+          colliderA.collidedFrame = ChoreoGraph.frame;
+        } else {
+          if (flip) {
+            if (colliderA.resolutionVector[0]==0) { colliderA.resolutionVector[0] -= vector[0]; }
+            if (colliderA.resolutionVector[1]==0) { colliderA.resolutionVector[1] -= vector[1]; }
+            if (colliderB.resolutionVector[0]==0) { colliderB.resolutionVector[0] += vector[0]; }
+            if (colliderB.resolutionVector[1]==0) { colliderB.resolutionVector[1] += vector[1]; }
+          } else {
+            if (colliderA.resolutionVector[0]==0) { colliderA.resolutionVector[0] += vector[0]; }
+            if (colliderA.resolutionVector[1]==0) { colliderA.resolutionVector[1] += vector[1]; }
+            if (colliderB.resolutionVector[0]==0) { colliderB.resolutionVector[0] -= vector[0]; }
+            if (colliderB.resolutionVector[1]==0) { colliderB.resolutionVector[1] -= vector[1]; }
+          }
+          if (!collidersToResolve.includes(colliderA.id)) { collidersToResolve.push(colliderA.id); nextWhitelist.push(colliderA.id); }
+          if (!collidersToResolve.includes(colliderB.id)) { collidersToResolve.push(colliderB.id); nextWhitelist.push(colliderB.id); }
+          colliderA.collidedFrame = ChoreoGraph.frame;
+          colliderB.collidedFrame = ChoreoGraph.frame;
+        }
+      }
+
+      // RESOLVE BASIC PHYSICS COLLISIONS
+      for (const id of collidersToResolve) {
+        const collider = cg.Physics.colliders[id];
+
+        collider.transform.x += collider.resolutionVector[0];
+        collider.transform.y += collider.resolutionVector[1];
+        collider.resolutionVector[0] = 0;
+        collider.resolutionVector[1] = 0;
+      }
+
+      if (cg.Physics.iterationNumber < cg.settings.physics.maximumIterations-1 && nextWhitelist.length > 0) {
+        cg.Physics.iterationNumber++;
+        ChoreoGraph.Physics.physicsProcessingLoop(cg,nextWhitelist);
+      }
+
+      // TRIGGER CALLBACKS
+      for (let colliderId of cg.keys.colliders) {
+        let collider = cg.Physics.colliders[colliderId];
+        if (collider.trigger) {
+          let accounted = [];
+          for (let comparison of collider.collisions) {
+            accounted.push(comparison);
+            if (collider.memory.includes(comparison)) {
+              if (collider.collide!==null) {
+                collider.collide(collider,comparison,null);
+              }
+              continue;
+            } else {
+              if (collider.enter!==null) {
+                collider.enter(collider,comparison);
+              }
+              collider.memory.push(comparison);
+            }
+          }
+          for (let comparison of collider.memory) {
+            if (!accounted.includes(comparison)) {
+              if (collider.exit!==null) {
+                collider.exit(collider,comparison);
+              }
+              collider.memory = collider.memory.filter(c => c.id !== comparison.id);
+            }
+          }
+        }
+      }
+
+      if (cg.Physics.hasPendingColliderDeletions) {
+        for (let colliderId of cg.keys.colliders) {
+          let collider = cg.Physics.colliders[colliderId];
+          if (collider._deleteAfterProcessing) {
+            ChoreoGraph.id.release(collider.id);
+            delete cg.Physics.colliders[colliderId];
+          }
+        }
+        cg.keys.colliders = cg.keys.colliders.filter(id => id in cg.Physics.colliders);
+
+        if (cg.ready) {
+          cg.Physics.calibrateCollisionOrder();
+        }
+
+        cg.Physics.hasPendingColliderDeletions = false;
+      }
+    };
+
+    physicsDebugLoop(cg) {
+      if (!cg.settings.physics.debug.active) { return; }
+      for (let canvasId of cg.keys.canvases) {
+        const canvas = cg.canvases[canvasId];
+        if (canvas.hideDebugOverlays) { continue; }
+        if (canvas.camera==null) { continue; }
+        const c = canvas.c;
+        for (let colliderId of cg.keys.colliders) {
+          let collider = cg.Physics.colliders[colliderId];
+          if (collider.transform===null) { continue; }
+          if (collider.scene!==null&&!canvas.camera.scenes.includes(collider.scene)) { continue; }
+          c.save();
+          let [cx,cy] = collider.getPosition();
+          ChoreoGraph.transformContext(canvas.camera,cx,cy);
+          collider.draw(c);
+          c.restore();
+        }
+
+        if (cg.Develop===undefined) { return; }
+
+        let text = `${(cg.Physics.iterationNumber+1)} iteration(s) ${cg.Physics.collisionChecks} check${cg.Physics.collisionChecks===1?"":"s"}`;
+        cg.Develop.drawTopLeftText(cg,canvas,text);
+      }
+    };
+  },
+
+  instanceStart(cg) {
+    cg.Physics.calibrateCollisionOrder();
+  },
+
+  instanceConnect(cg) {
+    cg.Physics = new ChoreoGraph.Physics.InstanceObject(cg);
+    cg.keys.colliders = [];
+
+    cg.callbacks.listen("core","process",ChoreoGraph.Physics.triggerProcessingLoop);
+    cg.callbacks.listen("core","process",ChoreoGraph.Physics.physicsProcessingLoop);
+
+    cg.attachSettings("physics",{
+      maximumIterations : 10,
+      gravityX : 0,
+      gravityY : 9.8,
+
+      debug : new class {
+        style = {
+          outlineWidth : 2,
+          opacity : 0.2,
+
+          colours : {
+            physics : "#00ffff",
+            trigger : "#ff9900",
+            collided : "#ff0000"
+          }
+        }
+
+        #cg = cg;
+        #active = false;
+        set active(value) {
+          this.#active = value;
+          if (value&&!this.#cg.Physics.hasActivatedDebugLoop) {
+            this.#cg.Physics.hasActivatedDebugLoop = true;
+            this.#cg.callbacks.listen("core","debug",ChoreoGraph.Physics.physicsDebugLoop);
+          }
+        }
+        get active() { return this.#active; }
+      }
+    });
+
+    if (cg.Develop!==undefined) {
+      cg.Develop.interfaceItems.push({
+        type : "UIToggleButton",
+        activeText : "Physics Debug",
+        inactiveText : "Physics Debug",
+        activated : cg.settings.physics.debug,
+        onActive : (cg) => { cg.settings.physics.debug.active = true; },
+        onInactive : (cg) => { cg.settings.physics.debug.active = false; },
+      });
+    };
   }
 });
-ChoreoGraph.ObjectComponents.Collider = class Collider {
-  manifest = {
-    title : "Collider",
-    master : false,
-    keyOverride : "",
-    update : true,
-    collapse : true
-  }
-  collider = null;
-  deleteColliderOnCollapse = true;
-  ox = 0; // Offset X
-  oy = 0; // Offset Y
 
-  constructor(componentInit, object) {
-    ChoreoGraph.initObjectComponent(this, componentInit);
-    if (this.collider!=null) {
-      this.collider.object = object;
-      this.collider.moveFunction = function(mx, my) {
-        if (object.RigidBody!=undefined) {
-          if (Math.abs(mx)>Math.abs(my)) {
-            if (mx>0&&object.RigidBody.xv<0) {
-              object.RigidBody.xv = 0;
-            }
-          } else {
-            if (my>0&&object.RigidBody.yv>0) {
-              object.RigidBody.yv = 0;
-            }
-          }
-        }
-        object.Transform.x -= mx;
-        object.Transform.y -= my;
-      }
-    } else {
-      console.warn("Collider Component created without a Collider",this.id)
-    }
-  }
-  update(object) {
-    this.collider.x = object.Transform.x + this.ox;
-    this.collider.y = object.Transform.y + this.oy;
-  }
-  collapse() {
-    if (this.deleteColliderOnCollapse&&this.collider!=null) {
-      ChoreoGraph.releaseId(this.collider.id.replace("collider_",""));
-      delete this.collider.ChoreoGraph.colliders[this.collider.id];
-      this.collider.ChoreoGraph.colliderIds = this.collider.ChoreoGraph.colliderIds.filter(id => id!=this.collider.id);
-      this.collider.ChoreoGraph.colliderCount--;
-      this.collider.ChoreoGraph.calibrateCollisionOrder();
-    }
-  }
-}
-
-ChoreoGraph.ObjectComponents.RigidBody = class RigidBody {
+ChoreoGraph.ObjectComponents.RigidBody = class cgObjectRigidBody {
   manifest = {
-    title : "RigidBody",
+    type : "RigidBody",
+    key : "RigidBody",
     master : true,
-    keyOverride : "",
-    update : true
+    functions : {
+      update : true,
+      delete : true
+    }
   }
-  gravity = 9.8;
-  xv = 0; // X Velocity
-  yv = 0; // Y Velocity
-  bounce = false;
-  collider = null;
-  colliderComponent = null;
-  useColliderForPhysics = false;
 
-  constructor(componentInit, object) {
-    ChoreoGraph.initObjectComponent(this, componentInit);
-    if (this.collider==null) {
-      this.colliderComponent = object.getComponent("Collider");
-      if (this.colliderComponent!=null) {
-        this.collider = this.colliderComponent.collider;
-      }
+  gravityScaleX = 0;
+  gravityScaleY = 0;
+  xv = 0;
+  yv = 0;
+  collider = null;
+  drag = 0;
+  dragX = null;
+  dragY = null;
+  mass = 1;
+  bounce = false;
+  minimumVelocity = 0.00000001;
+
+  deleteColliderWithObject = false;
+
+  constructor(componentInit,object) {
+    ChoreoGraph.initObjectComponent(this,componentInit);
+    if (this.collider===null) {
+      console.warn("RigidBody component requires a collider on object:",object.id);
+      return;
     }
-    if (this.collider!=null) {
-      if (this.useColliderForPhysics) {
-        this.collider.trigger = false;
-        this.collider.exclude = true;
-      }
+    if (this.collider.static) {
+      console.warn("Static colliders are not compatible with RigidBody components on object:",this.object.id);
+      return;
     }
-  }
-  update(object) {
-    let cg = object.ChoreoGraph;
-    let timeDeltaSeconds = cg.timeDelta/1000;
-    if (cg.timeDelta>object.ChoreoGraph.settings.inactiveTime) {
+
+    this.collider.transform.parent = object.transform;
+    this.collider.manual = true;
+    this.collider.rigidbody = this;
+
+    if (object.cg.ready) {
+      object.cg.Physics.calibrateCollisionOrder();
+    }
+  };
+
+  update(scene) {
+    if (this.collider === null) { return; }
+    if (this.collider.static) { return; }
+
+    if (scene.cg.timeSinceLastFrame>this.cg.settings.core.inactiveTime) {
       return
     }
-    this.yv += (this.gravity*timeDeltaSeconds);
-    let dx = this.xv*timeDeltaSeconds;
-    let dy = this.yv*timeDeltaSeconds;
-    object.Transform.x += dx;
-    object.Transform.y += dy;
 
-    if (this.useColliderForPhysics&&this.collider!=null) {
-      this.colliderComponent.update(object);
-      for (let key in object.ChoreoGraph.colliders) {
-        let comparison = object.ChoreoGraph.colliders[key];
-        if (comparison==this.collider||comparison.trigger) { continue; }
-        ChoreoGraph.plugins.Physics.processCollision(this.collider, comparison, true, object.ChoreoGraph);
+    let timeDeltaSeconds = scene.cg.timeDelta / 1000;
+    this.xv += scene.cg.settings.physics.gravityX * this.gravityScaleX * timeDeltaSeconds;
+    this.yv += scene.cg.settings.physics.gravityY * this.gravityScaleY * timeDeltaSeconds;
+    let dx = this.xv * timeDeltaSeconds;
+    let dy = this.yv * timeDeltaSeconds;
+    this.collider.transform.parent.x += dx;
+    this.collider.transform.parent.y += dy;
+
+    if (this.dragX === null && this.dragY === null) {
+      if (this.drag !== 0) {
+        const multiplier = 1-(this.drag * timeDeltaSeconds);
+        this.xv *= multiplier;
+        this.yv *= multiplier;
       }
-      if (this.useColliderForPhysics&&this.collider.collided) {
-        if (this.collider.resolutionVector[0]!=0) {
-          dx = this.collider.resolutionVector[0];
-          if (this.bounce) {
-            if (dx>0&&this.xv<0) { this.xv *= -1; }
-            else if (dx<0&&this.xv>0) { this.xv *= -1; }
-          } else {
-            if (dx>0&&this.xv<0) { this.xv = 0; }
-            else if (dx<0&&this.xv>0) { this.xv = 0; }
-          }
-          object.Transform.x += dx;
-        }
-        if (this.collider.resolutionVector[1]!=0) {
-          dy = this.collider.resolutionVector[1];
-          if (this.bounce) {
-            if (dy>0&&this.yv<0) { this.yv *= -1; }
-            else if (dy<0&&this.yv>0) { this.yv *= -1; }
-          } else {
-            if (dy>0&&this.yv<0) { this.yv = 0; }
-            else if (dy<0&&this.yv>0) { this.yv = 0; }
-          }
-          object.Transform.y += dy;
+    } else {
+      if (this.dragX !== 0) {
+        const multiplier = 1-(this.dragX * timeDeltaSeconds);
+        this.xv *= multiplier;
+      }
+      if (this.dragY !== 0) {
+        const multiplier = 1-(this.dragY * timeDeltaSeconds);
+        this.yv *= multiplier;
+      }
+    }
+
+    const onlyOneScene = scene.cg.keys.scenes.length === 1;
+
+    let relevantScenes = [];
+    if (!onlyOneScene) {
+      for (const camera of scene.cameras) {
+        for (const scene of camera.scenes) {
+          relevantScenes.push(scene);
         }
       }
-      this.colliderComponent.update(object);
+    }
+
+    let resolutions = [];
+
+    for (let comparison of this.collider.affiliations) {
+      if (comparison.trigger) { continue; }
+      if (onlyOneScene===false&&comparison.scene!=null&&!relevantScenes.includes(comparison.scene)) { continue; }
+      const [collided,vector,flip] = ChoreoGraph.Physics.processCollision(this.collider, comparison, true, true);
+      scene.cg.Physics.collisionChecks++;
+
+      if (!collided) { continue; }
+
+      if (comparison.static) {
+        if (flip) {
+          if (this.collider.resolutionVector[0]==0) { this.collider.resolutionVector[0] -= vector[0]; }
+          if (this.collider.resolutionVector[1]==0) { this.collider.resolutionVector[1] -= vector[1]; }
+        } else {
+          if (this.collider.resolutionVector[0]==0) { this.collider.resolutionVector[0] += vector[0]; }
+          if (this.collider.resolutionVector[1]==0) { this.collider.resolutionVector[1] += vector[1]; }
+        }
+        this.collider.collidedFrame = ChoreoGraph.frame;
+        comparison.collidedFrame = ChoreoGraph.frame;
+      } else {
+        if (flip) {
+          if (this.collider.resolutionVector[0]==0) { this.collider.resolutionVector[0] -= vector[0]; }
+          if (this.collider.resolutionVector[1]==0) { this.collider.resolutionVector[1] -= vector[1]; }
+          if (comparison.resolutionVector[0]==0) { comparison.resolutionVector[0] += vector[0]; }
+          if (comparison.resolutionVector[1]==0) { comparison.resolutionVector[1] += vector[1]; }
+        } else {
+          if (this.collider.resolutionVector[0]==0) { this.collider.resolutionVector[0] += vector[0]; }
+          if (this.collider.resolutionVector[1]==0) { this.collider.resolutionVector[1] += vector[1]; }
+          if (comparison.resolutionVector[0]==0) { comparison.resolutionVector[0] -= vector[0]; }
+          if (comparison.resolutionVector[1]==0) { comparison.resolutionVector[1] -= vector[1]; }
+        }
+        this.collider.collidedFrame = ChoreoGraph.frame;
+        comparison.collidedFrame = ChoreoGraph.frame;
+      }
+      resolutions.push([comparison,flip]);
+    }
+
+    function resetResolutionVectors(collider,comparison) {
+      collider.resolutionVector[0] = 0;
+      collider.resolutionVector[1] = 0;
+      comparison.resolutionVector[0] = 0;
+      comparison.resolutionVector[1] = 0;
+    }
+
+    for (const [collider,flip] of resolutions) {
+      if (collider.static) {
+        if (flip) {
+          this.collider.transform.parent.x -= this.collider.resolutionVector[0];
+          this.collider.transform.parent.y -= this.collider.resolutionVector[1];
+        } else {
+          this.collider.transform.parent.x += this.collider.resolutionVector[0];
+          this.collider.transform.parent.y += this.collider.resolutionVector[1];
+        }
+      } else {
+        const totalMass = this.mass + collider.rigidbody.mass;
+        const portion = this.mass / totalMass;
+        collider.transform.parent.x += collider.resolutionVector[0] * portion;
+        collider.transform.parent.y += collider.resolutionVector[1] * portion;
+        this.collider.transform.parent.x -= collider.resolutionVector[0] * (1-portion);
+        this.collider.transform.parent.y -= collider.resolutionVector[1] * (1-portion);
+      }
+
+      if (collider.rigidbody === undefined) {
+        if (this.bounce) {
+          if (this.collider.resolutionVector[0] != 0) { this.xv *= -1; }
+          if (this.collider.resolutionVector[1] != 0) { this.yv *= -1; }
+        } else {
+          if (this.collider.resolutionVector[0] > 0 && this.xv < 0 || this.collider.resolutionVector[0] < 0 && this.xv > 0) {
+            this.xv = 0;
+          }
+          if (this.collider.resolutionVector[1] > 0 && this.yv < 0 || this.collider.resolutionVector[1] < 0 && this.yv > 0) {
+            this.yv = 0;
+          }
+        }
+        resetResolutionVectors(this.collider,collider);
+        continue;
+      }
+      if (!this.bounce) {
+        this.xv = 0;
+        this.yv = 0;
+        collider.rigidbody.xv = 0;
+        collider.rigidbody.yv = 0;
+        resetResolutionVectors(this.collider,collider);
+        continue;
+      }
+
+      let mrb = this;
+      let crb = collider.rigidbody;
+
+      let mmx = mrb.xv * mrb.mass;
+      let mmy = mrb.yv * mrb.mass;
+      let cmx = crb.xv * crb.mass;
+      let cmy = crb.yv * crb.mass;
+
+      let totalX = mmx + cmx;
+      let totalY = mmy + cmy;
+
+      mrb.xv = totalX * (1 / (mrb.mass + crb.mass));
+      mrb.yv = totalY * (1 / (mrb.mass + crb.mass));
+      crb.xv = totalX * -(1 / (mrb.mass + crb.mass));
+      crb.yv = totalY * -(1 / (mrb.mass + crb.mass));
+
+      let mmag = Math.sqrt(mrb.xv**2 + mrb.yv**2);
+      let cmag = Math.sqrt(crb.xv**2 + crb.yv**2);
+
+      let separationVector;
+      if ((this.collider.type=="circle"||this.collider.type=="point") && (collider.type=="circle"||collider.type=="point")) {
+        let [acx,acy] = this.collider.getPosition();
+        let [bcx,bcy] = collider.getPosition();
+        separationVector = [acx - bcx, acy - bcy];
+      } else {
+        separationVector = [this.collider.resolutionVector[0],this.collider.resolutionVector[1]];
+      }
+      let unsqrted = separationVector[0]**2 + separationVector[1]**2;
+
+      if (unsqrted!=0) {
+        let separationMagnitude = Math.sqrt(unsqrted);
+        let separationUnitX = separationVector[0] / separationMagnitude;
+        let separationUnitY = separationVector[1] / separationMagnitude;
+
+        mrb.xv = (mmag * separationUnitX);
+        mrb.yv = (mmag * separationUnitY);
+        crb.xv = (cmag * -separationUnitX);
+        crb.yv = (cmag * -separationUnitY);
+      }
+
+      resetResolutionVectors(this.collider,collider);
+    }
+
+    if (Math.abs(this.xv) < this.minimumVelocity) { this.xv = 0; }
+    if (Math.abs(this.yv) < this.minimumVelocity) { this.yv = 0; }
+  }
+
+  delete() {
+    if (this.deleteColliderWithObject) {
+      this.collider.delete();
     }
   }
-}
-// Willby - 2024
+};

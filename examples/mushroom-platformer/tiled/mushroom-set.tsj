@@ -1,0 +1,20 @@
+{ "columns":8,
+ "image":"..\/images\/sheet.png",
+ "imageheight":128,
+ "imagewidth":128,
+ "margin":0,
+ "name":"mushroom-set",
+ "properties":[
+        {
+         "name":"cgimage",
+         "type":"string",
+         "value":"sheet"
+        }],
+ "spacing":0,
+ "tilecount":64,
+ "tiledversion":"1.10.2",
+ "tileheight":16,
+ "tilewidth":16,
+ "type":"tileset",
+ "version":"1.10"
+}

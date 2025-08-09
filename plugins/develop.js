@@ -1,1430 +1,1781 @@
-ChoreoGraph.Develop = new class Develop {
-  constructor() {
-    this.cg = null;
-    document.addEventListener("mousedown", this.mouseDown, false);
-    document.addEventListener("touchstart", this.mouseDown, false);
-    document.addEventListener("mouseup", this.mouseUp, false);
-    document.addEventListener("touchend", this.mouseUp, false);
-    document.addEventListener("keydown", this.keyDown, false);
-    document.addEventListener("wheel", this.wheel, {passive: false});
+ChoreoGraph.plugin({
+  name : "Develop",
+  key : "Develop",
+  version : "2.0",
 
-    // FEATURES
-    // FPS, Animation Creator, Console Overlay, Visualisation Toggles, Evaluate, Live Evaluation, Closest Frame Locator
-    this.features = {
-      fps: false,
-      animationCreator: false,
-      consoleOverlay: false,
-      liveEvaluation: false,
-      closestFrameLocator: false,
-      cameraController: false,
-      objectGizmo: false,
-      animationEditor: false,
-      objectPlacer: false
+  globalPackage : new class cgDevelop {
+    #cg = null;
+    get cg() { return this.#cg; }
+    set cg(cg) {
+      this.#cg = cg;
+      ChoreoGraph.Develop.generateInterface();
     };
-    this.fps = {
-      start: 0,
-      frames: 0,
-      fps: 0
+
+    style = {
+      off : "#ff0000",
+      on : "#008000",
+      action : "#ffc0cb"
     };
-    this.animationCreator = {
-      path: [],
-      previousPaths: [],
-      pathString: "",
-      moving: false,
-      movingIndex: 0,
-      moveHotkey : "d",
-      insertHotkey : "a",
-      deleteHotkey : "x",
-      saveHotkey : "s",
-      undoHotkey : "z",
-      roundOutputDecimals : 0,
-      translationSnap : 0.5,
-      style: {
-        colourKey: "#ffffff",
-        colourA: "#0000ff",
-        colourB: "#ff0000",
-        colourC: "#00ff00",
-        sizeA: 10,
-        sizeB: 14,
-        sizeC: 18,
-        font: "Arial"
-      }
-    };
-    this.closestFrameLocator = {
-      style: {
-        colourKey: "#86acff",
-        size: 20,
-        font: "Arial"
-      }
-    };
-    this.cameraController = {
-      hotkey : "shift",
-      offsetting : false,
-      last : [0,0],
-      wasUsingCamera : false
-    }
-    this.consoleOverlay = {
-      connected: false,
-      showSource: false,
-      history: [],
-      size: 20,
-      font: "Arial",
-      typeColours: {
-        "debug" : "#4c88ff", // Blue
-        "error" : "#ff0000", // Red
-        "info" : "#2fd4c7", // Turquoise
-        "warn" : "#e8b300", // Yellow
-        "log" : "#2adb59" // Green
-      }
-    };
-    this.objectGizmo = {
-      mode: "translate", // translate, rotate, scale
-      selected: null,
-      downPos: [0,0],
-      originalObjectPosition: [0,0],
-      originalObjectScale: [1,1],
-      originalObjectRotation: 0,
-      lastObjectRotation: 0,
-      biAxisMove: false,
-      xAxisMove: false,
-      yAxisMove: false,
-      rotationMove: false,
-      undoHotkey: "z",
-      swapModeHotkey: "x",
-      snapHotkey: "shift",
-      modifiedObjects: [],
-      rotationSnap: 30,
-      style: {
-        x: "#ff0000",
-        y: "#00ff00",
-        other: "#0000ff"
-      }
-    }
-    this.animationEditor = {
-      ctx: null,
-      cnvs: null,
-      selectedAnimation: null,
-      controlPoints: [],
-      selected: [false], // [selected,animationPart,key,isTimeConstrained]
-      startTime: -10,
-      timeScale: 4, // pixels per second
-      yMax: 700,
-      yMin: -300,
-      modifiedAnimations: [],
-      cursorPos: [0,0],
-      scrollSpeed: 0.2,
-      panning: false,
-      panningStart: [0,0],
-      panningStartTimeLast: 0,
-      panningYMinLast: 0,
-      panningYMaxLast: 0,
-      swapZoomHotkey: "shift"
-    }
-    this.objectPlacer = {
-      prototypes: {},
-      registerPrototype: function(name,createFunction,image=null) {
-        if (this.prototypes[name]===undefined) {
-          this.prototypes[name] = {name:name,createFunction:createFunction,image:image};
-        } else {
-          console.warn("Prototype already exists:",name);
-        }
-      },
-      selectedButton: null,
-      newObject: null,
-      grabbed: false,
-      createdObjects: {}
-    }
-    this.interface = {
-      styles: document.createElement("style"),
-      section: document.createElement("section"),
-      interactives: {},
-      style: {
-        "off": "#ff0000",
-        "on": "#008000",
-        "action": "#ffc0cb"
-      }
-    };
-    this.frameLClick = false;
-    this.frameRClick = false;
-    this.frameKeyPress = false;
 
-    ChoreoGraph.plugin({
-      name: "Develop",
-      key: "Develop",
-      version: "1.1",
-      externalContentLoops: [this.loop]
-    })
-  }
-  array2DToString(arr) {
-    var output = "";
-    for (var i in arr) {
-      output += "[" + arr[i].join(",") + "],";
-    }
-    return output.slice(0, -1);
-  }
-  bezierPath(points, quality=10) {
-    var output = [];
-    for (var i = 0; i <= quality; i++) {
-      var per = i/quality;
-      var cpoints = Array.from(points);
-      while (cpoints.length > 2) {
-        var lastloc = Array.from(cpoints[0]);
-        var nextpoints = [];
-        for (var p = 1; p < cpoints.length; p++) {
-          nextpoints.push([(lastloc[0]-per*(lastloc[0]-cpoints[p][0])),(lastloc[1]-per*(lastloc[1]-cpoints[p][1]))]);
-          lastloc = Array.from(cpoints[p]);
-        }
-        cpoints = Array.from(nextpoints);
-      }
-      output.push([parseFloat((cpoints[0][0]-per*(cpoints[0][0]-cpoints[1][0])).toFixed(2)),parseFloat((cpoints[0][1]-per*(cpoints[0][1]-cpoints[1][1])).toFixed(2))]);
-    }
-    return output;
-  }
-  arcPath(middle,radius=20,quality=15,start=0,end=360,add_rotation=false) {
-    var total_rotation = end-start;
-    var output = [];
-    var start = start+90;
-    var end = end+90;
-    for (var i = 0; i <= quality; i++) {
-      var current_angle = (i/quality)*total_rotation+start;
-      var frame = [
-        parseFloat((middle[0]+radius*Math.cos(current_angle*Math.PI/180)).toFixed(2)),
-        parseFloat((middle[1]-radius*Math.sin(current_angle*Math.PI/180)).toFixed(2))
-      ];
-      if (add_rotation) {
-        frame[simsets.anim_format.r] = -current_angle
-      }
-      output.push(frame);
-    }
-    return output;
-  }
-  viewOutsideCanvas() {
-    if (this.cg===null) { console.warn("No cg selected"); return; }
-    this.cg.c.scale(0.5,0.5);
-    this.cg.c.translate(this.cg.cw/2,this.cg.ch/2);
-    this.cg.c.clearRect(-this.cg.cw/2,-this.cg.ch/2,this.cg.cw*2,this.cg.ch*2);
-  }
-  rescaleCanvas(scale) {
-    if (this.cg===null) { console.warn("No cg selected"); return; }
-    cnvs.height = this.cg.ch*scale;
-    cnvs.width = this.cg.cw*scale;
-    this.cg.c.scale(scale,scale);
-  }
-  mouseDown(event) {
-    if (ChoreoGraph.Develop==undefined) { return; }
-    if (event.target.ChoreoGraph!==undefined) {
-      if (ChoreoGraph.Develop.cg===null) {
-        ChoreoGraph.Develop.cg = event.target.ChoreoGraph;
-        ChoreoGraph.Develop.createInterface();
-      }
-      ChoreoGraph.Develop.cg = event.target.ChoreoGraph;
-    }
-    if (event.button==0) {
-      ChoreoGraph.Develop.frameLClick = true;
-    } else if (event.button==2) {
-      ChoreoGraph.Develop.frameRClick = true;
-    }
-    if (ChoreoGraph.Input.keyStates[ChoreoGraph.Develop.cameraController.hotkey]) {
-      ChoreoGraph.Develop.cameraController.offsetting = true;
-      ChoreoGraph.Develop.cameraController.last = [ChoreoGraph.Develop.cg.x,ChoreoGraph.Develop.cg.y];
-    }
-  }
-  mouseUp(event) {
-    if (ChoreoGraph.Develop==undefined) { return; }
-    if (ChoreoGraph.Input.keyStates[ChoreoGraph.Develop.cameraController.hotkey]) {
-      ChoreoGraph.Develop.cameraController.offsetting = false;
-    }
-    ChoreoGraph.Develop.animationCreator.moving = false;
-    
-    ChoreoGraph.Develop.objectGizmo.biAxisMove = false;
-    ChoreoGraph.Develop.objectGizmo.xAxisMove = false;
-    ChoreoGraph.Develop.objectGizmo.yAxisMove = false;
-    ChoreoGraph.Develop.objectGizmo.rotationMove = false;
-  }
-  wheel(event) {
-    if (ChoreoGraph.Develop==undefined) { return; }
-    if (ChoreoGraph.Develop.features.cameraController) {
-      function zoom(magnitude) {
-        let cg = ChoreoGraph.Develop.cg;
-        let scrollSpeed = 1/2;
-        if (magnitude<0) { cg.z*=1+Math.abs(magnitude)/scrollSpeed; } else { cg.z*=1-Math.abs(magnitude)/scrollSpeed; }
-      }
-      if (ChoreoGraph.Input.keyStates[ChoreoGraph.Develop.cameraController.hotkey]) {
-        if (event.deltaY<0) {
-          zoom(-0.1);
-        } else {
-          zoom(0.1);
-        }
-      }
-    }
-  }
-  keyDown() {
-    if (ChoreoGraph.Develop==undefined) { return; }
-    ChoreoGraph.Develop.frameKeyPress = true;
-  }
-  loop() {
-    let dev = ChoreoGraph.Develop;
-    let cg = dev.cg;
-    if (cg===null) { return; }
-    if (dev.features.fps) { dev.fpsLoop(dev,cg); }
-    if (dev.features.animationCreator) { dev.animationCreatorLoop(dev,cg); }
-    if (dev.features.closestFrameLocator) { dev.closestFrameLocatorLoop(dev,cg); }
-    if (dev.features.cameraController) { dev.cameraControllerLoop(dev,cg); }
-    if (dev.features.consoleOverlay) { dev.connectConsole(dev); dev.consoleOverlayLoop(dev,cg); }
-    if (dev.features.objectGizmo) { dev.objectGizmoLoop(dev,cg); }
-    if (dev.features.animationEditor) { dev.animationEditorLoop(dev,cg); }
-    if (dev.features.objectPlacer) { dev.objectPlacerLoop(dev,cg); }
-    dev.frameLClick = false;
-    dev.frameRClick = false;
-    dev.frameKeyPress = false;
-  }
-  fpsLoop(dev,cg) {
-    dev.fps.frames++;
-    if (performance.now() - dev.fps.start >= 1000) {
-      dev.fps.fps = dev.fps.frames;
-      dev.fps.frames = 0;
-      dev.fps.start = performance.now();
-    }
-    cg.c.fillStyle = "black";
-    cg.c.globalAlpha = 0.3;
-    cg.c.font = "18px Arial";
-    cg.c.textAlign = "center";
-    cg.c.textBaseline = "bottom";
-    cg.c.fillRect(0,0,70,35);
-    cg.c.globalAlpha = 1;
-    cg.c.fillStyle = "white";
-    cg.c.fillText(dev.fps.fps+"fps",35,25);
-  }
-  animationCreatorLoop(dev,cg) {
-    let cursorCGx = cg.getTransXreverse(ChoreoGraph.Input.cursor.x);
-    let cursorCGy = cg.getTransYreverse(ChoreoGraph.Input.cursor.y);
-    cursorCGx = Math.round((cursorCGx)/dev.animationCreator.translationSnap)*dev.animationCreator.translationSnap;
-    cursorCGy = Math.round((cursorCGy)/dev.animationCreator.translationSnap)*dev.animationCreator.translationSnap;
-    cg.c.lineWidth = 0.8;
-    cg.c.fillStyle = "magenta";
-    cg.c.fillRect(cg.getTransX(cursorCGx),cg.getTransY(cursorCGy),1,1);
-    cg.c.fillStyle = dev.animationCreator.style.colourKey;
-    cg.c.strokeStyle = dev.animationCreator.style.colourKey;
-    if (dev.animationCreator.path.length==0) { // Draw start animation detail
-      cg.c.font = dev.animationCreator.style.sizeA + "px " + dev.animationCreator.style.font;
-      cg.c.textAlign = "center";
-      cg.c.fillText("Start Animation",cg.getTransX(cursorCGx),cg.getTransY(cursorCGy)-1);
-    } else { // Draw path and control details
-      let keyStates = ChoreoGraph.Input.keyStates;
-      let moveHotkey = dev.animationCreator.moveHotkey;
-      let insertHotkey = dev.animationCreator.insertHotkey;
-      let deleteHotkey = dev.animationCreator.deleteHotkey;
-      if (!keyStates[moveHotkey]&&!keyStates[insertHotkey]&&!keyStates[deleteHotkey]&&!keyStates[dev.cameraController.hotkey]) { // Line for new point
-        cg.c.strokeStyle = dev.animationCreator.style.colourC;
-        cg.c.beginPath();
-        cg.c.moveTo(cg.getTransX(dev.animationCreator.path[dev.animationCreator.path.length-1][0]), cg.getTransY(dev.animationCreator.path[dev.animationCreator.path.length-1][1]));
-        cg.c.lineTo(cg.getTransX(cursorCGx),cg.getTransY(cursorCGy));
-        cg.c.stroke();
-      }
-      // Draw existing path
-      let colourToggle = false;
-      cg.c.strokeStyle = dev.animationCreator.style.colourA;
-      for (let i=0;i<dev.animationCreator.path.length;i++) {
-        if (i==0) {
-          cg.c.beginPath();
-          cg.c.moveTo(cg.getTransX(dev.animationCreator.path[i][0]), cg.getTransY(dev.animationCreator.path[i][1]));
-          continue;
-        }
-        cg.c.lineTo(cg.getTransX(dev.animationCreator.path[i][0]), cg.getTransY(dev.animationCreator.path[i][1]));
-        cg.c.stroke();
-        if (colourToggle) { cg.c.strokeStyle = dev.animationCreator.style.colourA; }
-        else { cg.c.strokeStyle = dev.animationCreator.style.colourB; }
-        colourToggle = !(colourToggle);
-        cg.c.beginPath();
-        cg.c.moveTo(cg.getTransX(dev.animationCreator.path[i][0]), cg.getTransY(dev.animationCreator.path[i][1]));
-      }
-      if (keyStates[moveHotkey]||keyStates[deleteHotkey]) { // Draw circles around the points
-        cg.c.beginPath();
-        let closestDistance = Infinity;
-        let closestPoint = [0,0];
-        for (let point of dev.animationCreator.path) {
-          cg.c.strokeStyle = dev.animationCreator.style.colourC;
-          cg.c.moveTo(cg.getTransX(point[0])+10, cg.getTransY(point[1]));
-          cg.c.arc(cg.getTransX(point[0]), cg.getTransY(point[1]),10,0,Math.PI*2);
+    changedSelectedInstanceHotkey = "ctrl+shift";
+    createInterfaces = true;
 
-          let distance = Math.sqrt(((cursorCGx-point[0])**2)+((cursorCGy-point[1])**2));
-          if (distance<closestDistance) {
-            closestPoint = point;
-            closestDistance = distance;
+    InstanceObject = class Develop {
+      interfaceItems = [];
+
+      constructor(cg) {
+        this.cg = cg;
+
+        this.interfaceItems.push({
+          type : "UIToggleButton",
+          activeText : "Disable FreeCam",
+          inactiveText : "Enable FreeCam",
+          activated : this.featureData.freeCam,
+          onActive : (cg) => { cg.Develop.enableFreeCam(); },
+          onInactive : (cg) => { cg.Develop.disableFreeCam(); }
+        });
+        this.interfaceItems.push({
+          type : "UIActionButton",
+          text : "Reset FreeCam",
+          id : "develop-reset_freeCam",
+          action : (cg) => { cg.Develop.resetFreeCam(); }
+        });
+        this.interfaceItems.push({
+          type : "UIToggleButton",
+          activeText : "Hide Cameras",
+          inactiveText : "Show Cameras",
+          activated : this.cg.settings.develop.cameras,
+          onActive : (cg) => { cg.settings.develop.cameras.active = true; },
+          onInactive : (cg) => { cg.settings.develop.cameras.active = false; }
+        });
+        this.interfaceItems.push({
+          type : "UIToggleButton",
+          activeText : "Hide Culling Boxes",
+          inactiveText : "Show Culling Boxes",
+          activated : this.cg.settings.develop.frustumCulling,
+          onActive : (cg) => { cg.settings.develop.frustumCulling.active = true; },
+          onInactive : (cg) => { cg.settings.develop.frustumCulling.active = false; }
+        });
+        this.interfaceItems.push({
+          type : "UIToggleButton",
+          activeText : "Hide FPS",
+          inactiveText : "Show FPS",
+          activated : this.cg.settings.develop.fps,
+          onActive : (cg) => { cg.settings.develop.fps.active = true; },
+          onInactive : (cg) => { cg.settings.develop.fps.active = false; }
+        });
+        this.interfaceItems.push({
+          type : "UIToggleButton",
+          activeText : "Hide Object Annotation",
+          inactiveText : "Show Object Annotation",
+          activated : this.cg.settings.develop.objectAnnotation,
+          onActive : (cg) => { cg.settings.develop.objectAnnotation.active = true; },
+          onInactive : (cg) => { cg.settings.develop.objectAnnotation.active = false; }
+        });
+        this.interfaceItems.push({
+          type : "UIToggleButton",
+          activeText : "Object Gizmo",
+          inactiveText : "Object Gizmo",
+          activated : this.cg.settings.develop.objectGizmo,
+          onActive : (cg) => { cg.settings.develop.objectGizmo.active = true; },
+          onInactive : (cg) => { cg.settings.develop.objectGizmo.active = false; }
+        });
+        this.interfaceItems.push({
+          type : "UIToggleButton",
+          activeText : "Path Editor",
+          inactiveText : "Path Editor",
+          activated : this.featureData.pathEditor,
+          onActive : (cg) => { cg.Develop.featureData.pathEditor.active = true; ChoreoGraph.Develop.createPathEditorInterface(cg); },
+          onInactive : (cg) => { cg.Develop.featureData.pathEditor.active = false; ChoreoGraph.Develop.hidePathEditorInterface(cg); },
+        });
+        this.interfaceItems.push({
+          type : "UIInput",
+          placeholder : "evaluation code",
+          id : "develop-eval-input"
+        });
+        this.interfaceItems.push({
+          type : "UIActionButton",
+          text : "Evaluate",
+          action : (cg) => {
+            let code = document.getElementById("develop-eval-input").value;
+            console.info("> %c"+code,"color:#bbb;");
+            console.info(eval(code));
           }
-        }
-        cg.c.moveTo(cg.getTransX(closestPoint[0]),cg.getTransY(closestPoint[1]));
-        cg.c.lineTo(cg.getTransX(cursorCGx),cg.getTransY(cursorCGy));
-        cg.c.stroke();
-      } else if (keyStates[insertHotkey]) { // Draw circles ihe the middle of paths
-        let middles = {};
-        for (let i=0;i<dev.animationCreator.path.length-1;i++) {
-          let point0 = dev.animationCreator.path[i];
-          let point1 = dev.animationCreator.path[i+1];
-          let middle = [(point0[0]+point1[0])/2,(point0[1]+point1[1])/2];
-          middles[i] = middle;
-        }
-        cg.c.strokeStyle = dev.animationCreator.style.colourC;
-        let closestDistance = Infinity;
-        let closestPoint = [0,0];
-        cg.c.beginPath();
-        for (let i in middles) {
-          let point = middles[i];
-          cg.c.moveTo(cg.getTransX(point[0])+10, cg.getTransY(point[1]));
-          cg.c.arc(cg.getTransX(point[0]), cg.getTransY(point[1]),10,0,Math.PI*2);
-
-          let distance = Math.sqrt(((cursorCGx-point[0])**2)+((cursorCGy-point[1])**2));
-          if (distance<closestDistance) {
-            closestPoint = point;
-            closestDistance = distance;
-          }
-        }
-        cg.c.moveTo(cg.getTransX(closestPoint[0]),cg.getTransY(closestPoint[1]));
-        cg.c.lineTo(cg.getTransX(cursorCGx),cg.getTransY(cursorCGy));
-        cg.c.stroke();
-      }
-    }
-    if (dev.frameLClick) {
-      if (!(dev.animationCreator.path.length==0&&cg.getTransX(cursorCGx)>cg.cw||cg.getTransY(cursorCGy)>cg.ch||cg.getTransX(cursorCGx)<0||cg.getTransY(cursorCGy)<0)) { // Clicked on the canvas
-        if (ChoreoGraph.Input.keyStates[dev.animationCreator.moveHotkey]) { // Begin moving
-          dev.animationCreator.previousPaths.push(Array.from(dev.animationCreator.path));
-          dev.animationCreator.moving = true;
-          let closestIndex = 0;
-          let closestDistance = Infinity;
-          for (let i=0;i<dev.animationCreator.path.length;i++) {
-            let point = dev.animationCreator.path[i];
-            let distance = Math.sqrt(((cursorCGx-point[0])**2)+((cursorCGy-point[1])**2));
-            if (distance<closestDistance) {
-              closestIndex = i;
-              closestDistance = distance;
-            }
-          }
-          dev.animationCreator.movingIndex = closestIndex;
-        } else if (ChoreoGraph.Input.keyStates[dev.animationCreator.deleteHotkey]) { // Delete point
-          dev.animationCreator.previousPaths.push(Array.from(dev.animationCreator.path));
-          let closestIndex = 0;
-          let closestDistance = Infinity;
-          for (let i=0;i<dev.animationCreator.path.length;i++) {
-            let point = dev.animationCreator.path[i];
-            let distance = Math.sqrt(((cursorCGx-point[0])**2)+((cursorCGy-point[1])**2));
-            if (distance<closestDistance) {
-              closestIndex = i;
-              closestDistance = distance;
-            }
-          }
-          dev.animationCreator.path.splice(closestIndex,1);
-        } else if (ChoreoGraph.Input.keyStates[dev.animationCreator.insertHotkey]) { // Insert point
-          if (dev.animationCreator.path.length<2) { return; }
-          dev.animationCreator.previousPaths.push(Array.from(dev.animationCreator.path));
-          let closestIndex = 0;
-          let closestDistance = Infinity;
-          let middles = {};
-          for (let i=0;i<dev.animationCreator.path.length-1;i++) {
-            let point0 = dev.animationCreator.path[i];
-            let point1 = dev.animationCreator.path[i+1];
-            let middle = [(point0[0]+point1[0])/2,(point0[1]+point1[1])/2];
-            middles[i] = middle;
-          }
-          for (let i in middles) {
-            let point = middles[i];
-            let distance = Math.sqrt(((cursorCGx-point[0])**2)+((cursorCGy-point[1])**2));
-            if (distance<closestDistance) {
-              closestIndex = parseInt(i);
-              closestDistance = distance;
-            }
-          }
-          dev.animationCreator.path.splice(closestIndex+1,0,[cursorCGx,cursorCGy])
-        } else if (!ChoreoGraph.Input.keyStates[dev.cameraController.hotkey]) { // Add point
-          dev.animationCreator.previousPaths.push(Array.from(dev.animationCreator.path));
-          dev.animationCreator.path.push([cursorCGx,cursorCGy]);
-        }
-      }
-    }
-    if (dev.animationCreator.moving) {
-      dev.animationCreator.path[dev.animationCreator.movingIndex] = [cursorCGx,cursorCGy]
-    }
-    if (dev.frameKeyPress) {
-      if (ChoreoGraph.Input.lastKey==dev.animationCreator.undoHotkey&&dev.animationCreator.previousPaths.length>0) {
-        dev.animationCreator.path = dev.animationCreator.previousPaths.pop();
-      }
-      if (ChoreoGraph.Input.lastKey==dev.animationCreator.saveHotkey) {
-        dev.animationCreator.pathString = "";
-        let rnd = 10**dev.animationCreator.roundOutputDecimals;
-        for (let i=0;i<dev.animationCreator.path.length;i++) {
-          if (dev.animationCreator.pathString!="") { dev.animationCreator.pathString = dev.animationCreator.pathString + ","; }
-          dev.animationCreator.pathString = dev.animationCreator.pathString + "[" + (dev.animationCreator.path[i][0]*rnd)/rnd + "," + (dev.animationCreator.path[i][1]*rnd)/rnd + "]";
-        }
-        let pathStringNode = document.createTextNode(dev.animationCreator.pathString);
-        this.interface.interactives.animationCreatorOutput.appendChild(pathStringNode);
-        this.interface.interactives.animationCreatorOutput.appendChild(document.createElement("br"));
-        this.interface.interactives.animationCreatorOutput.appendChild(document.createElement("br"));
-        navigator.clipboard.writeText(dev.animationCreator.pathString); // Copy to clipboard
-        dev.animationCreator.path = [];
-      }
-    }
-    cg.c.strokeStyle = dev.animationCreator.style.colourKey;
-    cg.c.fillStyle = "black";
-    cg.c.globalAlpha = 0.3;
-    cg.c.font = dev.animationCreator.style.sizeC + "px " + dev.animationCreator.style.font;
-    cg.c.textBaseline = "bottom";
-    let text = "Z - Undo | S - Save | " + dev.animationCreator.moveHotkey.toUpperCase() + " - Move | " + dev.animationCreator.insertHotkey.toUpperCase() + " - Insert | " + dev.animationCreator.deleteHotkey.toUpperCase() + " - Delete";
-    let generalWidth = cg.c.measureText(text).width+40;
-    text += " | " + cursorCGx + "," + cursorCGy
-    let width = cg.c.measureText(text).width+40;
-    let scale = (cg.cw/2.5)/generalWidth;
-    cg.c.fillRect(0,0,width*scale,35*scale);
-    cg.c.globalAlpha = 1;
-    cg.c.textAlign = "left";
-    cg.c.font = dev.animationCreator.style.sizeC*scale + "px " + dev.animationCreator.style.font;
-    cg.c.fillStyle = dev.animationCreator.style.colourKey;
-    cg.c.fillText(text,20*scale,27*scale);
-  }
-  closestFrameLocatorLoop(dev, cg) {
-    let cursorCGx = cg.getTransXreverse(ChoreoGraph.Input.cursor.x);
-    let cursorCGy = cg.getTransYreverse(ChoreoGraph.Input.cursor.y);
-    let closestFoundAnimationIndex = 0;
-    let closestFoundAnimationPart = 0;
-    let closestFoundDistance = 10000;
-    let closestFoundCords = [0,0];
-    let closestFoundKeyframe = [];
-    let closestFoundTitle = "";
-
-    for (let animIndex in cg.animations) {
-      let animation = cg.animations[animIndex];
-      let xKey = null;
-      let yKey = null;
-      for (let k=0;k<animation.keys.length;k++) {
-        if (JSON.stringify(animation.keys[k])==JSON.stringify(cg.settings.animation.animationLinks.x)) { xKey = k; }
-        if (JSON.stringify(animation.keys[k])==JSON.stringify(cg.settings.animation.animationLinks.y)) { yKey = k; }
-      }
-      if (xKey==null||yKey==null) { continue; }
-      for (let part in animation.data) {
-        let partCords = [animation.data[part][xKey],animation.data[part][yKey]];
-        let currentDistance = Math.sqrt(Math.pow(partCords[0]-cursorCGx,2)+Math.pow(partCords[1]-cursorCGy,2));
-        if (currentDistance<closestFoundDistance) {
-          closestFoundDistance = currentDistance;
-          closestFoundCords = Array.from(partCords);
-          closestFoundAnimationPart = part;
-          closestFoundAnimationIndex = animIndex;
-          closestFoundKeyframe = Array.from(animation.data[part]);
-          closestFoundTitle = animation.title;
-        }
-      }
-    }
-
-    cg.c.lineWidth = 2;
-    cg.c.fillStyle = dev.closestFrameLocator.style.colourKey;
-    cg.c.strokeStyle = dev.closestFrameLocator.style.colourKey;
-
-    cg.c.beginPath();
-    cg.c.moveTo(cg.getTransX(closestFoundCords[0]),cg.getTransY(closestFoundCords[1]));
-    cg.c.lineTo(ChoreoGraph.Input.cursor.x,ChoreoGraph.Input.cursor.y);
-    cg.c.stroke();
-
-    cg.c.font = dev.closestFrameLocator.style.size + "px " + dev.closestFrameLocator.style.font;
-    cg.c.textAlign = "left";
-    let topText = closestFoundTitle + " | " + closestFoundAnimationIndex + " | " + closestFoundAnimationPart + " | [ " + closestFoundKeyframe + " ]";
-    let bottomText = closestFoundDistance + " | " + closestFoundCords + " | " + closestFoundAnimationPart + " | " + closestFoundAnimationIndex;
-    if (cg.boundBox.left<0||cg.boundBox.top<0) { // If zoomed in and top left of screen is not visible
-      cg.c.fillText(topText,Math.max(5,-cg.boundBox.left+5),Math.max(dev.closestFrameLocator.style.size,-cg.boundBox.top+dev.closestFrameLocator.style.size), cg.cw-40);
-      cg.c.fillText(bottomText,Math.max(5,-cg.boundBox.left+5),Math.max(dev.closestFrameLocator.style.size*2,-cg.boundBox.top+dev.closestFrameLocator.style.size*2)+3, cg.cw-40);
-    } else {
-      cg.c.fillText(topText,20,20+dev.closestFrameLocator.style.size,cg.cw-40);
-      cg.c.fillText(bottomText,20,20+dev.closestFrameLocator.style.size*2+3,cg.cw-40);
-    }
-    cg.c.fillStyle = "#3d9f52";
-    cg.c.textAlign = "center";
-    cg.c.font = dev.closestFrameLocator.style.size/2 + "px " + dev.closestFrameLocator.style.font;
-    cg.c.fillText(closestFoundCords[0]+","+closestFoundCords[1],ChoreoGraph.Input.cursor.x,ChoreoGraph.Input.cursor.y);
-  }
-  cameraControllerLoop(dev, cg) {
-    if (ChoreoGraph.Develop.cameraController.offsetting) {
-      cg.x = ChoreoGraph.Develop.cameraController.last[0] - (ChoreoGraph.Input.cursor.down.any[0]-ChoreoGraph.Input.cursor.x)/cg.z;
-      cg.y = ChoreoGraph.Develop.cameraController.last[1] - (ChoreoGraph.Input.cursor.down.any[1]-ChoreoGraph.Input.cursor.y)/cg.z;
-    }
-    if (ChoreoGraph.Input.keyStates[ChoreoGraph.Develop.cameraController.hotkey]) {
-      cg.c.fillStyle = "black";
-      cg.c.globalAlpha = 0.3;
-      cg.c.font = "18px Arial";
-      cg.c.textAlign = "left";
-      cg.c.textBaseline = "bottom";
-      let text = "x: " + cg.x.toFixed(2) + " y: " + cg.y.toFixed(2) + " z: " + cg.z.toFixed(2);
-      cg.c.fillRect(0,0,40+cg.c.measureText(text).width,38);
-      cg.c.globalAlpha = 1;
-      cg.c.fillStyle = "white";
-      cg.c.fillText(text,20,28);
-    }
-  }
-  consoleOverlayLoop(dev, cg) {
-    if (dev.consoleOverlay.history.length>1000) {
-      dev.consoleOverlay.history = dev.consoleOverlay.history.slice(dev.consoleOverlay.history.length-1000,dev.consoleOverlay.history.length);;
-    }
-    let line = 0;
-    let lineSize = dev.consoleOverlay.size+5;
-    cg.c.textAlign = "left";
-    cg.c.textBaseline = "bottom";
-    let startLine = 0;
-    if (dev.consoleOverlay.history.length>(cg.ch-40-lineSize)/lineSize) { startLine = Math.floor(dev.consoleOverlay.history.length-(cg.ch-40-lineSize)/lineSize); }
-
-    for (let eli=startLine;eli<dev.consoleOverlay.history.length&&line<(cg.ch-40-lineSize)/lineSize;eli++) {
-      let conEle = dev.consoleOverlay.history[eli]; // Console Element
-      let text = conEle.args.join(" ");
-      if (dev.consoleOverlay.showSource) { text = text + "    " + conEle.source[1] }
-      let eleColour = "#ffffff";
-      if (Object.keys(dev.consoleOverlay.typeColours).includes(conEle.type)) { eleColour = dev.consoleOverlay.typeColours[conEle.type]; }
-      cg.c.fillStyle = eleColour;
-      cg.c.fillRect(20,20+line*lineSize,lineSize,lineSize);
-      cg.c.fillStyle = "#000000";
-      cg.c.globalAlpha = 0.6;
-      cg.c.font = dev.consoleOverlay.size + "px " + dev.consoleOverlay.font;
-      cg.c.fillRect(20+lineSize,20+line*lineSize,cg.c.measureText(text).width+10,lineSize);
-      cg.c.fillStyle = "#ffffff";
-      cg.c.fillText(text,20+lineSize+5,22+line*lineSize+dev.consoleOverlay.size);
-      cg.c.globalAlpha = 1;
-      line++;
-    }
-  }
-  connectConsole(dev) {
-    if (dev.consoleOverlay.connected) { return; }
-    let oldConsole = {};
-
-    ['log', 'warn', 'error', 'info'].forEach(function (method) {
-      oldConsole[method] = console[method];
-      console[method] = function () {
-        let args = Array.from(arguments);
-        let stackTrace = new Error().stack.split('\n');
-        let callerInfo = stackTrace[2].split('/').pop().split(')')[0];
-        dev.consoleOverlay.history.push({ type: method, args: args, source: [callerInfo.split(':')[0], callerInfo.split(':')[1]+":"+callerInfo.split(':')[2]] });
-        oldConsole[method].apply(console, args);
+        });
       };
-    });
 
-    window.onerror = function (event, source, linenum, column) {
-      dev.consoleOverlay.history.push({ type: 'error', args: [event], source: [source.split('/').pop(), linenum + ':' + column] });
+      _selectedCanvas = null;
+      set selectedCanvas(canvas) {
+        if (this._selectedCanvas==null||this._selectedCanvas.id != canvas.id) {
+          this._selectedCanvas = canvas;
+        }
+      }
+      get selectedCanvas() {
+        return this._selectedCanvas;
+      }
+
+      get cursor() { return this.canvasCursors[this.cg.settings.core.defaultCanvas.id]; }
+      canvasCursors = {};
+      lastInputType = "mouse";
+      lastInteraction = {
+        cursor : -Infinity,
+        keyboard : -Infinity
+      };
+
+      updateCursor(canvas,event) {
+        this.cg.Input.lastInputType = event.pointerType;
+        const cursor = this.canvasCursors[canvas.id];
+        if (cursor===undefined) { return; }
+        cursor.update(event);
+      };
+
+      featureData = {
+        freeCam : {
+          active : false,
+          canvasData : {},
+          downCursorPosition : {x:0,y:0},
+          downCameraPosition : {x:0,y:0},
+          dragging : false
+        },
+        fps : {
+          previousFPS : [],
+          previousProcessTime : [],
+          savedAverageProcessTime : 0
+        },
+        objectGizmo : {
+          active : false,
+          mode : "translate",
+          grabMode : "",
+          selectedScene : null,
+          selectedObject : null,
+          originalPosition: [0,0],
+          originalScale: [1,1],
+          originalRotation: 0,
+          cursorDownPosition : [0,0],
+          modifiedObjects : {},
+          lastTopTextFramee : -1
+        },
+        topLeftText : {
+          lastDrawFrame : -1,
+          countByCanvas : {}
+        },
+        pathEditor : {
+          active : false,
+          selectedPath : null,
+          selectedPathIndex : -1,
+          undoBuffer : [],
+          redoBuffer : [],
+          grabbing : false,
+          originalPosition : [],
+          section : null,
+          dropdown : null
+        }
+      };
+
+      enableFreeCam() {
+        this.featureData.freeCam.active = true;
+        document.getElementById("develop-reset_freeCam").style.display = "inline-block";
+        let canvas = this.cg.Develop.selectedCanvas;
+        if (this.featureData.freeCam.canvasData[canvas.id]===undefined) {
+          let transform = this.cg.createTransform({x:canvas.camera.transform.x,y:canvas.camera.transform.y},"develop_freeCam-"+canvas.id);
+          let freeCamera = this.cg.createCamera({
+            transform : transform,
+            z : canvas.camera.z,
+            canvasSpaceScale : canvas.camera.canvasSpaceScale,
+            canvas : canvas,
+            scaleMode : canvas.camera.scaleMode,
+            size : canvas.camera.size,
+            width : canvas.camera.width,
+            height : canvas.camera.height,
+            pixelScale : canvas.camera.pixelScale,
+            cullOverride : canvas.camera,
+            inactiveCanvas : canvas
+          },"develop_freeCam-"+canvas.id);
+          for (let scene of canvas.camera.scenes) {
+            freeCamera.addScene(scene);
+          }
+          this.featureData.freeCam.canvasData[canvas.id] = {
+            savedCamera : canvas.camera,
+            freeCamera : freeCamera
+          };
+        };
+        let canvasData = this.featureData.freeCam.canvasData[canvas.id];
+        canvas.camera.inactiveCanvas = canvas;
+        canvas.setCamera(canvasData.freeCamera);
+      };
+
+      disableFreeCam() {
+        this.featureData.freeCam.active = false;
+        let canvas = this.cg.Develop.selectedCanvas;
+        let canvasData = this.featureData.freeCam.canvasData[canvas.id];
+        canvas.setCamera(canvasData.savedCamera);
+      };
+
+      resetFreeCam() {
+        let canvas = this.cg.Develop.selectedCanvas;
+        let canvasData = this.featureData.freeCam.canvasData[canvas.id];
+        if (canvasData===undefined) { return; }
+        canvasData.freeCamera.transform.x = canvasData.savedCamera.x;
+        canvasData.freeCamera.transform.y = canvasData.savedCamera.y;
+        canvasData.freeCamera.z = canvasData.savedCamera.z;
+      }
+
+      developProcessLoop(cg) {
+        for (let loop of ChoreoGraph.Develop.loops.process) {
+          if (loop.activeCheck.active&&loop.cgid===cg.id) {
+            loop.func(cg);
+          }
+        }
+      };
+
+      processFreecam(cg) {
+        let data = cg.Develop.featureData.freeCam;
+        if (!data.active) { return; }
+        if (cg.Input===undefined) {
+          data.active = false;
+          console.warn("FreeCam requires the Input plugin");
+          return;
+        }
+        if (ChoreoGraph.Input.keyStates.shift) {
+          let canvas = cg.Develop.selectedCanvas;
+          let camera = data.canvasData[canvas.id].freeCamera;
+          if (data.dragging) {
+            if (!cg.Input.cursor.hold.any) {
+              data.dragging = false;
+              return;
+            }
+            let xo = (data.downCursorPosition.x - cg.Input.cursor.canvasX)/camera.cz;
+            let yo = (data.downCursorPosition.y - cg.Input.cursor.canvasY)/camera.cz;
+            camera.transform.x = data.downCameraPosition.x + xo;
+            camera.transform.y = data.downCameraPosition.y + yo;
+          } else {
+            if (cg.Input.cursor.hold.any) {
+              data.dragging = true;
+              data.downCameraPosition = {
+                x : camera.transform.x,
+                y : camera.transform.y
+              };
+              data.downCursorPosition = {
+                x : cg.Input.cursor.canvasX,
+                y : cg.Input.cursor.canvasY
+              };
+            }
+          }
+        }
+      };
+
+      developOverlayLoop(cg) {
+        for (let loop of ChoreoGraph.Develop.loops.overlay) {
+          if (loop.activeCheck.active&&loop.cgid===cg.id) {
+            loop.func(cg);
+          }
+        }
+      };
+
+      overlayCameras(cg) {
+        let byScene = {};
+        for (let cameraId of cg.keys.cameras) {
+          let camera = cg.cameras[cameraId];
+          for (let scene of camera.scenes) {
+            if (byScene[scene.id]===undefined) {
+              byScene[scene.id] = [];
+            }
+            byScene[scene.id].push(camera);
+          }
+        }
+        for (let canvasId of cg.keys.canvases) {
+          let canvas = cg.canvases[canvasId];
+          if (canvas.hideDebugOverlays) { continue; }
+          let c = canvas.c;
+          c.globalAlpha = 1;
+          if (canvas.camera===null) { continue; }
+          for (let scene of canvas.camera.scenes) {
+            let cameras = byScene[scene.id];
+
+            for (let camera of cameras) {
+              c.save();
+              if (camera.id==canvas.camera.id) { continue; }
+              ChoreoGraph.transformContext(canvas.camera,camera.x,camera.y);
+              c.strokeStyle = cg.settings.develop.cameras.colour;
+              let cw = canvas.width/camera.cz;
+              let ch = canvas.height/camera.cz;
+              c.lineWidth = 2 * cg.settings.core.debugCanvasScale / canvas.camera.cz;
+              c.beginPath();
+              c.rect(-cw*0.5,-ch*0.5,cw,ch)
+              c.stroke();
+              c.lineWidth = 1.5 * cg.settings.core.debugCanvasScale / canvas.camera.cz;
+              c.beginPath();
+              c.moveTo(-cw*0.5,-ch*0.5);
+              c.lineTo(cw*0.5,ch*0.5);
+              c.moveTo(cw*0.5,-ch*0.5);
+              c.lineTo(-cw*0.5,ch*0.5);
+              c.stroke();
+
+              if (camera.scaleMode==="pixels") { c.restore(); continue; }
+              let scale = cg.settings.core.debugCanvasScale / camera.cz;
+              c.setLineDash([20*scale,10*scale]);
+              c.beginPath();
+              let width = camera.width == null ? camera.size : camera.width;
+              let height = camera.height == null ? camera.size : camera.height;
+              width /= camera.z;
+              height /= camera.z;
+              c.rect(-width*0.5,-height*0.5,width,height);
+              c.stroke();
+              c.restore();
+            }
+          }
+        }
+      };
+
+      overlayFrustumCulling(cg) {
+        for (let canvasId of cg.keys.canvases) {
+          let canvas = cg.canvases[canvasId];
+          let totalDraws = 0;
+          let totalCulled = 0;
+          if (canvas.hideDebugOverlays) { continue; }
+          let c = canvas.c;
+          let cullCamera = canvas.camera;
+          if (cullCamera===null) { continue; }
+          if (cullCamera.cullOverride!==null) { cullCamera = cullCamera.cullOverride; }
+          ChoreoGraph.transformContext(canvas.camera,cullCamera.x,cullCamera.y);
+          c.strokeStyle = cg.settings.develop.frustumCulling.frustumColour;
+          c.lineWidth = 3 * cg.settings.core.debugCGScale / canvas.camera.cz;
+          let height = canvas.height / cullCamera.cz;
+          let width = canvas.width / cullCamera.cz;
+          c.strokeRect(-width*0.5,-height*0.5,width,height);
+
+          function drawCullBox(item) {
+            let [bw, bh, bx, by] = item.graphic.getBounds();
+            let gx = item.transform.x + bx;
+            let gy = item.transform.y + by;
+            let gax = item.transform.ax;
+            let gay = item.transform.ay;
+            bw *= item.transform.sx;
+            bh *= item.transform.sy;
+            if (item.transform.r!==0) {
+              let r = -item.transform.r+90;
+              let rad = r*Math.PI/180;
+              let savedbh = bh;
+              bh = Math.abs(bw*Math.cos(rad))+Math.abs(bh*Math.sin(rad));
+              bw = Math.abs(bw*Math.sin(rad))+Math.abs(savedbh*Math.cos(rad));
+
+              let rox = Math.sin(rad)*gax-Math.cos(rad)*gay;
+              let roy = Math.cos(rad)*gax+Math.sin(rad)*gay;
+              gx += rox;
+              gy += roy;
+            } else {
+              gx += gax;
+              gy += gay;
+            }
+            let cx = cullCamera.x;
+            let cy = cullCamera.y;
+            let cw = canvas.width/cullCamera.cz;
+            let ch = canvas.height/cullCamera.cz;
+
+            c.strokeStyle = cg.settings.develop.frustumCulling.unculledBoxColour;
+            if (gx+bw*0.5<cx-cw*0.5||gx-bw*0.5>cx+cw*0.5||gy+bh*0.5<cy-ch*0.5||gy-bh*0.5>cy+ch*0.5) {
+              c.strokeStyle = cg.settings.develop.frustumCulling.culledBoxColour;
+              totalCulled++;
+            } else {
+              totalDraws++;
+            }
+
+            ChoreoGraph.transformContext(canvas.camera,gx,gy);
+
+            c.strokeRect(-bw/2,-bh/2,bw,bh);
+          }
+
+          function drawCollectionCullBoxes(collection) {
+            for (let item of collection) {
+              if (item.type=="graphic"&&item.graphic.getBounds!==undefined&&item.transform.CGSpace) {
+                drawCullBox(item);
+              } else if (item.type=="collection") {
+                drawCollectionCullBoxes(item.children);
+              } else if (item.type=="graphic"&&item.transform.o>0&&(item.graphic.getBounds===undefined||!item.transform.CGSpace)) {
+                totalDraws++;
+              }
+            }
+          }
+
+          for (let scene of cullCamera.scenes) {
+            drawCollectionCullBoxes(scene.drawBuffer);
+          }
+
+          let text = totalDraws + " graphics drawn (" + totalCulled + " culled)";
+          if (cg.settings.core.frustumCulling === false) {
+            text += "  (frustum culling disabled)";
+          }
+          cg.Develop.drawTopLeftText(cg,canvas,text);
+        }
+      };
+
+      overlayFPS(cg) {
+        ChoreoGraph.settings.storeProcessTime = true;
+        for (let canvasId of cg.keys.canvases) {
+          let canvas = cg.canvases[canvasId];
+          if (canvas.hideDebugOverlays) { continue; }
+          let fps = 1000/ChoreoGraph.timeDelta;
+          if (cg.Develop.featureData.fps.previousFPS.length>30) {
+            cg.Develop.featureData.fps.previousFPS.shift();
+          } else {
+            cg.Develop.featureData.fps.previousFPS.push(fps);
+          }
+
+          let average = 0;
+          for (let f of cg.Develop.featureData.fps.previousFPS) {
+            average += f;
+          }
+          average /= cg.Develop.featureData.fps.previousFPS.length;
+
+          // Update the average process time every 5 frames
+          if (cg.Develop.featureData.fps.previousProcessTime.length>5) {
+            average = 0;
+            for (let f of cg.Develop.featureData.fps.previousProcessTime) {
+              average += f;
+            }
+            average /= cg.Develop.featureData.fps.previousProcessTime.length;
+            cg.Develop.featureData.fps.previousProcessTime.length = 0;
+            cg.Develop.featureData.fps.savedAverageProcessTime = average;
+          } else {
+            cg.Develop.featureData.fps.previousProcessTime.push(ChoreoGraph.processTime);
+          }
+
+          let text = Math.round(fps*10)/10+"fps";
+          text += " (" + Math.round(cg.Develop.featureData.fps.savedAverageProcessTime*10)/10 + "ms)";
+
+          cg.Develop.drawTopLeftText(cg,canvas,text);
+        }
+      };
+
+      drawTopLeftText(cg,canvas,text) {
+        let topLeftText = cg.Develop.featureData.topLeftText;
+        if (topLeftText.lastDrawFrame!=ChoreoGraph.frame) {
+          topLeftText.lastDrawFrame = ChoreoGraph.frame;
+          topLeftText.countByCanvas = {};
+        }
+        if (topLeftText.countByCanvas[canvas.id]===undefined) {
+          topLeftText.countByCanvas[canvas.id] = 0;
+        }
+        let c = canvas.c;
+        c.save();
+        let scale = cg.settings.core.debugCanvasScale;
+        let height = 26*scale;
+        let yOffset = topLeftText.countByCanvas[canvas.id] * height;
+        c.resetTransform();
+        c.font = 14*scale+"px Arial";
+        c.fillStyle = "black";
+        c.globalAlpha = 0.3;
+        c.textBaseline = "bottom";
+        c.fillRect(0,yOffset,c.measureText(text).width+10*scale,height);
+
+        c.globalAlpha = 1;
+        c.fillStyle = "white";
+        c.textAlign = "left";
+        c.textBaseline = "top";
+        c.fillText(text,5*scale,7*scale+yOffset);
+
+        topLeftText.countByCanvas[canvas.id]++;
+        c.restore();
+      };
+
+      overlayObjectAnnotation(cg) {
+        for (let canvasId of cg.keys.canvases) {
+          let canvas = cg.canvases[canvasId];
+          if (canvas.hideDebugOverlays) { continue; }
+          let camera = canvas.camera;
+          if (camera===null) { continue; }
+          ChoreoGraph.transformContext(camera);
+          let c = canvas.c;
+          c.font = cg.settings.develop.objectAnnotation.fontSize*cg.settings.core.debugCGScale+"px Arial";
+          c.textAlign = "center";
+          c.fillStyle = cg.settings.develop.objectAnnotation.textColour;
+          for (let scene of camera.scenes) {
+            for (let object of scene.objects) {
+              const x = object.transform.x;
+              const y = object.transform.y;
+              const text = cg.settings.develop.objectAnnotation.keySet.reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), object);
+              if (text===undefined||text==="") { continue; }
+              x += cg.settings.develop.objectAnnotation.offsetX * cg.settings.core.debugCGScale;
+              y += cg.settings.develop.objectAnnotation.offsetY * cg.settings.core.debugCGScale;
+              for (const removeText of cg.settings.develop.objectAnnotation.removeText) {
+                text = text.replaceAll(removeText,"");
+              }
+              c.fillText(text,x,y);
+            }
+          }
+        }
+      };
+
+      overlayObjectGizmo(cg) {
+        let gizmoSettings = cg.settings.develop.objectGizmo;
+        let colours = gizmoSettings.colours;
+        let gizmoData = cg.Develop.featureData.objectGizmo;
+        for (let canvasId of cg.keys.canvases) {
+          let canvas = cg.canvases[canvasId];
+          if (canvas.hideDebugOverlays) { continue; }
+          let camera = canvas.camera;
+          if (camera===null) { continue; }
+          ChoreoGraph.transformContext(camera);
+          let cursor = cg.Input.canvasCursors[canvas.id];
+          let c = canvas.c;
+
+          // SELECTION CIRCLES
+          c.font = 6*cg.settings.core.debugCanvasScale+"px Arial";
+          c.textAlign = "center";
+          c.fillStyle = cg.settings.develop.objectAnnotation.textColour;
+          if (gizmoData.grabMode=="") {
+            for (let scene of camera.scenes) {
+              let objects = scene.objects;
+              if (objects.length==0) {
+                for (let objId of cg.keys.objects) {
+                  objects.push(cg.objects[objId]);
+                }
+              }
+              for (let object of objects) {
+                if (gizmoData.selectedObject===object) { continue; }
+                let x = object.transform.x;
+                let y = object.transform.y;
+
+                let grabDistance = 20 * cg.settings.core.debugCanvasScale / camera.cz;
+
+                let distanceFromSelected = Infinity;
+                if (gizmoData.selectedObject!==null&&gizmoData.selectedScene==scene) {
+                  let selectedX = gizmoData.selectedObject.transform.x;
+                  let selectedY = gizmoData.selectedObject.transform.y;
+                  distanceFromSelected = Math.sqrt((x - selectedX)**2 + (y - selectedY)**2);
+                }
+
+                c.lineWidth = 2 * cg.settings.core.debugCanvasScale / camera.cz;
+                c.strokeStyle = colours.unhoveredSelection;
+                let distance = Math.sqrt((cursor.x - x)**2 + (cursor.y - y)**2);
+                if (distanceFromSelected < 70 * cg.settings.core.debugCanvasScale / camera.cz) { grabDistance /= 3.5; }
+                if (distance < grabDistance) {
+                  c.strokeStyle = colours.hoveredSelection;
+                  if (cursor.impulseUp.any||cursor.impulseDown.any) {
+                    gizmoData.selectedObject = object;
+                    gizmoData.selectedScene = scene;
+                  }
+                }
+                c.beginPath();
+                c.arc(x,y,grabDistance,0,Math.PI*2);
+                c.stroke();
+              }
+            }
+          }
+        }
+
+        if (gizmoData.selectedObject===null||gizmoData.selectedScene===null) { return; }
+
+        let canvas = cg.Develop.selectedCanvas;
+        let camera = canvas.camera;
+        if (camera===null) { return; }
+        let c = canvas.c;
+
+        ChoreoGraph.transformContext(camera);
+
+        let x = gizmoData.selectedObject.transform.x;
+        let y = gizmoData.selectedObject.transform.y;
+
+        let gizmoSize = 20 * cg.settings.core.debugCanvasScale / camera.cz;
+
+        if (ChoreoGraph.Input.lastKeyDown==gizmoSettings.hotkeySwitchMode&&ChoreoGraph.Input.lastKeyDownFrame==ChoreoGraph.frame) {
+          if (gizmoData.mode=="translate") {
+            gizmoData.mode = "rotate";
+          } else if (gizmoData.mode=="rotate") {
+            gizmoData.mode = "scale";
+          } else if (gizmoData.mode=="scale") {
+            gizmoData.mode = "translate";
+          }
+        }
+
+        function modified() {
+          let object = gizmoData.selectedObject;
+          let ids = Object.keys(gizmoData.modifiedObjects);
+
+          function round(number) {
+            let rounding = gizmoSettings.rounding;
+            return Math.round(number*Math.pow(10,rounding))/Math.pow(10,rounding);
+          }
+
+          if (ids.indexOf(gizmoData.selectedObject.id)<0) {
+            gizmoData.modifiedObjects[gizmoData.selectedObject.id] = {
+              translate : gizmoData.mode == "translate",
+              scale : gizmoData.mode == "scale",
+              rotate : gizmoData.mode == "rotate"
+            };
+          } else {
+            gizmoData.modifiedObjects[gizmoData.selectedObject.id][gizmoData.mode] = true;
+
+            if (gizmoData.lastTopTextFramee!=ChoreoGraph.frame) {
+              let text;
+              if (gizmoData.mode == "translate") {
+                text = round(object.transform.x) + "," + round(object.transform.y);
+              } else if (gizmoData.mode == "scale") {
+                text = round(object.transform.sx) + "," + round(object.transform.sy);
+              } else if (gizmoData.mode == "rotate") {
+                text = Math.floor(object.transform.r);
+              }
+              canvas.c.save();
+              gizmoData.lastTopTextFramee = ChoreoGraph.frame;
+              cg.Develop.drawTopLeftText(cg,canvas,text);
+              canvas.c.restore();
+            }
+          }
+
+          let div = document.getElementById("develop_gizmo_dump");
+          div.innerHTML = "";
+          for (let id of ids) {
+            let object = cg.objects[id];
+            let span = document.createElement("span");
+            span.style.fontFamily = "monospace";
+            span.innerText = id + " ";
+            if (gizmoData.modifiedObjects[id].translate) {
+              span.innerText += "x,y: " + round(object.transform.x) + "," + round(object.transform.y) + "  ";
+            }
+            if (gizmoData.modifiedObjects[id].scale) {
+              span.innerText += "sx,sy: " + round(object.transform.sx) + "," + round(object.transform.sy) + "  ";
+            }
+            if (gizmoData.modifiedObjects[id].rotate) {
+              span.innerText += "r: " + Math.floor(object.transform.r);
+            }
+            div.appendChild(span);
+            div.appendChild(document.createElement("br"));
+          }
+        }
+
+        let cursor = cg.Input.canvasCursors[canvas.id];
+        let handSize = gizmoSize * 1;
+        let armLength = gizmoSize * 3;
+
+        // TRANSLATE MODE
+        if (gizmoData.mode=="translate") {
+          let curX = cursor.x;
+          let curY = cursor.y;
+
+          let cursorHoverMultiAxis = curX > x && curX < x + handSize*1.1 && curY < y && curY > y - handSize*1.1;
+          let cursorHoverXAxis = curX > x && curX < x + armLength*1.3 && curY > y - handSize/2 && curY < y + handSize/2 && !cursorHoverMultiAxis;
+          let cursorHoverYAxis = curY < y && curY > y - armLength*1.3 && curX > x - handSize/2 && curX < x + handSize/2 && !cursorHoverMultiAxis && !cursorHoverXAxis;
+
+          if ((cursorHoverMultiAxis||cursorHoverXAxis||cursorHoverYAxis)&&cursor.impulseDown.any) {
+            let transform = gizmoData.selectedObject.transform;
+            gizmoData.originalPosition = [transform.x,transform.y];
+            gizmoData.cursorDownPosition = [cursor.x,cursor.y];
+            if (cursorHoverMultiAxis) {
+              gizmoData.grabMode = "multiAxis";
+            } else if (cursorHoverXAxis) {
+              gizmoData.grabMode = "xAxis";
+            } else if (cursorHoverYAxis) {
+              gizmoData.grabMode = "yAxis";
+            }
+          }
+
+          if (cursor.impulseUp.any) {
+            gizmoData.grabMode = "";
+          }
+
+          let dx = cursor.x - gizmoData.cursorDownPosition[0];
+          let dy = cursor.y - gizmoData.cursorDownPosition[1];
+          if (gizmoData.grabMode=="xAxis"||gizmoData.grabMode=="multiAxis") {
+            let x = gizmoData.originalPosition[0] + dx;
+            if (ChoreoGraph.Input.keyStates[gizmoSettings.hotkeySnap]) {
+              x += gizmoSettings.snapXOffset;
+              x = Math.round(x/gizmoSettings.positionSnap)*gizmoSettings.positionSnap;
+            }
+            gizmoData.selectedObject.transform.x = x;
+            modified();
+          }
+          if (gizmoData.grabMode=="yAxis"||gizmoData.grabMode=="multiAxis") {
+            let y = gizmoData.originalPosition[1] + dy;
+            if (ChoreoGraph.Input.keyStates[gizmoSettings.hotkeySnap]) {
+              y += gizmoSettings.snapYOffset;
+              y = Math.round(y/gizmoSettings.positionSnap)*gizmoSettings.positionSnap;
+            }
+            gizmoData.selectedObject.transform.y = y;
+            modified();
+          }
+
+          c.strokeStyle = colours.gizmoOther;
+          c.lineWidth = handSize/4;
+          if (cursorHoverMultiAxis&&gizmoData.grabMode=="") { c.globalAlpha = 0.5; }
+          c.beginPath();
+          c.rect(x,y-handSize,handSize,handSize);
+          c.stroke();
+          c.lineWidth = handSize/3;
+          c.fillStyle = colours.gizmoX;
+          c.strokeStyle = colours.gizmoX;
+          c.globalAlpha = 1;
+          if (cursorHoverXAxis&&gizmoData.grabMode=="") { c.globalAlpha = 0.5; }
+          c.beginPath();
+          c.moveTo(x,y);
+          c.lineTo(x+armLength,y);
+          c.lineTo(x+armLength,y-(handSize/3));
+          c.lineTo(x+armLength+(handSize/2),y);
+          c.lineTo(x+armLength,y+(handSize/3));
+          c.lineTo(x+armLength,y);
+          c.stroke();
+          c.globalAlpha = 1;
+          if (cursorHoverYAxis&&gizmoData.grabMode=="") { c.globalAlpha = 0.5; }
+          c.fillStyle = colours.gizmoY;
+          c.strokeStyle = colours.gizmoY;
+          c.beginPath();
+          c.moveTo(x,y+gizmoSize*0.16);
+          c.lineTo(x,y-armLength);
+          c.lineTo(x-(handSize/3),y-armLength);
+          c.lineTo(x,y-armLength-(handSize/2));
+          c.lineTo(x+(handSize/3),y-armLength);
+          c.lineTo(x,y-armLength);
+          c.stroke();
+
+        // SCALE MODE
+        } else if (gizmoData.mode=="scale") {
+          let curX = cursor.x;
+          let curY = cursor.y;
+
+          let cursorHoverMultiAxis = curX > x && curX < x + handSize*1.1 && curY < y && curY > y - handSize*1.1;
+          let cursorHoverXAxis = curX > x && curX < x + armLength*1.3 && curY > y - handSize/2 && curY < y + handSize/2 && !cursorHoverMultiAxis;
+          let cursorHoverYAxis = curY < y && curY > y - armLength*1.3 && curX > x - handSize/2 && curX < x + handSize/2 && !cursorHoverMultiAxis && !cursorHoverXAxis;
+
+          if ((cursorHoverMultiAxis||cursorHoverXAxis||cursorHoverYAxis)&&cursor.impulseDown.any) {
+            let transform = gizmoData.selectedObject.transform;
+            gizmoData.originalScale = [transform.sx,transform.sy];
+            gizmoData.cursorDownPosition = [cursor.x,cursor.y];
+            if (cursorHoverMultiAxis) {
+              gizmoData.grabMode = "multiAxis";
+            } else if (cursorHoverXAxis) {
+              gizmoData.grabMode = "xAxis";
+            } else if (cursorHoverYAxis) {
+              gizmoData.grabMode = "yAxis";
+            }
+          }
+
+          if (cursor.impulseUp.any) {
+            gizmoData.grabMode = "";
+          }
+
+          let downPosX = gizmoData.cursorDownPosition[0];
+          let downPosY = gizmoData.cursorDownPosition[1];
+          let originalX = gizmoData.originalScale[0];
+          let originalY = gizmoData.originalScale[1];
+          if (gizmoData.grabMode=="xAxis"||gizmoData.grabMode=="multiAxis") {
+            gizmoData.selectedObject.transform.sx = originalX*(((curX-downPosX)/handSize)+1);
+            modified();
+          }
+          if (gizmoData.grabMode=="yAxis"||gizmoData.grabMode=="multiAxis") {
+            gizmoData.selectedObject.transform.sy = originalY*(((-(curY-downPosY))/handSize)+1);
+            modified();
+          }
+
+          c.strokeStyle = colours.gizmoOther;
+          c.lineWidth = handSize/4;
+          if (cursorHoverMultiAxis&&gizmoData.grabMode=="") { c.globalAlpha = 0.5; }
+          c.beginPath();
+          c.rect(x,y-handSize,handSize,handSize);
+          c.stroke();
+          c.lineWidth = handSize/3;
+          c.fillStyle = colours.gizmoX;
+          c.strokeStyle = colours.gizmoX;
+          c.globalAlpha = 1;
+          if (cursorHoverXAxis&&gizmoData.grabMode=="") { c.globalAlpha = 0.5; }
+          c.beginPath();
+          c.moveTo(x,y);
+          c.lineTo(x+armLength,y);
+          c.rect(x+armLength-handSize/3,y-(handSize/6),handSize/3,handSize/3);
+          c.lineTo(x+armLength,y);
+          c.stroke();
+          c.globalAlpha = 1;
+          if (cursorHoverYAxis&&gizmoData.grabMode=="") { c.globalAlpha = 0.5; }
+          c.fillStyle = colours.gizmoY;
+          c.strokeStyle = colours.gizmoY;
+          c.beginPath();
+          c.moveTo(x,y+gizmoSize*0.16);
+          c.lineTo(x,y-armLength);
+          c.rect(x-(handSize/6),y-armLength,handSize/3,handSize/3);
+          c.lineTo(x,y-armLength);
+          c.stroke();
+
+        // ROTATE MODE
+        } else if (gizmoData.mode=="rotate") {
+          let circleRadius = gizmoSize * 2;
+
+          let distance = Math.sqrt((cursor.x - x)**2 + (cursor.y - y)**2);
+          let hoverCircle = distance < circleRadius*1.3;
+
+          if (hoverCircle&&cursor.impulseDown.any) {
+            gizmoData.originalRotation = gizmoData.selectedObject.transform.r;
+            gizmoData.cursorDownPosition = [cursor.x,cursor.y];
+            gizmoData.grabMode = "rotate";
+          }
+
+          if (cursor.impulseUp.any) {
+            gizmoData.grabMode = "";
+          }
+
+          if (gizmoData.grabMode=="rotate") {
+            let angle = Math.atan2(cursor.y-y,cursor.x-x);
+            let startAngle = Math.atan2(gizmoData.cursorDownPosition[1]-y,gizmoData.cursorDownPosition[0]-x);
+            let offset = (angle-startAngle)*180/Math.PI;
+            let rotation = gizmoData.originalRotation+offset;
+            if (ChoreoGraph.Input.keyStates[gizmoSettings.hotkeySnap]) {
+              rotation = Math.round(rotation/gizmoSettings.rotationSnap)*gizmoSettings.rotationSnap;
+            }
+            if (rotation<0) {
+              rotation += 360;
+            }
+            gizmoData.selectedObject.transform.r = rotation;
+            modified();
+          }
+
+          c.strokeStyle = colours.gizmoOther;
+          c.lineWidth = gizmoSize/2;
+          if (hoverCircle&&gizmoData.grabMode=="") { c.globalAlpha = 0.5; }
+          c.beginPath();
+          c.arc(x,y,circleRadius,0,Math.PI*2);
+          c.stroke();
+          c.globalAlpha = 1;
+        }
+      };
     };
 
-    dev.consoleOverlay.connected = true;
-  }
-  objectGizmoLoop(dev,cg) {
-    let curX = cg.getTransXreverse(ChoreoGraph.Input.cursor.x);
-    let curY = cg.getTransYreverse(ChoreoGraph.Input.cursor.y);
-    let armLength = Math.max(cg.ch,cg.cw)*0.05;
-    let handSize = Math.max(cg.ch,cg.cw)*0.015;
-    let selectionDistance = Math.max(cg.ch,cg.cw)*0.02;
-    cg.c.lineWidth = handSize/3;
-    cg.c.lineCap = "square";
+    loops = {
+      process : [],
+      overlay : []
+    };
 
-    // DRAW SELECTED OBJECT GIZMO (by mode)
-    if (dev.objectGizmo.selected!==null) {
-      let selected = dev.objectGizmo.selected;
-      let x = selected.Transform.x+selected.Transform.ox+selected.Transform.ax;
-      let y = selected.Transform.y+selected.Transform.oy+selected.Transform.ay;
-      x = cg.getTransX(x);
-      y = cg.getTransY(y);
-      if (dev.objectGizmo.mode=="translate") {
-        cg.c.strokeStyle = dev.objectGizmo.style.other;
-        cg.c.lineWidth = handSize/4;
-        cg.c.beginPath();
-        cg.c.rect(x+1,y-handSize-1,handSize,handSize);
-        cg.c.stroke();
-        cg.c.lineWidth = handSize/3;
-        cg.c.fillStyle = dev.objectGizmo.style.x;
-        cg.c.strokeStyle = dev.objectGizmo.style.x;
-        cg.c.beginPath();
-        cg.c.moveTo(x,y);
-        cg.c.lineTo(x+armLength,y);
-        cg.c.lineTo(x+armLength,y-(handSize/3));
-        cg.c.lineTo(x+armLength+(handSize/2),y);
-        cg.c.lineTo(x+armLength,y+(handSize/3));
-        cg.c.lineTo(x+armLength,y);
-        cg.c.stroke();
-        cg.c.fillStyle = dev.objectGizmo.style.y;
-        cg.c.strokeStyle = dev.objectGizmo.style.y;
-        cg.c.beginPath();
-        cg.c.moveTo(x,y);
-        cg.c.lineTo(x,y-armLength);
-        cg.c.lineTo(x-(handSize/3),y-armLength);
-        cg.c.lineTo(x,y-armLength-(handSize/2));
-        cg.c.lineTo(x+(handSize/3),y-armLength);
-        cg.c.lineTo(x,y-armLength);
-        cg.c.stroke();
-      } else if (dev.objectGizmo.mode=="scale") {
-        cg.c.strokeStyle = dev.objectGizmo.style.other;
-        cg.c.lineWidth = handSize/4;
-        cg.c.beginPath();
-        cg.c.rect(x+1,y-handSize-1,handSize,handSize);
-        cg.c.stroke();
-        cg.c.lineWidth = handSize/3;
-        cg.c.fillStyle = dev.objectGizmo.style.x;
-        cg.c.strokeStyle = dev.objectGizmo.style.x;
-        cg.c.beginPath();
-        cg.c.moveTo(x,y);
-        cg.c.lineTo(x+armLength,y);
-        cg.c.stroke();
-        cg.c.fillRect(x+armLength-(handSize/2),y-(handSize/2),handSize,handSize);
-        cg.c.fillStyle = dev.objectGizmo.style.y;
-        cg.c.strokeStyle = dev.objectGizmo.style.y;
-        cg.c.beginPath();
-        cg.c.moveTo(x,y);
-        cg.c.lineTo(x,y-armLength);
-        cg.c.stroke();
-        cg.c.fillRect(x-(handSize/2),y-armLength-(handSize/2),handSize,handSize);
-      } else if (dev.objectGizmo.mode=="rotate") {
-        cg.c.strokeStyle = dev.objectGizmo.style.other;
-        cg.c.lineWidth = handSize;
-        cg.c.globalAlpha = 0.6;
-        cg.c.beginPath();
-        cg.c.arc(x,y,armLength,0,Math.PI*2);
-        cg.c.stroke();
-        cg.c.globalAlpha = 1;
-      }
-    }
-
-    // BEGIN GIZMO TRANSFORMATIONS
-    if (dev.frameLClick&&dev.objectGizmo.selected!==null) {
-      let selected = dev.objectGizmo.selected;
-      let x = selected.Transform.x+selected.Transform.ox+selected.Transform.ax;
-      let y = selected.Transform.y+selected.Transform.oy+selected.Transform.ay;
-      if (dev.objectGizmo.mode=="translate"||dev.objectGizmo.mode=="scale") {
-        let biAxisRect = {left:x,top:y-handSize/cg.z,width:handSize/cg.z+2,height:handSize/cg.z+2};
-        if (curX>biAxisRect.left && curX<biAxisRect.left+biAxisRect.width && curY>biAxisRect.top && curY<biAxisRect.top+biAxisRect.height) {
-          dev.objectGizmo.biAxisMove = true;
-        } else if (curX>x-2 && curX<x+(armLength+handSize)/cg.z+2 && curY>y-4 && curY<y+4) {
-          dev.objectGizmo.xAxisMove = true;
-        } else if (curY<y-2 && curY>y-(armLength+handSize)/cg.z-2 && curX>x-4 && curX<x+4) {
-          dev.objectGizmo.yAxisMove = true;
-        }
-        if (dev.objectGizmo.biAxisMove||dev.objectGizmo.xAxisMove||dev.objectGizmo.yAxisMove) {
-          dev.objectGizmo.downPos = [curX,curY];
-          dev.objectGizmo.originalObjectPosition = [selected.Transform.x,selected.Transform.y];
-          dev.objectGizmo.originalObjectScale = [selected.Transform.sx,selected.Transform.sy];
-        }
-      } else if (dev.objectGizmo.mode=="rotate") {
-        let distance = Math.sqrt((curX-x)**2+(curY-y)**2)*cg.z;
-        if (distance<armLength+handSize/2&&distance>armLength-handSize/2) {
-          dev.objectGizmo.rotationMove = true;
-          dev.objectGizmo.downPos = [curX,curY];
-          dev.objectGizmo.originalObjectRotation = selected.Transform.r;
+    wheel(event) {
+      for (let cg of ChoreoGraph.instances) {
+        if (cg.Develop.featureData.freeCam.active&&ChoreoGraph.Input.keyStates.shift) {
+          let canvas = cg.Develop.selectedCanvas;
+          if (event.target.cgCanvas!==canvas) { continue; }
+          let camera = cg.Develop.featureData.freeCam.canvasData[canvas.id].freeCamera;
+          let scrollSpeed = cg.settings.develop.freeCam.zoomSpeed;
+          let magnitude = 0.1;
+          if (event.deltaY<0) { magnitude = -0.1; }
+          let change = Math.abs(magnitude)/scrollSpeed
+          if (event.deltaY<0) { camera.z*=1+change; } else { camera.z*=1-change; }
         }
       }
     }
 
-    // UPDATE OBJECT VALUES (by transformation)
-    if (dev.objectGizmo.selected!==null) {
-      let selected = dev.objectGizmo.selected;
-      let oos = dev.objectGizmo.originalObjectScale;
-      let oop = dev.objectGizmo.originalObjectPosition;
-      let x = selected.Transform.x+selected.Transform.ox+selected.Transform.ax;
-      let y = selected.Transform.y+selected.Transform.oy+selected.Transform.ay;
+    section = document.createElement("section");
+    infoDump = document.createElement("div");
+
+    generateInterface() {
+      if (!ChoreoGraph.Develop.createInterfaces) { return; }
+      let cg = ChoreoGraph.Develop.cg;
+      ChoreoGraph.Develop.section.innerHTML = "";
+
+      ChoreoGraph.Develop.section.appendChild(ChoreoGraph.Develop.infoDump);
+      let gizmoDump = document.createElement("div");
+      gizmoDump.id = "develop_gizmo_dump";
+      ChoreoGraph.Develop.infoDump.appendChild(gizmoDump)
+
+      if (ChoreoGraph.instances.length>1) {
+        let selectedInstanceDiv = document.createElement("div");
+        selectedInstanceDiv.innerText = "Selected Instance: "+cg.id;
+        ChoreoGraph.Develop.section.appendChild(selectedInstanceDiv);
+      }
+      for (let item of cg.Develop.interfaceItems) {
+        let newItem = new ChoreoGraph.Develop[item.type](item,this.cg);
+        ChoreoGraph.Develop.section.appendChild(newItem.element);
+      }
+
+      document.getElementById("develop-reset_freeCam").style.display = "none";
+    };
+
+    hidePathEditorInterface(cg) {
+      let section = cg.Develop.featureData.pathEditor.section;
+      if (section===null) { return; }
+      section.style.display = "none";
+    };
+
+    createPathEditorInterface(cg) {
+      let data = cg.Develop.featureData.pathEditor;
+      let section = data.section;
+      if (section!==null) { section.style.display = "block"; return; }
+      data.section = document.createElement("section");
+      section = data.section;
+      section.style.marginBottom = "20px";
+      ChoreoGraph.Develop.section.prepend(section);
+
+      cg.callbacks.listen("core","debug",ChoreoGraph.Develop.pathEditorOverlayLoop);
+
+      // SELECTED PATH DROPDOWN
+      let dropdown = document.createElement("select");
+      data.dropdown = dropdown;
+      dropdown.cg = cg;
+      dropdown.className = "develop_button";
+      section.appendChild(dropdown);
+
+      for (let pathId of cg.keys.paths) {
+        let option = document.createElement("option");
+        option.text = pathId;
+        dropdown.add(option);
+      }
+      let blankOption = document.createElement("option");
+      blankOption.text = "";
+      blankOption.value = "";
+      dropdown.add(blankOption);
+
+      dropdown.onchange = (e) => {
+        let selected = dropdown.value;
+        if (dropdown.value=="") {
+          selected = null;
+        }
+        e.target.cg.Develop.featureData.pathEditor.selectedPath = selected;
+        e.target.cg.Develop.featureData.pathEditor.selectedPathIndex = -1;
+      }
+      dropdown.value = "";
+
+      // CREATE NEW PATH BUTTON
+      let createNewButton = document.createElement("button");
+      createNewButton.innerHTML = "Create New Path";
+      createNewButton.classList.add("develop_button");
+      createNewButton.classList.add("btn_action");
+      createNewButton.cg = cg;
+      createNewButton.onclick = (e) => {
+        let newPathId = ChoreoGraph.id.get();
+        cg.createPath([], newPathId);
+        let option = document.createElement("option");
+        option.text = newPathId;
+        data.dropdown.add(option);
+        data.dropdown.value = newPathId;
+        data.selectedPath = newPathId;
+        data.selectedPathIndex = -1;
+      }
+      section.appendChild(createNewButton);
+
+      let trackTypeAdding = document.createElement("div");
+      trackTypeAdding.style.display = "inline-block";
+      section.appendChild(trackTypeAdding);
+
+      // UNDO BUTTON
+      let undoButton = document.createElement("button");
+      undoButton.innerHTML = "Undo";
+      undoButton.classList.add("develop_button");
+      undoButton.classList.add("btn_action");
+      undoButton.cg = cg;
+      undoButton.onclick = (e) => {
+        ChoreoGraph.Develop.pathEditorUndo(e.target.cg);
+      }
+      section.appendChild(undoButton);
+
+      // REDO BUTTON
+      let redoButton = document.createElement("button");
+      redoButton.innerHTML = "Redo";
+      redoButton.classList.add("develop_button");
+      redoButton.classList.add("btn_action");
+      redoButton.cg = cg;
+      redoButton.onclick = (e) => {
+        ChoreoGraph.Develop.pathEditorRedo(e.target.cg);
+      }
+      section.appendChild(redoButton);
+
+      // REVERSE BUTTON
+      let reverseButton = document.createElement("button");
+      reverseButton.innerHTML = "Reverse";
+      reverseButton.classList.add("develop_button");
+      reverseButton.classList.add("btn_action");
+      reverseButton.cg = cg;
+      reverseButton.onclick = (e) => {
+        let selectedId = e.target.cg.Develop.featureData.pathEditor.selectedPath;
+        if (selectedId===null) { return; }
+        e.target.cg.paths[selectedId].reverse();
+      }
+      section.appendChild(reverseButton);
+
+      // SEPARATOR
+      let separator = document.createElement("div");
+      separator.style.borderLeft = "1px solid white";
+      separator.style.height = "10px";
+      separator.style.display = "inline-block";
+      separator.style.margin = "0px 2px";
+      section.appendChild(separator);
+
+      // GENERIC COPY BUTTON
+      let copyButton = document.createElement("button");
+      copyButton.innerHTML = "Copy";
+      copyButton.classList.add("develop_button");
+      copyButton.classList.add("btn_action");
+      copyButton.cg = cg;
+      copyButton.onclick = (e) => {
+        ChoreoGraph.Develop.pathEditorCopy(e.target.cg);
+      }
+      section.appendChild(copyButton);
+
+      // COPY POINT ARRAY BUTTON
+      let copyArrayButton = document.createElement("button");
+      copyArrayButton.innerHTML = "Copy Point[]";
+      copyArrayButton.classList.add("develop_button");
+      copyArrayButton.classList.add("btn_action");
+      copyArrayButton.cg = cg;
+      copyArrayButton.onclick = (e) => {
+        ChoreoGraph.Develop.pathEditorCopy(e.target.cg,"array");
+      }
+      section.appendChild(copyArrayButton);
+
+      // COPY POINT DICTIONARY BUTTON
+      let copyDictButton = document.createElement("button");
+      copyDictButton.innerHTML = "Copy Point{}";
+      copyDictButton.classList.add("develop_button");
+      copyDictButton.classList.add("btn_action");
+      copyDictButton.cg = cg;
+      copyDictButton.onclick = (e) => {
+        ChoreoGraph.Develop.pathEditorCopy(e.target.cg,"dict");
+      }
+      section.appendChild(copyDictButton);
+
+      // COPY PATH BUTTON
+      let copyPathButton = document.createElement("button");
+      copyPathButton.innerHTML = "Copy Path";
+      copyPathButton.classList.add("develop_button");
+      copyPathButton.classList.add("btn_action");
+      copyPathButton.cg = cg;
+      copyPathButton.onclick = (e) => {
+        ChoreoGraph.Develop.pathEditorCopy(e.target.cg,"path");
+      }
+      section.appendChild(copyPathButton);
+
+      // COPY FUNCTION BUTTON
+      let copyFunctionButton = document.createElement("button");
+      copyFunctionButton.innerHTML = "Copy Function";
+      copyFunctionButton.classList.add("develop_button");
+      copyFunctionButton.classList.add("btn_action");
+      copyFunctionButton.cg = cg;
+      copyFunctionButton.onclick = (e) => {
+        ChoreoGraph.Develop.pathEditorCopy(e.target.cg,"function");
+      }
+      section.appendChild(copyFunctionButton);
+    };
+
+    pathEditorOverlayLoop(cg) {
+      if (!cg.Develop.featureData.pathEditor.active) { return; }
+      // ALL PATHS
+      if (cg.Input===undefined) { return; }
+      let camera = cg.Input.cursor.canvas.camera;
+      if (camera.canvas===null) { return; }
+      ChoreoGraph.transformContext(camera);
+      let c = camera.canvas.c;
+      let colours = cg.settings.develop.pathEditor.colours;
+      let size = cg.settings.core.debugCanvasScale / camera.cz;
+
+      function getSidesAndPoints(path) {
+        let points = [];
+        let aSides = [];
+        let bSides = [];
+        let alternate = false;
+        let lastPoint = null;
+        for (let point of path) {
+          points.push(point);
+          if (lastPoint!==null) {
+            if (alternate) {
+              aSides.push([lastPoint,point]);
+            } else {
+              bSides.push([lastPoint,point]);
+            }
+            alternate = !alternate;
+          }
+          lastPoint = point;
+        }
+        return [points,aSides,bSides];
+      }
+
+      // SELECTED PATH
+      let data = cg.Develop.featureData.pathEditor;
+      let selectedPathId = data.selectedPath;
+      let selectedPathIndex = data.selectedPathIndex;
+
+      // DRAW ALL PATHS
+      let points = [];
+      let aSides = [];
+      let bSides = [];
+
+      for (let pathId of cg.keys.paths) {
+        if (pathId!=selectedPathId&&selectedPathId!=null) { continue; }
+        let [newPoints, newASides, newBSides] = getSidesAndPoints(cg.paths[pathId]);
+        points.push(...newPoints);
+        aSides.push(...newASides);
+        bSides.push(...newBSides);
+      }
+
+      c.lineWidth = 2 * size;
+
+      c.strokeStyle = colours.lineA;
+      c.beginPath();
+      for (let point of aSides) {
+        c.moveTo(point[0][0],point[0][1]);
+        c.lineTo(point[1][0],point[1][1]);
+      }
+      c.stroke();
+      c.strokeStyle = colours.lineB;
+      c.beginPath();
+      for (let point of bSides) {
+        c.moveTo(point[0][0],point[0][1]);
+        c.lineTo(point[1][0],point[1][1]);
+      }
+      c.stroke();
+      c.fillStyle = colours.point;
+      c.beginPath();
+      for (let point of points) {
+        c.moveTo(point[0],point[1]);
+        c.arc(point[0],point[1],selectedPathId==null?1:5*size,0,Math.PI*2);
+      }
+      c.fill();
+
+      let settings = cg.settings.develop.pathEditor;
+      let grabDistance = settings.grabDistance * cg.settings.core.debugCanvasScale / camera.cz;
+      let grabbing = data.grabbing;
+      let cursor = cg.Input.cursor;
+
+      let path = cg.paths[selectedPathId];
+      if (path===undefined) {
+        let closestPath = null;
+        let closestDistance = Infinity;
+        let closestPathIndex = -1;
+        for (let pathId of cg.keys.paths) {
+          for (let point of cg.paths[pathId]) {
+            let distance = Math.sqrt((point[0]-cg.Input.cursor.x)**2 + (point[1]-cg.Input.cursor.y)**2);
+            if (distance<closestDistance) {
+              closestDistance = distance;
+              closestPath = pathId;
+              closestPathIndex = cg.paths[pathId].indexOf(point);
+            }
+          }
+        }
+        if (closestDistance<grabDistance) {
+          c.beginPath();
+          c.strokeStyle = colours.selected;
+          c.lineWidth = 4 * size;
+          for (let point of cg.paths[closestPath]) {
+            c.lineTo(point[0],point[1]);
+          }
+          c.stroke();
+          if (cursor.impulseDown.any) {
+            data.selectedPath = closestPath;
+            data.selectedPathIndex = closestPathIndex;
+            data.dropdown.value = closestPath;
+          }
+        }
+        return;
+      }
+
+      let clickType = null;
+      // POINT CHECK
+      let closestPoint = null;
+      let closestDistance = Infinity;
+      for (let i=0;i<path.length;i++) {
+        let distance = Math.sqrt((path[i][0]-cursor.x)**2 + (path[i][1]-cursor.y)**2);
+        if (distance<closestDistance) {
+          closestDistance = distance;
+          closestPoint = i;
+        }
+      }
+      if (closestDistance<grabDistance) {
+        clickType = "point";
+      }
+
+      // INSERT CENTRE CHECK
+      let closestSide = null;
+      let closestSideDistance = Infinity;
+      let insertCentreX = 0;
+      let insertCentreY = 0;
+      if (clickType==null) {
+        for (let i=0;i<path.length-1;i++) {
+          let from = path[i];
+          let to = path[i+1];
+          let centre = [(from[0]+to[0])/2,(from[1]+to[1])/2];
+          let distance = Math.sqrt((centre[0]-cursor.x)**2 + (centre[1]-cursor.y)**2);
+          if (distance<closestSideDistance) {
+            closestSideDistance = distance;
+            closestSide = i;
+            insertCentreX = centre[0];
+            insertCentreY = centre[1];
+          }
+        }
+        if (closestSideDistance<grabDistance) {
+          clickType = "insert";
+        }
+      }
+      if (clickType==null) {
+        clickType = "add";
+      }
+
+      if (ChoreoGraph.Input.keyStates[cg.settings.develop.freeCam.hotkey]) {
+        clickType = null;
+      }
+
+      function snapX(x) {
+        let gridSize = cg.settings.develop.pathEditor.snapGridSize;
+        let offset = cg.settings.develop.pathEditor.snapXOffset;
+        let snappedX = Math.round((x+offset)/gridSize)*gridSize - offset;
+        return snappedX;
+      };
+      function snapY(y) {
+        let gridSize = cg.settings.develop.pathEditor.snapGridSize;
+        let offset = cg.settings.develop.pathEditor.snapYOffset;
+        let snappedY = Math.round((y+offset)/gridSize)*gridSize - offset;
+        return snappedY;
+      };
+      function magnetic(oldX,oldY,newX,newY) {
+        if (!ChoreoGraph.Input.keyStates[cg.settings.develop.pathEditor.hotkeys.magnetic]) {
+          return [newX,newY];
+        }
+        let magneticAngle = cg.settings.develop.pathEditor.magneticAngle * Math.PI / 180;
+        let dx = newX - oldX;
+        let dy = newY - oldY;
+        let angle = Math.atan2(dy,dx);
+        let magnitude = Math.sqrt(dx*dx + dy*dy);
+        let snappedAngle = Math.round(angle/magneticAngle)*magneticAngle;
+        let snappedX = oldX + Math.cos(snappedAngle) * magnitude;
+        let snappedY = oldY + Math.sin(snappedAngle) * magnitude;
+        return [snappedX,snappedY];
+      }
+
+      // SELECTED POINT OVERLAY
+      if (selectedPathIndex!=-1) {
+        let selectedPoint = path[selectedPathIndex];
+        c.beginPath();
+        c.strokeStyle = colours.selected;
+        c.arc(selectedPoint[0],selectedPoint[1],8*size,0,Math.PI*2);
+        c.stroke();
+      }
+
+      // CLICK TYPE AFFORDANCES
+      if (!grabbing) {
+        if (clickType=="add") {
+          let newPoint = [snapX(cursor.x),snapY(cursor.y)];
+          if (path.length>0) {
+            newPoint = magnetic(path[path.length-1][0],path[path.length-1][1],snapX(cursor.x),snapY(cursor.y))
+          }
+          if (path.length==0) {
+            c.beginPath();
+            c.fillStyle = colours.new;
+            c.arc(newPoint[0],newPoint[1],5*size,0,Math.PI*2);
+            c.fill();
+          } else {
+            c.beginPath();
+            c.strokeStyle = colours.new;
+            c.moveTo(path[path.length-1][0],path[path.length-1][1]);
+            c.lineTo(newPoint[0],newPoint[1]);
+            c.stroke();
+          }
+        } else if (clickType=="point") {
+          c.beginPath();
+          c.fillStyle = "black";
+          c.globalAlpha = 0.4;
+          c.arc(path[closestPoint][0],path[closestPoint][1],5*size,0,Math.PI*2);
+          c.fill();
+          c.globalAlpha = 1;
+        } else if (clickType=="insert") {
+          c.beginPath();
+          c.strokeStyle = colours.point;
+          c.arc(insertCentreX,insertCentreY,5*size,0,Math.PI*2);
+          c.stroke();
+        }
+      } else {
+        if (ChoreoGraph.Input.keyStates[cg.settings.develop.pathEditor.hotkeys.magnetic]) {
+          c.beginPath();
+          c.strokeStyle = colours.magnetic;
+          c.moveTo(data.originalPosition[0],data.originalPosition[1]);
+          let x = snapX(cursor.x);
+          let y = snapY(cursor.y);
+          if (data.selectedPathIndex!=-1) {
+            let newPoint = magnetic(data.originalPosition[0],data.originalPosition[1],x,y);
+            x = newPoint[0];
+            y = newPoint[1];
+          }
+          c.lineTo(x,y);
+          c.stroke();
+        }
+      }
+
+      // MODIFICATION
+      function appendUndo() {
+        let clone = [];
+        for (let point of path) {
+          clone.push([point[0],point[1]]);
+        }
+        data.undoBuffer.push(clone);
+        data.redoBuffer.length = 0;
+      }
+      if (cursor.impulseDown.any) {
+        if (clickType=="add") {
+          appendUndo();
+          if (path.length==0) {
+            path.push([snapX(cursor.x),snapY(cursor.y)]);
+          } else {
+            path.push(magnetic(path[path.length-1][0],path[path.length-1][1],snapX(cursor.x),snapY(cursor.y)));
+          }
+          data.selectedPathIndex = path.length-1;
+        } else if (clickType=="point") {
+          data.selectedPathIndex = closestPoint;
+          if (cursor.impulseDown.middle) {
+            appendUndo();
+            path.splice(data.selectedPathIndex,1);
+            data.selectedPathIndex = path.length-1;
+          } else {
+            appendUndo();
+            data.originalPosition = [path[closestPoint][0],path[closestPoint][1]];
+            data.grabbing = true;
+          }
+        } else if (clickType=="insert") {
+          appendUndo();
+          let newPoint = [snapX(insertCentreX),snapY(insertCentreY)];
+          path.splice(closestSide+1,0,newPoint);
+          data.selectedPathIndex = closestSide+1;
+          data.originalPosition = [newPoint[0],newPoint[1]];
+          data.grabbing = true;
+        }
+      }
+      if (grabbing&&cursor.impulseUp.any) {
+        data.grabbing = false;
+      } else if (grabbing) {
+        let dx = cursor.x - cursor.down.any.x;
+        let dy = cursor.y - cursor.down.any.y;
+        let originalX = data.originalPosition[0];
+        let originalY = data.originalPosition[1];
+        let newPoint = magnetic(originalX,originalY,snapX(originalX + dx),snapY(originalY + dy));
+        path[data.selectedPathIndex] = newPoint;
+      }
+
+      let hotkeys = cg.settings.develop.pathEditor.hotkeys;
+      let lastKey = ChoreoGraph.Input.lastKeyDown;
+      if (ChoreoGraph.Input.lastKeyDownFrame!=ChoreoGraph.frame) { lastKey = null; }
+
+      // DELETE
+      if (hotkeys.delete==lastKey) {
+        if (data.selectedPathIndex!=-1) {
+          appendUndo();
+          path.splice(data.selectedPathIndex,1);
+          data.selectedPathIndex = path.length-1;
+        }
+
+      } else if (hotkeys.copy==lastKey) {
+        ChoreoGraph.Develop.pathEditorCopy(cg);
+
+      } else if (hotkeys.undo==lastKey) {
+        ChoreoGraph.Develop.pathEditorUndo(cg);
+
+      } else if (hotkeys.redo==lastKey) {
+        ChoreoGraph.Develop.pathEditorRedo(cg);
+      }
+    };
+
+    pathEditorUndo(cg) {
+      let data = cg.Develop.featureData.pathEditor;
+      let selectedPathId = data.selectedPath;
+      if (selectedPathId===null) { return; }
+      let path = cg.paths[selectedPathId];
+      if (path===undefined) { return; }
+      if (data.undoBuffer.length==0) { return; }
+
+      let clone = [];
+      for (let point of path) {
+        clone.push([point[0],point[1]]);
+      }
+      data.redoBuffer.push(clone);
+
+      let lastState = data.undoBuffer.pop();
+      if (lastState!==undefined) {
+        cg.paths[selectedPathId] = lastState;
+        data.selectedPathIndex = lastState.length-1;
+      }
+    };
+
+    pathEditorRedo(cg) {
+      let data = cg.Develop.featureData.pathEditor;
+      let selectedPathId = data.selectedPath;
+      if (selectedPathId===null) { return; }
+      let path = cg.paths[selectedPathId];
+      if (path===undefined) { return; }
+      if (data.redoBuffer.length==0) { return; }
+
+      let clone = [];
+      for (let point of path) {
+        clone.push([point[0],point[1]]);
+      }
+      data.undoBuffer.push(clone);
+
+      let nextState = data.redoBuffer.pop();
+      if (nextState!==undefined) {
+        cg.paths[selectedPathId] = nextState;
+        data.selectedPathIndex = nextState.length-1;
+      }
+    };
+
+    pathEditorCopy(cg,type=null) {
+      let data = cg.Develop.featureData.pathEditor;
+      let selectedPathId = data.selectedPath;
+      if (selectedPathId===null) { return; }
+      let path = cg.paths[selectedPathId];
+      if (path===undefined) { return; }
+
+      function round(number) {
+        let rounding = cg.settings.develop.pathEditor.rounding;
+        return Math.round(number*Math.pow(10,rounding))/Math.pow(10,rounding);
+      }
+
+      if (type==null) {
+        if (path.length==0) {
+          alert("Path is empty, nothing to copy.");
+          return;
+        } else if (path.length==1) {
+          type = "array";
+        } else {
+          type = "path";
+        }
+      }
 
       let text = "";
-
-      if (dev.objectGizmo.mode=="translate"&&dev.objectGizmo.biAxisMove) {
-        selected.Transform.x = oop[0]+(curX-dev.objectGizmo.downPos[0]);
-        selected.Transform.y = oop[1]+(curY-dev.objectGizmo.downPos[1]);
-        text = "x: " + selected.Transform.x.toFixed(2) + " y: " + selected.Transform.y.toFixed(2);
-      } else if (dev.objectGizmo.mode=="translate"&&dev.objectGizmo.xAxisMove) {
-        let selected = dev.objectGizmo.selected;
-        selected.Transform.x = oop[0]+(curX-dev.objectGizmo.downPos[0]);
-        text = "x: " + selected.Transform.x.toFixed(2) + " moved: " + (curX-dev.objectGizmo.downPos[0]).toFixed(2);
-      } else if (dev.objectGizmo.mode=="translate"&&dev.objectGizmo.yAxisMove) {
-        let selected = dev.objectGizmo.selected;
-        selected.Transform.y = oop[1]+(curY-dev.objectGizmo.downPos[1]);
-        text = "y: " + selected.Transform.y.toFixed(2) + " moved: " + (curY-dev.objectGizmo.downPos[1]).toFixed(2);
-      }
-
-      if (dev.objectGizmo.mode=="translate"&&(dev.objectGizmo.biAxisMove||dev.objectGizmo.xAxisMove||dev.objectGizmo.yAxisMove)) {
-        if (selected.RigidBody!==undefined) {
-          selected.RigidBody.xv = 0;
-          selected.RigidBody.yv = 0;
+      if (type=="array") {
+        for (let i=0;i<path.length;i++) {
+          text += round(path[i][0]) + "," + round(path[i][1]);
+          if (i<path.length-1) { text += ","; }
         }
-      }
-
-      if (dev.objectGizmo.mode=="scale"&&dev.objectGizmo.biAxisMove) {
-        selected.Transform.sx = oos[0]*(((curX-dev.objectGizmo.downPos[0])/handSize)+1);
-        selected.Transform.sy = oos[1]*(((-(curY-dev.objectGizmo.downPos[1]))/handSize)+1);
-        text = "sx: " + selected.Transform.sx.toFixed(2) + " sy: " + selected.Transform.sy.toFixed(2);
-      } else if (dev.objectGizmo.mode=="scale"&&dev.objectGizmo.xAxisMove) {
-        let selected = dev.objectGizmo.selected;
-        selected.Transform.sx = oos[0]*(((curX-dev.objectGizmo.downPos[0])/handSize)+1);
-        text = "sx: " + selected.Transform.sx.toFixed(2);
-      } else if (dev.objectGizmo.mode=="scale"&&dev.objectGizmo.yAxisMove) {
-        let selected = dev.objectGizmo.selected;
-        selected.Transform.sy = oos[1]*(((-(curY-dev.objectGizmo.downPos[1]))/handSize)+1);
-        text = "sy: " + selected.Transform.sy.toFixed(2);
-      }
-
-      if (dev.objectGizmo.biAxisMove||dev.objectGizmo.xAxisMove||dev.objectGizmo.yAxisMove) {
-        if (dev.objectGizmo.modifiedObjects.indexOf(selected.id)==-1) { dev.objectGizmo.modifiedObjects.push(selected.id) }
-      }
-
-      if (dev.objectGizmo.rotationMove) {
-        let angle = Math.atan2(curY-y,curX-x);
-        let startAngle = Math.atan2(dev.objectGizmo.downPos[1]-y,dev.objectGizmo.downPos[0]-x);
-        let offset = (angle-startAngle)*180/Math.PI;
-        dev.objectGizmo.lastObjectRotation = offset;
-        let rotation = dev.objectGizmo.originalObjectRotation+offset
-        if (ChoreoGraph.Input.keyStates[dev.objectGizmo.snapHotkey]) {
-          rotation = Math.round(rotation/dev.objectGizmo.rotationSnap)*dev.objectGizmo.rotationSnap;
+      } else if (type=="dict") {
+        text = "x:" + round(path[0][0]) + ",y:" + round(path[0][1]);
+      } else if (type=="path") {
+        for (let i=0;i<path.length;i++) {
+          text += "[" + round(path[i][0]) + "," + round(path[i][1]) + "]";
+          if (i<path.length-1) { text += ","; }
         }
-        if (rotation<0) {
-          rotation += 360;
+      } else if (type=="function") {
+        text = "cg.createPath([";
+        for (let i=0;i<path.length;i++) {
+          text += "[" + round(path[i][0]) + "," + round(path[i][1]) + "]";
+          if (i<path.length-1) { text += ","; }
         }
-        selected.Transform.r = rotation;
-        text = "r: " + selected.Transform.r.toFixed(2);
-        
-        if (dev.objectGizmo.modifiedObjects.indexOf(selected.id)==-1) { dev.objectGizmo.modifiedObjects.push(selected.id) }
+        text += '],"' + selectedPathId + '")';
       }
+      if (navigator.clipboard===undefined) {
+        if (ChoreoGraph.Develop.hasWarnedAboutMissingClipboard === undefined) {
+          console.warn("Clipboard not available, using console instead");
+          ChoreoGraph.Develop.hasWarnedAboutMissingClipboard = true;
+        }
+        console.info(text);
+      } else {
+        navigator.clipboard.writeText(text);
+      }
+    };
 
-      if (text!="") {
-        cg.c.fillStyle = "black";
-        cg.c.globalAlpha = 0.3;
-        cg.c.font = "18px Arial";
-        cg.c.textAlign = "left";
-        cg.c.textBaseline = "bottom";
-        cg.c.fillRect(0,0,40+cg.c.measureText(text).width,38);
-        cg.c.globalAlpha = 1;
-        cg.c.fillStyle = "white";
-        cg.c.fillText(text,20,28);
-      
-        if (dev.objectGizmo.modifiedObjects.length>0) {
-          let edits = "";
-          for (let objectId of dev.objectGizmo.modifiedObjects) {
-            let objT = cg.objects[objectId].Transform;
-            let edit = objectId + " ";
-            if (objT.x!=0) { edit += "x:" + Math.round(objT.x*100)/100 + ","; }
-            if (objT.y!=0) { edit += "y:" + Math.round(objT.y*100)/100 + ","; }
-            if (objT.r!=0) { edit += "r:" + Math.round(objT.r*100)/100 + ","; }
-            if (objT.sx!=1) { edit += "sx:" + Math.round(objT.sx*100)/100 + ","; }
-            if (objT.sy!=1) { edit += "sy:" + Math.round(objT.sy*100)/100 + ","; }
-            if (edit!=objectId + " ") {
-              edit = edit.substring(0, edit.length-1);
-            }
-            edit += "<br>";
-            edits += edit;
+    UIToggleButton = class UIToggleButton {
+      constructor(init,cg) {
+        this.cg = cg;
+        this.activeText = "On";
+        this.inactiveText = "Off";
+
+        this.onActive = null;
+        this.onInactive = null;
+
+        this.activated = false;
+        this.element = document.createElement("button");
+        this.element.developUIData = this;
+        this.element.type = "button";
+        this.element.classList.add("develop_button");
+        if (init.id!=undefined) {
+          this.element.id = init.id;
+        }
+        this.element.onclick = () => {
+          if (typeof this.activated=="boolean") {
+            this.activated = !this.activated;
+          } else if (typeof this.activated=="object") {
+            this.activated.active = !this.activated.active;
           }
-          ChoreoGraph.Develop.interface.interactives.objectGizmoEdits.innerHTML = edits;
-        }
-      }
-      if (dev.frameKeyPress) {
-        if (ChoreoGraph.Input.lastKey==dev.objectGizmo.undoHotkey) {
-          if (dev.objectGizmo.mode=="translate") {
-            selected.Transform.x = oop[0];
-            selected.Transform.y = oop[1];
-          } else if (dev.objectGizmo.mode=="scale") {
-            selected.Transform.sx = oos[0];
-            selected.Transform.sy = oos[1];
+          if ((typeof this.activated=="boolean"&&this.activated)||
+            (typeof this.activated=="object"&&this.activated.active)) {
+            if (this.onActive!=null) { this.onActive(this.cg,this); }
+          } else {
+            if (this.onInactive!=null) { this.onInactive(this.cg,this); }
           }
-        } else if (ChoreoGraph.Input.lastKey==dev.objectGizmo.swapModeHotkey) {
-          if (dev.objectGizmo.mode=="translate") {
-            dev.objectGizmo.mode = "rotate";
-          } else if (dev.objectGizmo.mode=="rotate") {
-            dev.objectGizmo.mode = "scale";
-          } else if (dev.objectGizmo.mode=="scale") {
-            dev.objectGizmo.mode = "translate";
-          }
+          this.setStylesAndText();
+        };
+
+        for (let key in init) {
+          this[key] = init[key];
+        }
+
+        this.setStylesAndText();
+      };
+      setStylesAndText() {
+        if ((typeof this.activated=="boolean"&&this.activated)||
+            (typeof this.activated=="object"&&this.activated.active)) {
+          this.element.innerText = this.activeText;
+          this.element.classList.add("btn_on");
+          this.element.classList.remove("btn_off");
+        } else {
+          this.element.innerText = this.inactiveText;
+          this.element.classList.add("btn_off");
+          this.element.classList.remove("btn_on");
+        }
+      };
+    };
+
+    UIActionButton = class UIActionButton {
+      constructor(init,cg) {
+        this.cg = cg;
+        this.text = "Action";
+        this.action = null;
+        this.element = document.createElement("button");
+        this.element.developUIData = this;
+        this.element.type = "button";
+        this.element.classList.add("develop_button");
+        this.element.classList.add("btn_action");
+        this.element.onclick = () => {
+          if (this.action!=null) { this.action(this.cg); }
+        };
+        if (init.id!=undefined) {
+          this.element.id = init.id;
+        }
+        for (let key in init) {
+          this[key] = init[key];
+        }
+        this.element.innerText = this.text;
+      };
+    };
+
+    UIInput = class UIInput {
+      constructor(init,cg) {
+        this.cg = cg;
+        this.element = document.createElement("input");
+        this.element.developUIData = this;
+        this.element.type = "input";
+        this.element.placeholder = init.placeholder;
+        this.element.classList.add("develop_input");
+        this.element.onclick = () => {
+          if (this.action!=null) { this.action(this.cg); }
+        };
+        if (init.id!=undefined) {
+          this.element.id = init.id;
+        }
+        for (let key in init) {
+          this[key] = init[key];
+        }
+        this.element.innerText = this.text;
+      };
+    }
+  },
+
+  instanceConnect(cg) {
+    cg.attachSettings("develop",{
+      fps : {
+        active : false,
+      },
+      freeCam : {
+        hotkey : "shift",
+        zoomSpeed : 0.5
+      },
+      cameras : {
+        active : false,
+        colour : "#76f562"
+      },
+      frustumCulling : {
+        active : false,
+        unculledBoxColour : "#59eb38",
+        culledBoxColour : "#eb3838",
+        frustumColour : "#5c38eb"
+      },
+      objectGizmo : {
+        active : false,
+        hotkeySwitchMode : "x",
+        hotkeySnap : "ctrl",
+        rounding : 2,
+        rotationSnap : 30,
+        positionSnap : 1,
+        snapXOffset : 0,
+        snapYOffset : 0,
+        colours : {
+          unhoveredSelection : "#ff0000",
+          hoveredSelection : "#0000ff",
+          gizmoX: "#ff0000",
+          gizmoY: "#00ff00",
+          gizmoOther: "#00ffff"
+        }
+      },
+      objectAnnotation : {
+        active : false,
+        textColour : "white",
+        offsetX : 0,
+        offsetY : 0,
+        maxWidth : 100,
+        keySet : ["id"],
+        removeText : [],
+        fontSize : 6
+      },
+      pathEditor : {
+        snapGridSize : 1,
+        snapXOffset : 0,
+        snapYOffset : 0,
+        rounding : 2,
+        grabDistance : 20,
+        magneticAngle : 45,
+        colours : {
+          lineA : "#ff0000",
+          lineB : "#0000ff",
+          point : "#00ff00",
+          new : "#ffffff",
+          selected : "#ffff00"
+        },
+        hotkeys : {
+          copy : "c",
+          undo : "z",
+          redo : "y",
+          delete : "x",
+          magnetic : "ctrl"
         }
       }
-    }
+    });
+    cg.Develop = new ChoreoGraph.Develop.InstanceObject(cg);
+    cg.callbacks.listen("core","process",cg.Develop.developProcessLoop);
+    cg.callbacks.listen("core","debug",cg.Develop.developOverlayLoop);
+  },
 
-    cg.c.lineWidth = 1;
-    cg.c.strokeStyle = dev.objectGizmo.style.other;
-    let closestDistance = Infinity;
-    let closestObject = null;
-    cg.c.beginPath();
-    for (let objectId in cg.objects) {
-      if (dev.objectGizmo.selected!==null&&objectId==dev.objectGizmo.selected.id) { continue; }
-      let object = cg.objects[objectId];
-      let screenX = cg.getTransX(object.Transform.x);
-      let screenY = cg.getTransY(object.Transform.y);
-      cg.c.moveTo(screenX+selectionDistance,screenY);
-      cg.c.arc(screenX,screenY,selectionDistance,0,Math.PI*2);
-      let distance = Math.sqrt(((object.Transform.x-curX)**2)+((object.Transform.y-curY)**2));
-      if (distance<closestDistance) {
-        closestDistance = distance;
-        closestObject = object;
-      }
+  globalStart() {
+    if (ChoreoGraph.Develop.createInterfaces) {
+      ChoreoGraph.Develop.section.style.display = "block";
+    } else {
+      ChoreoGraph.Develop.section.remove();
     }
-    cg.c.stroke();
-    if (closestDistance*cg.z<selectionDistance) {
-      cg.c.beginPath();
-      let screenX = cg.getTransX(closestObject.Transform.x);
-      let screenY = cg.getTransY(closestObject.Transform.y);
-      cg.c.moveTo(screenX,screenY);
-      cg.c.lineTo(ChoreoGraph.Input.cursor.x,ChoreoGraph.Input.cursor.y);
-      cg.c.strokeStyle = dev.objectGizmo.style.other;
-      cg.c.stroke();
-      if (dev.frameLClick) {
-        dev.objectGizmo.selected = closestObject;
-      }
-    }
-  }
-  setupAnimationGraph(dev) {
-    if (dev.animationEditor.cnvs!==null) { return; }
-    dev.interface.interactives.animationGraph.style = "display:block;";
-    dev.interface.interactives.animationGraph.width = document.body.clientWidth-40;
-    dev.interface.interactives.animationGraph.height = 500;
-    dev.animationEditor.ctx = dev.interface.interactives.animationGraph.getContext("2d");
-    dev.interface.interactives.animationGraph.addEventListener("mousemove", this.animationGraphMouseMove, false);
-    dev.interface.interactives.animationGraph.addEventListener("mousedown", this.animationGraphMouseDown, false);
-    dev.interface.interactives.animationGraph.addEventListener("mouseup", this.animationGraphMouseUp, false);
-    dev.interface.interactives.animationGraph.addEventListener("wheel", this.animationGraphWheel, false);
-    dev.interface.interactives.animationEditorDropdown.innerHTML = "";
-    for (let anim in cg.animations) {
-      let option = document.createElement("option");
-      option.text = cg.animations[anim].id;
-      dev.interface.interactives.animationEditorDropdown.add(option);
-    }
-    dev.interface.interactives.animationEditorDropdown.onchange = (e) => {
-      dev.animationEditor.selectedAnimation = cg.animations[e.target.value];
-    }
-  }
-  animationGraphMouseMove(e) {
-    let dev = ChoreoGraph.Develop;
-    let cw = dev.interface.interactives.animationGraph.width;
-    let ch = dev.interface.interactives.animationGraph.height;
-    let boundBox = dev.interface.interactives.animationGraph.getBoundingClientRect();
-    dev.animationEditor.cursorPos[0] = Math.floor(((e.clientX-boundBox.left)/boundBox.width)*cw);
-    dev.animationEditor.cursorPos[1] = Math.floor(((e.clientY-boundBox.top)/boundBox.height)*ch);
-    
-    if (dev.animationEditor.panning) {
-      let valuesPerPixel = (dev.animationEditor.yMax-dev.animationEditor.yMin)/ch;
-      let distanceX = dev.animationEditor.panningStart[0]-dev.animationEditor.cursorPos[0];
-      let distanceY = dev.animationEditor.panningStart[1]-dev.animationEditor.cursorPos[1];
-      dev.animationEditor.yMin = Math.round(dev.animationEditor.panningYMinLast - distanceY*valuesPerPixel);
-      dev.animationEditor.yMax = Math.round(dev.animationEditor.panningYMaxLast - distanceY*valuesPerPixel);
-      dev.animationEditor.startTime = Math.round(dev.animationEditor.panningStartTimeLast + (distanceX/dev.animationEditor.timeScale));
-    }
+  },
 
-    if (dev.animationEditor.selectedAnimation==null) { return; }
-    if (dev.animationEditor.selected[0]) {
-      let cp = dev.animationEditor.selected;
-      let bakedKeyframe = dev.animationEditor.selectedAnimation.data[cp[1]];
-      let rawKeyframe = dev.animationEditor.selectedAnimation.rawData[cp[1]];
-
-      let cw = dev.interface.interactives.animationGraph.width;
-      let ch = dev.interface.interactives.animationGraph.height;
-      // The location of the mouse cursor scaled to be within yMax and yMin where yMax is at 0 on the cursor Y value
-      let newYvalue = dev.animationEditor.yMax-((e.offsetY/ch)*(dev.animationEditor.yMax-dev.animationEditor.yMin));
-      newYvalue = Math.round(newYvalue*100)/100;
-      rawKeyframe[cp[2]] = newYvalue;
-      bakedKeyframe[cp[2]] = newYvalue;
-
-      if (dev.animationEditor.modifiedAnimations.indexOf(dev.animationEditor.selectedAnimation.id)==-1) { dev.animationEditor.modifiedAnimations.push(dev.animationEditor.selectedAnimation.id); }
-
-      if (cp[3]) { // Is Time Constrained
-        let durationBefore = 0;
-        for (let part in dev.animationEditor.selectedAnimation.data) {
-          if (part==cp[1]) { break; }
-          let keyframe = dev.animationEditor.selectedAnimation.data[part];
-          durationBefore += keyframe[dev.animationEditor.selectedAnimation.timeKey];
+  instanceStart(cg) {
+    if (cg.Develop.selectedCanvas===null) {
+      if (cg.settings.core.defaultCanvas!==null) {
+        if (cg.keys.canvases.length>0) {
+          cg.Develop.selectedCanvas = cg.canvases[cg.keys.canvases[0]];
         }
-        let timeKey = dev.animationEditor.selectedAnimation.timeKey;
-        let newTimeValue = (e.offsetX/dev.animationEditor.timeScale)+dev.animationEditor.startTime;
-        timeKey = Math.round(timeKey*100)/100;
-        newTimeValue -= durationBefore;
-        newTimeValue = Math.max(0,newTimeValue);
-        rawKeyframe[timeKey] = newTimeValue;
-        bakedKeyframe[timeKey] = newTimeValue;
+      } else {
+        cg.Develop.selectedCanvas = cg.settings.core.defaultCanvas;
       }
     }
-  }
-  animationGraphMouseDown(e) {
-    let dev = ChoreoGraph.Develop;
-    if (!dev.animationEditor.selected[0]) {
-      dev.animationEditor.panning = true;
-      dev.animationEditor.panningStart = [dev.animationEditor.cursorPos[0],dev.animationEditor.cursorPos[1]];
-      dev.animationEditor.panningStartTimeLast = dev.animationEditor.startTime;
-      dev.animationEditor.panningYMinLast = dev.animationEditor.yMin;
-      dev.animationEditor.panningYMaxLast = dev.animationEditor.yMax;
+    if (ChoreoGraph.Develop.cg===null) {
+      ChoreoGraph.Develop.cg = cg;
     }
-    if (dev.animationEditor.selectedAnimation==null) { return; }
-    for (let i=0;i<dev.animationEditor.controlPoints.length;i++) {
-      let cp = dev.animationEditor.controlPoints[i];
-      let distance = Math.sqrt((cp[0]-e.offsetX)**2+(cp[1]-e.offsetY)**2);
-      if (distance<8) {
-        dev.animationEditor.selected = [true,cp[2],cp[3],cp[4]];
-        dev.animationEditor.panning = false;
+
+    ChoreoGraph.Develop.loops.process.push({cgid:cg.id,activeCheck:cg.Develop.featureData.freeCam,func:cg.Develop.processFreecam});
+
+    ChoreoGraph.Develop.loops.overlay.push({cgid:cg.id,activeCheck:cg.settings.develop.cameras,func:cg.Develop.overlayCameras});
+    ChoreoGraph.Develop.loops.overlay.push({cgid:cg.id,activeCheck:cg.settings.develop.frustumCulling,func:cg.Develop.overlayFrustumCulling});
+    ChoreoGraph.Develop.loops.overlay.push({cgid:cg.id,activeCheck:cg.settings.develop.fps,func:cg.Develop.overlayFPS});
+    ChoreoGraph.Develop.loops.overlay.push({cgid:cg.id,activeCheck:cg.settings.develop.objectAnnotation,func:cg.Develop.overlayObjectAnnotation});
+    ChoreoGraph.Develop.loops.overlay.push({cgid:cg.id,activeCheck:cg.settings.develop.objectGizmo,func:cg.Develop.overlayObjectGizmo});
+  }
+});
+
+(()=>{
+  let colOff = ChoreoGraph.Develop.style.off;
+  let colOn = ChoreoGraph.Develop.style.on;
+  let colAction = ChoreoGraph.Develop.style.action;
+
+  let style = document.createElement("style");
+  style.innerHTML = `
+    .develop_section {
+      background:black;
+      color:white;
+      padding-left: 20px;
+      padding-top: 10px;
+      padding-bottom: 80px;
+      font-family: Arial;
+    }
+    .develop_button {
+      background: black;
+      color: white;
+      margin: 5px;
+      border: 3px solid white;
+      padding: 10px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    .develop_button:hover {
+      background: #111;
+    }
+    .develop_input {
+      border: 3px solid white;
+      border-radius: 10px;
+      padding: 10px;
+      background: black;
+      color: white;
+      font-family: consolas;
+      width: auto;
+      field-sizing: content;
+    }
+    .btn_off {
+      border-color: ${colOff};
+    }
+    .btn_on {
+      border-color: ${colOn};
+    }
+    .btn_action {
+      border-color: ${colAction};
+    }
+    .btn_action:active {
+      background: #999999;
+    }
+    .single_input {
+      background: black;
+      color: white;
+      padding: 10px;
+      border: 3px solid ${colAction};
+      border-radius: 10px;
+    }
+    .develop_textarea {
+      display: block;
+      margin-left: 20px;
+      width: 50%;
+      overflow: hidden;
+      resize: both;
+      min-height: 40px;
+      padding:10px;
+      background-color: #1f1f1f;
+      font-family: monospace;
+    }
+    .code_keyword {
+      color: #dc98ff;
+    }
+    .code_comment {
+      color: #a3a3a3;
+      font-style: italic;
+    }
+    .code_string {
+      color: #ce9178;
+    }
+    .code_global {
+      color: #ffff00;
+    }
+    .code_number {
+      color: #78ff7f;
+    }
+    .code_function {
+      color: #ff744a;
+    }
+    .live_eval_error {
+      color: red;
+      margin: 10px;
+    }
+  `;
+  document.head.appendChild(style);
+
+  ChoreoGraph.Develop.section.classList.add("develop_section");
+  document.body.appendChild(ChoreoGraph.Develop.section);
+  ChoreoGraph.Develop.section.style.display = "none";
+
+  document.addEventListener("wheel", ChoreoGraph.Develop.wheel, {passive: false});
+  document.addEventListener("pointerdown", function(event){
+    if (event.target.cgCanvas===undefined) { return; }
+    let cg = event.target.cgCanvas.cg;
+    if (cg===ChoreoGraph.Develop.cg) { return; }
+    if (ChoreoGraph.Input===undefined) { return; }
+    let canChange = true;
+    for (let key of ChoreoGraph.Develop.changedSelectedInstanceHotkey.split("+")) {
+      if (!ChoreoGraph.Input.keyStates[key]) {
+        if (key=="shift"&&event.shiftKey) { continue; }
+        if (key=="ctrl"&&event.ctrlKey) { continue; }
+        if (key=="alt"&&event.altKey) { continue; }
+        if (key=="meta"&&event.metaKey) { continue; }
+        canChange = false;
         break;
       }
     }
-  }
-  animationGraphMouseUp(e) {
-    let dev = ChoreoGraph.Develop;
-    dev.animationEditor.panning = false;
-    dev.animationEditor.selected = [false];
-    if (dev.animationEditor.selectedAnimation==null) { return; }
-    dev.animationEditor.selectedAnimation.setUp();
-    let edits = "";
-    for (let i=0;i<dev.animationEditor.modifiedAnimations.length;i++) {
-      let anim = cg.animations[dev.animationEditor.modifiedAnimations[i]];
-      edits += anim.id + " ["
-      for (let part in anim.rawData) {
-        let keyframe = Array.from(anim.rawData[part]);
-        edits += "[" + keyframe.join(",") + "],";
-      }
-      edits = edits.slice(0, -1);
-      edits+="]<br>";
+    if (canChange) {
+      ChoreoGraph.Develop.cg = cg;
     }
-    ChoreoGraph.Develop.interface.interactives.animationGraphEdits.innerHTML = edits;
-  }
-  animationGraphWheel(e) {
-    let dev = ChoreoGraph.Develop;
-    e.preventDefault();
-    let showedValues = dev.animationEditor.yMax-dev.animationEditor.yMin;
-    let magnitude = e.deltaY*dev.animationEditor.scrollSpeed*(showedValues/dev.interface.interactives.animationGraph.height);
-    if (ChoreoGraph.Input.keyStates[dev.animationEditor.swapZoomHotkey]) {
-      dev.animationEditor.timeScale += magnitude/100;
-      dev.animationEditor.timeScale = Math.max(0.5,dev.animationEditor.timeScale);
-    } else {
-      let topToBottom = dev.animationEditor.cursorPos[1]/dev.interface.interactives.animationGraph.height;
-      dev.animationEditor.yMax += magnitude*topToBottom;
-      dev.animationEditor.yMin -= magnitude*(1-topToBottom);
-    }
-  }
-  animationEditorLoop(dev,cg) {
-    if (dev.animationEditor.ctx==null) { dev.setupAnimationGraph(dev); }
-    let c = dev.animationEditor.ctx;
-    let cw = dev.interface.interactives.animationGraph.width;
-    let ch = dev.interface.interactives.animationGraph.height;
-    c.fillStyle = "#111111";
-    c.fillRect(0,0,cw,ch);
-
-    let startTime = dev.animationEditor.startTime;
-    let timeScale = dev.animationEditor.timeScale; // pixels per second
-    let yMax = dev.animationEditor.yMax;
-    let yMin = dev.animationEditor.yMin;
-
-    let verticalQuality = 100;
-    if (yMax-yMin<50000*3) { verticalQuality = 500; }
-    if (yMax-yMin<1000*3) { verticalQuality = 100; }
-    if (yMax-yMin<500*3) { verticalQuality = 50; }
-    if (yMax-yMin<100*3) { verticalQuality = 10; }
-    if (yMax-yMin<10*3) { verticalQuality = 5; }
-    if (yMax-yMin<5*3) { verticalQuality = 1; }
-
-    let horizontalQuality = 1;
-    if (timeScale<cw/5) { horizontalQuality = 1; }
-    if (timeScale<cw/10) { horizontalQuality = 5; }
-    if (timeScale<cw/50) { horizontalQuality = 10; }
-    if (timeScale<cw/100) { horizontalQuality = 50; }
-    if (timeScale<cw/500) { horizontalQuality = 100; }
-    if (timeScale<cw/1000) { horizontalQuality = 500; }
-
-    c.fillStyle = "#ffffff";
-    c.strokeStyle = "#ffffff";
-    c.font = "10px Arial";
-    c.textAlign = "left";
-    c.textBaseline = "middle";
-    let roundedYMin = Math.round(yMin);
-    let roundedYMax = Math.round(yMax);
-    for (let i=roundedYMin;i<=roundedYMax;i++) {
-      if (i%verticalQuality!=0||i==0) { continue; }
-      let y = ch-((i-yMin)/(yMax-yMin)*ch);
-      c.beginPath();
-      c.moveTo(0,y);
-      c.lineTo(5,y);
-      c.stroke();
-      c.fillText(i,7,y);
-    }
-
-    // The Y value that represents 0 if yMax is at 0 and yMin is at ch
-    let zeroHeight = ch/(yMax-yMin)*yMax;
-
-    c.strokeStyle = "#cccccc";
-    let shownSeconds = Math.floor(cw/timeScale)+horizontalQuality;
-    for (let i=startTime;i<shownSeconds;i++) {
-      if (i%horizontalQuality!=0) { continue; }
-      let x = i*timeScale;
-      c.beginPath();
-      c.moveTo(x-startTime*timeScale,zeroHeight);
-      c.lineTo(x-startTime*timeScale,zeroHeight-5);
-      c.stroke();
-      c.textBaseline = "top";
-      c.textAlign = "center";
-      c.fillText(i,x-startTime*timeScale,zeroHeight+3);
-    }
-
-    c.beginPath();
-    c.moveTo(0,zeroHeight);
-    c.lineTo(cw,zeroHeight);
-    c.strokeStyle = "#ffffff";
-    c.stroke();
-
-    let selAnim = dev.animationEditor.selectedAnimation;
-    if (selAnim==null) { return; }
-    dev.animationEditor.controlPoints = [];
-    let colours = ["#deffb8","#ffedb3","#ffa599","#9cffe3","#d4a6ff","#ffb5dd"]
-    let coloursUsed = 0;
-    for (let key in selAnim.keys) {
-      let collectiveTime = 0;
-      if (key==selAnim.timeKey) { continue; }
-      c.strokeStyle = colours[coloursUsed%colours.length];
-      coloursUsed++;
-      c.beginPath();
-      for (let part in selAnim.data) {
-        if (typeof selAnim.data[part][0]!="number") { continue; }
-        let bakedKeyframe = selAnim.data[part];
-        let rawKeyframe;
-        if (selAnim.rawData.length==1&&part==1) {
-          rawKeyframe = selAnim.rawData[0];
-        } else {
-          rawKeyframe = selAnim.rawData[part];
-        }
-        let time = selAnim.data[part][selAnim.timeKey];
-        let isTimeConstrained = rawKeyframe[selAnim.timeKey]!=undefined;
-        collectiveTime += time;
-        let bakedValue = bakedKeyframe[key];
-        let rawValue = rawKeyframe[key];
-        let yValue = zeroHeight;
-        if (typeof bakedValue=="number") {
-          yValue = zeroHeight-(bakedValue/(yMax-yMin)*ch);
-        }
-        let isValueConstrained = rawValue!=undefined;
-        dev.animationEditor.controlPoints.push([(collectiveTime-startTime)*timeScale,yValue,part,key,isTimeConstrained,isValueConstrained]); // x,y,part,key
-        if (part==0) {
-          c.moveTo((collectiveTime-startTime)*timeScale,yValue);
-        } else {
-          c.lineTo((collectiveTime-startTime)*timeScale,yValue);
-        }
-      }
-      c.stroke();
-    }
-
-    for (let cp of dev.animationEditor.controlPoints) {
-      if (!cp[5]) {
-        c.strokeStyle = "#00ffff"; // Unconstrained
-      } else if (cp[4]) {
-        c.strokeStyle = "#00ff00"; // Dual Constrained
-      } else {
-        c.strokeStyle = "#ff0000"; // Value Constrained
-      }
-      c.beginPath();
-      let radius = 6;
-      if (!cp[5]) { radius = 4; } // Not value constrained
-      c.arc(cp[0],cp[1],radius,0,Math.PI*2);
-      if (c.strokeStyle=="#00ff00") {
-        c.moveTo(cp[0]-radius-3,cp[1]);
-        c.lineTo(cp[0]+radius+3,cp[1]);
-        c.moveTo(cp[0],cp[1]-radius-3);
-        c.lineTo(cp[0],cp[1]+radius+3);
-      } else if (c.strokeStyle=="#ff0000") {
-        c.moveTo(cp[0],cp[1]-radius-3);
-        c.lineTo(cp[0],cp[1]+radius+3);
-      }
-      c.stroke();
-    }
-  }
-  objectPlacerLoop(dev,cg) {
-    if (dev.objectPlacer.newObject!=null) {
-      dev.objectPlacer.newObject.Transform.x = cg.getTransXreverse(ChoreoGraph.Input.cursor.x);
-      dev.objectPlacer.newObject.Transform.y = cg.getTransYreverse(ChoreoGraph.Input.cursor.y);
-    }
-    let cursorOnCanvas = ChoreoGraph.Input.cursor.x>0&&ChoreoGraph.Input.cursor.x<cg.cw&&ChoreoGraph.Input.cursor.y>0&&ChoreoGraph.Input.cursor.y<cg.ch;
-    if (dev.frameLClick&&!ChoreoGraph.Input.keyStates[dev.cameraController.hotkey]&&cursorOnCanvas) {
-      if (dev.objectPlacer.selectedButton==null) {
-        dev.objectPlacer.newObject = null;
-      } else {
-        let objectType = dev.objectPlacer.selectedButton.CGObjectPrototype.name;
-        if (dev.objectPlacer.createdObjects[objectType]===undefined) { dev.objectPlacer.createdObjects[objectType] = []; }
-        dev.objectPlacer.createdObjects[objectType].push(dev.objectPlacer.newObject);
-
-        // Create Info Dump
-        let info = "";
-        for (let objectType in dev.objectPlacer.createdObjects) {
-          info += objectType + ": ";
-          for (let object of dev.objectPlacer.createdObjects[objectType]) {
-            info += "["+Math.floor(object.Transform.x) + "," + Math.floor(object.Transform.y) + "],";
-          }
-          info = info.slice(0,-1);
-          info += "<br>";
-        }
-        dev.interface.interactives.objectPlacerCreations.innerHTML = info;
-
-        dev.objectPlacer.newObject = dev.objectPlacer.selectedButton.CGObjectPrototype.createFunction(cg.getTransXreverse(ChoreoGraph.Input.cursor.x),cg.getTransYreverse(ChoreoGraph.Input.cursor.y));
-      }
-    }
-  }
-  createObjectPlacerPrototypeButtons() {
-    ChoreoGraph.Develop.interface.interactives.objectPlacer.innerHTML = "";
-    for (let proto of Object.entries(ChoreoGraph.Develop.objectPlacer.prototypes)) {
-      let button = document.createElement("button");
-      let baseStyle = "width:100px;height:100px;background:none;padding:0;cursor:pointer;display:inline-block;position:relative;margin:5px;border-radius:6px;";
-      button.style = baseStyle+"border:2px solid white;";
-      button.type = "button";
-      button.CGObjectPrototype = proto[1];
-      button.onclick = function(){
-        this.style = baseStyle+"border:2px solid green;";
-        if (ChoreoGraph.Develop.objectPlacer.selectedButton!==null) {
-          ChoreoGraph.Develop.objectPlacer.selectedButton.style = baseStyle+"border:2px solid white;";
-        }
-        ChoreoGraph.Develop.objectPlacer.selectedButton = this;
-        let selectedPrototype = this.CGObjectPrototype;
-        if (ChoreoGraph.Develop.objectPlacer.newObject!=null) {
-          ChoreoGraph.Develop.objectPlacer.newObject.delete = true;
-        }
-        ChoreoGraph.Develop.objectPlacer.newObject = selectedPrototype.createFunction(0,0);
-      }
-      let image = document.createElement("img");
-      image.src = proto[1].image.ChoreoGraph.settings.imageDirectory+proto[1].image.file;
-      let imagedX = proto[1].image.crop[0];
-      let imagedY = proto[1].image.crop[1];
-      let imagedW = proto[1].image.crop[2];
-      let imagedH = proto[1].image.crop[3];
-      let imagerW = proto[1].image.rawWidth;
-      let imagerH = proto[1].image.rawHeight;
-      let scale = 1;
-      if (imagedW>imagedH) {
-        scale = imagerW/imagedW;
-      } else {
-        scale = imagerH/imagedH;
-      }
-      let aspectW = imagerW/imagerH;
-      let aspectH = imagerH/imagerW;
-      // Crops the image to fill the 100x100 button
-      let imageMargin = 10;
-      image.style = "clip-path:inset("+((imagedY/imagerH)*100)+"% "+(((imagerW-imagedX-imagedW)/imagerW)*100)+"% "+(((imagerH-imagedY-imagedH)/imagerH)*100)+"% "+((imagedX/imagerW)*100)+"%);margin:-"+(imagedY*scale)+"px 0 0 -"+(imagedX*scale)+"px;width:"+((100-imageMargin)*aspectW)*scale+"px;height:"+((100-imageMargin)*aspectH)*scale+"px;image-rendering:pixelated;pointer-events:none;position:absolute;top:"+imageMargin/2+";left:"+imageMargin/2+";";
-      button.appendChild(image);
-      ChoreoGraph.Develop.interface.interactives.objectPlacer.appendChild(button);
-    }
-  }
-  createButton(name,classes,onclick) {
-    let button = document.createElement("button");
-    button.innerText = name;
-    button.className = "develop_button " + classes;
-    button.type = "button";
-    button.onclick = onclick
-    this.interface.section.appendChild(button);
-  
-    return button;
-  }
-  runLiveEvaluation() {
-    if (ChoreoGraph.Develop.cg===null) { return; }
-    try {
-      eval(this.interface.interactives.liveEvalInputSpan.innerText);
-      if (this.interface.interactives.liveEvalInputSpan.style.display!="none") { this.interface.interactives.liveEvalInputSpan.style = ""; }
-      this.interface.interactives.liveEvalError.innerHTML = "";
-    } catch (e) {
-      this.interface.interactives.liveEvalError.innerHTML = "<br>"+e+"<br>";
-      this.interface.interactives.liveEvalInputSpan.style = "outline:3px solid red;";
-    }
-  }
-  createInterface() {
-    let sec = this.interface.section;
-    sec.appendChild(document.createElement("br"));
-    sec.className = "develop_section";
-    document.body.appendChild(sec);
-
-    let colOff = this.interface.style.off;
-    let colOn = this.interface.style.on;
-    let colAction = this.interface.style.action;
-
-    this.interface.styles.innerHTML = ".develop_section { color:white; margin-left: 20px; } .develop_button { background: black; color: white; margin:5px; border: 3px solid white; padding:10px; border-radius:10px; cursor: pointer; } .develop_button:hover { background: #111; } .btn_off { border-color: " + colOff + "; } .btn_on { border-color: " + colOn + "; } .btn_action { border-color: " + colAction + "; } .develop_input { margin:5px; border:0; padding:10px; } .single_input { background: black; color: white; padding: 10px; border: 3px solid " + colAction + "; border-radius: 10px; } .develop_textarea { display: block; margin-left: 20px; width: 50%; overflow: hidden; resize: both; min-height: 40px; padding:10px; background-color: #1f1f1f; font-family: monospace; } .code_keyword { color: #dc98ff; } .code_comment { color: #a3a3a3; font-style: italic; } .code_string { color: #ce9178; } .code_global { color: #ffff00; } .code_number { color: #78ff7f; } .code_function { color: #ff744a; } .live_eval_error { color: red; margin: 10px; } ";
-    document.body.appendChild(this.interface.styles);
-
-    
-    this.interface.interactives.animationCreatorOutput = document.createElement("div");
-    this.interface.section.appendChild(this.interface.interactives.animationCreatorOutput);
-    this.interface.interactives.liveEvalInputSpan = document.createElement("span");
-    this.interface.interactives.liveEvalInputSpan.setAttribute("contenteditable", "plaintext-only");
-    this.interface.interactives.liveEvalInputSpan.role = "textarea";
-    this.interface.interactives.liveEvalInputSpan.onblur = function () {    
-      var code = ChoreoGraph.Develop.interface.interactives.liveEvalInputSpan.innerText;
-      var stringRegex1 = /"(.*?)"/g
-      var stringRegex2 = /'(.*?)'/g
-      var numberRegex = /\b\d+(\.\d+)?\b/g;
-      var keywordRegex = /\b(let|const|var|function|if|else|for|while|return|break|continue)\b/g;
-      var jsGlobalRegex = /\b(ChoreoGraph|document|window|Array|String|Object|Number|undefined|this|\$)(?=[^\w])/g;
-      var commentRegex = /\/\/.*|\/\*[\s\S]*?\*\//g;
-      var functionRegex = /\b\w+\s*(?=\()/g;
-      let highlightedCode = code.replace(stringRegex1, '<span class="code_string">$&</span>');
-      highlightedCode = highlightedCode.replace(stringRegex2, '<span class="code_string">$&</span>');
-      highlightedCode = highlightedCode.replace(numberRegex, '<span class="code_number">$&</span>');
-      highlightedCode = highlightedCode.replace(keywordRegex, '<span class="code_keyword">$&</span>');
-      highlightedCode = highlightedCode.replace(jsGlobalRegex, '<span class="code_global">$&</span>');
-      highlightedCode = highlightedCode.replace(commentRegex, '<span class="code_comment">$&</span>');
-      highlightedCode = highlightedCode.replace(functionRegex, '<span class="code_function">$&</span>');
-      ChoreoGraph.Develop.interface.interactives.liveEvalInputSpan.innerHTML = highlightedCode;
-    }
-    this.interface.interactives.liveEvalInputSpan.className = "develop_textarea";
-    this.interface.interactives.liveEvalInputSpan.style = "display:none;";
-    this.interface.interactives.liveEvalError = document.createElement("span");
-    this.interface.interactives.liveEvalError.style = "display:none;";
-    this.interface.interactives.liveEvalError.className = "live_eval_error";
-    this.interface.section.appendChild(this.interface.interactives.liveEvalInputSpan);
-    this.interface.section.appendChild(this.interface.interactives.liveEvalError);
-    this.interface.interactives.animationGraph = document.createElement("canvas");
-    this.interface.interactives.animationGraph.style = "display:none;";
-    this.interface.section.appendChild(this.interface.interactives.animationGraph);
-    this.interface.interactives.animationGraphEdits = document.createElement("div");
-    this.interface.interactives.animationGraphEdits.style = "font-family:Consolas;";
-    this.interface.section.appendChild(this.interface.interactives.animationGraphEdits);
-    this.interface.interactives.objectPlacer = document.createElement("div");
-    this.interface.interactives.objectPlacer.style = "font-family:Consolas;";
-    this.interface.section.appendChild(this.interface.interactives.objectPlacer);
-    this.interface.interactives.objectPlacerCreations = document.createElement("div");
-    this.interface.interactives.objectPlacerCreations.style = "font-family:Consolas;";
-    this.interface.section.appendChild(this.interface.interactives.objectPlacerCreations);
-    this.interface.interactives.objectGizmoEdits = document.createElement("div");
-    this.interface.interactives.objectGizmoEdits.style = "font-family:Consolas;";
-    this.interface.section.appendChild(this.interface.interactives.objectGizmoEdits);
-    this.interface.section.appendChild(document.createElement("br"));
-
-    if (ChoreoGraph.plugins.Visualisation!==undefined) {
-      this.interface.interactives.showAnimations = this.createButton(ChoreoGraph.plugins.Visualisation.v.animations.active ? "Hide Animations" : "Show Animations",ChoreoGraph.plugins.Visualisation.v.animations.active ? "btn_on" : "btn_off",
-      function(){
-        ChoreoGraph.plugins.Visualisation.v.animations.active=(!(ChoreoGraph.plugins.Visualisation.v.animations.active));
-        this.className = "develop_button " + (ChoreoGraph.plugins.Visualisation.v.animations.active ? "btn_on" : "btn_off");
-        this.innerText = ChoreoGraph.plugins.Visualisation.v.animations.active ? "Hide Animations" : "Show Animations";
-      });
-      this.interface.interactives.showButtons = this.createButton(ChoreoGraph.plugins.Visualisation.v.buttons.active ? "Hide Buttons" : "Show Buttons",ChoreoGraph.plugins.Visualisation.v.buttons.active ? "btn_on" : "btn_off",
-      function(){
-        ChoreoGraph.plugins.Visualisation.v.buttons.active=(!(ChoreoGraph.plugins.Visualisation.v.buttons.active));
-        this.className = "develop_button " + (ChoreoGraph.plugins.Visualisation.v.buttons.active ? "btn_on" : "btn_off");
-        this.innerText = ChoreoGraph.plugins.Visualisation.v.buttons.active ? "Hide Buttons" : "Show Buttons";
-      });
-      this.interface.interactives.showObjectAnnotation = this.createButton(ChoreoGraph.plugins.Visualisation.v.objectAnnotation.active ? "Hide Object Annotation" : "Show Object Annotation",ChoreoGraph.plugins.Visualisation.v.objectAnnotation.active ? "btn_on" : "btn_off",
-      function(){
-        ChoreoGraph.plugins.Visualisation.v.objectAnnotation.active=(!(ChoreoGraph.plugins.Visualisation.v.objectAnnotation.active));
-        this.className = "develop_button " + (ChoreoGraph.plugins.Visualisation.v.objectAnnotation.active ? "btn_on" : "btn_off");
-        this.innerText = ChoreoGraph.plugins.Visualisation.v.objectAnnotation.active ? "Hide Object Annotation" : "Show Object Annotation";
-      });
-      this.interface.interactives.showBlocks = this.createButton(ChoreoGraph.plugins.Visualisation.v.blocks.active ? "Hide Blocks" : "Show Blocks",ChoreoGraph.plugins.Visualisation.v.blocks.active ? "btn_on" : "btn_off",
-      function(){
-        ChoreoGraph.plugins.Visualisation.v.blocks.active=(!(ChoreoGraph.plugins.Visualisation.v.blocks.active));
-        this.className = "develop_button " + (ChoreoGraph.plugins.Visualisation.v.blocks.active ? "btn_on" : "btn_off");
-        this.innerText = ChoreoGraph.plugins.Visualisation.v.blocks.active ? "Hide Blocks" : "Show Blocks";
-      });
-      this.interface.interactives.showCamera = this.createButton(ChoreoGraph.plugins.Visualisation.v.camera.active ? "Hide Camera" : "Show Camera",ChoreoGraph.plugins.Visualisation.v.camera.active ? "btn_on" : "btn_off",
-      function(){
-        ChoreoGraph.plugins.Visualisation.v.camera.active=(!(ChoreoGraph.plugins.Visualisation.v.camera.active));
-        this.className = "develop_button " + (ChoreoGraph.plugins.Visualisation.v.camera.active ? "btn_on" : "btn_off");
-        this.innerText = ChoreoGraph.plugins.Visualisation.v.camera.active ? "Hide Camera" : "Show Camera";
-      });
-    }
-    if (ChoreoGraph.plugins.Physics!==undefined) {
-      this.interface.interactives.showColliders = this.createButton(ChoreoGraph.plugins.Physics.settings.showColliders ? "Hide Colliders" : "Show Colliders",ChoreoGraph.plugins.Physics.settings.showColliders ? "btn_on" : "btn_off",
-      function(){
-        ChoreoGraph.plugins.Physics.settings.showColliders=(!(ChoreoGraph.plugins.Physics.settings.showColliders));
-        this.className = "develop_button " + (ChoreoGraph.plugins.Physics.settings.showColliders ? "btn_on" : "btn_off");
-        this.innerText = ChoreoGraph.plugins.Physics.settings.showColliders ? "Hide Colliders" : "Show Colliders";
-      });
-    }
-    if (ChoreoGraph.plugins.Lighting!==undefined) {
-      this.interface.interactives.showOccluders = this.createButton(ChoreoGraph.plugins.Physics.settings.showColliders ? "Hide Occluders" : "Show Occluders",ChoreoGraph.plugins.Physics.settings.showColliders ? "btn_on" : "btn_off",
-      function(){
-        ChoreoGraph.plugins.Lighting.drawOccluders=(!(ChoreoGraph.plugins.Lighting.drawOccluders));
-        this.className = "develop_button " + (ChoreoGraph.plugins.Lighting.drawOccluders ? "btn_on" : "btn_off");
-        this.innerText = ChoreoGraph.plugins.Lighting.drawOccluders ? "Hide Occluders" : "Show Occluders";
-      });
-    }
-    this.interface.interactives.realtimeToggle = this.createButton("Realtime",ChoreoGraph.settings.realtime ? "btn_on" : "btn_off",
-    function(){
-      ChoreoGraph.settings.realtime=(!(ChoreoGraph.settings.realtime));
-      this.className = "develop_button " + (ChoreoGraph.settings.realtime ? "btn_on" : "btn_off");
-      ChoreoGraph.Develop.interface.interactives.nextFrame.style = ChoreoGraph.realtime ? "display:none;" : "";
-    });
-    this.interface.interactives.nextFrame = this.createButton("Next Frame","btn_action",
-    function(){
-      ChoreoGraph.settings.nextFrame = true;
-    });
-    ChoreoGraph.Develop.interface.interactives.nextFrame.style = ChoreoGraph.settings.realtime ? "display:none;" : "";
-    this.interface.interactives.showLiveEvaluation = this.createButton("Show Live Evaluation","btn_action",
-    function(){
-      ChoreoGraph.Develop.interface.interactives.liveEvalInputSpan.style = "";
-      ChoreoGraph.Develop.interface.interactives.liveEvalError.style = "";
-      ChoreoGraph.Develop.interface.interactives.showLiveEvaluation.style = "display:none;";
-    });
-    this.interface.interactives.animationEditor = this.createButton("Animation Editor",this.features.animationEditor ? "btn_on" : "btn_off",
-    function(){
-      ChoreoGraph.Develop.features.animationEditor=(!(ChoreoGraph.Develop.features.animationEditor));
-      this.className = "develop_button " + (ChoreoGraph.Develop.features.animationEditor ? "btn_on" : "btn_off");
-
-      if (ChoreoGraph.Develop.features.animationEditor==false) {
-        ChoreoGraph.Develop.animationEditor.ctx = null;
-        ChoreoGraph.Develop.interface.interactives.animationGraph.style = "display:none;";
-      }
-    });
-    this.interface.interactives.animationEditorDropdown = document.createElement("select");
-    this.interface.interactives.animationEditorDropdown.className = "develop_button";
-    this.interface.section.appendChild(this.interface.interactives.animationEditorDropdown);
-    this.interface.section.appendChild(document.createElement("br"));
-    this.interface.interactives.animationCreator = this.createButton("Animation Creator",this.features.animationCreator ? "btn_on" : "btn_off",
-    function(){
-      ChoreoGraph.Develop.features.animationCreator=(!(ChoreoGraph.Develop.features.animationCreator));
-      this.className = "develop_button " + (ChoreoGraph.Develop.features.animationCreator ? "btn_on" : "btn_off");
-    });
-    this.interface.interactives.closestFrameLocator = this.createButton("Closest Frame Locator",this.features.closestFrameLocator ? "btn_on" : "btn_off",
-    function(){
-      ChoreoGraph.Develop.features.closestFrameLocator=(!(ChoreoGraph.Develop.features.closestFrameLocator));
-      this.className = "develop_button " + (ChoreoGraph.Develop.features.closestFrameLocator ? "btn_on" : "btn_off");
-    });
-    this.interface.interactives.cameraController = this.createButton("Camera Controller",this.features.cameraController ? "btn_on" : "btn_off",
-    function(){
-      ChoreoGraph.Develop.features.cameraController=(!(ChoreoGraph.Develop.features.cameraController));
-      this.className = "develop_button " + (ChoreoGraph.Develop.features.cameraController ? "btn_on" : "btn_off");
-      
-      if (ChoreoGraph.Develop.features.cameraController) {
-        ChoreoGraph.Develop.cameraController.wasUsingCamera = ChoreoGraph.Develop.cg.settings.useCamera;
-        ChoreoGraph.Develop.cg.settings.useCamera = false;
-      } else {
-        ChoreoGraph.Develop.cg.settings.useCamera = ChoreoGraph.Develop.cameraController.wasUsingCamera;
-      }
-    });
-    this.interface.interactives.resetCamera = this.createButton("Reset Camera","btn_action",
-    function(){
-      ChoreoGraph.Develop.cg.x = 0;
-      ChoreoGraph.Develop.cg.y = 0;
-      ChoreoGraph.Develop.cg.z = 1;
-    });
-    this.interface.interactives.objectGizmo = this.createButton("Object Gizmo",this.features.objectGizmo ? "btn_on" : "btn_off",
-    function(){
-      ChoreoGraph.Develop.features.objectGizmo=(!(ChoreoGraph.Develop.features.objectGizmo));
-      this.className = "develop_button " + (ChoreoGraph.Develop.features.objectGizmo ? "btn_on" : "btn_off");
-    });
-    this.interface.interactives.objectGizmo = this.createButton("Object Placer",this.features.objectGizmo ? "btn_on" : "btn_off",
-    function(){
-      ChoreoGraph.Develop.features.objectPlacer=(!(ChoreoGraph.Develop.features.objectPlacer));
-      this.className = "develop_button " + (ChoreoGraph.Develop.features.objectPlacer ? "btn_on" : "btn_off");
-      if (ChoreoGraph.Develop.features.objectPlacer) {
-        ChoreoGraph.Develop.interface.interactives.objectPlacer.style = "display:block;";
-        ChoreoGraph.Develop.createObjectPlacerPrototypeButtons();
-      } else {
-        ChoreoGraph.Develop.interface.interactives.objectPlacer.style = "display:none;";
-        ChoreoGraph.Develop.objectPlacer.selectedButton = null;
-      }
-    });
-    this.interface.interactives.showConsoleOverlay = this.createButton("Console Overlay",this.features.consoleOverlay ? "btn_on" : "btn_off",
-    function(){
-      if (!ChoreoGraph.Develop.consoleOverlay.connected) { ChoreoGraph.Develop.connectConsole(ChoreoGraph.Develop); }
-      ChoreoGraph.Develop.features.consoleOverlay=(!(ChoreoGraph.Develop.features.consoleOverlay));
-      this.className = "develop_button " + (ChoreoGraph.Develop.features.consoleOverlay ? "btn_on" : "btn_off");
-    });
-    this.interface.interactives.showConsoleOverlaySource = this.createButton("Console Sources",this.consoleOverlay.showSource ? "btn_on" : "btn_off",
-    function(){
-      ChoreoGraph.Develop.consoleOverlay.showSource=(!(ChoreoGraph.Develop.consoleOverlay.showSource));
-      this.className = "develop_button " + (ChoreoGraph.Develop.consoleOverlay.showSource ? "btn_on" : "btn_off");
-    });
-    this.interface.interactives.showFPS = this.createButton(ChoreoGraph.Develop.features.fps ? "Hide FPS" : "Show FPS",this.features.fps ? "btn_on" : "btn_off",
-    function(){
-      ChoreoGraph.Develop.features.fps=(!(ChoreoGraph.Develop.features.fps));
-      this.className = "develop_button " + (ChoreoGraph.Develop.features.fps ? "btn_on" : "btn_off");
-      this.innerText = ChoreoGraph.Develop.features.fps ? "Hide FPS" : "Show FPS";
-    });
-    this.interface.interactives.evalButton = this.createButton("Evaluate","btn_action",
-    function(){
-      console.info(ChoreoGraph.Develop.interface.interactives.evalInput.value); console.info(eval(ChoreoGraph.Develop.interface.interactives.evalInput.value));
-    });
-    this.interface.interactives.evalInput = document.createElement("input");
-    this.interface.interactives.evalInput.type = "input";
-    this.interface.interactives.evalInput.placeholder = "evaluation code here";
-    this.interface.interactives.evalInput.className = "develop_input";
-    this.interface.interactives.evalInput.className = "single_input";
-    this.interface.section.appendChild(this.interface.interactives.evalInput);
-
-    this.interface.section.appendChild(document.createElement("br"));
-    this.interface.section.appendChild(document.createElement("br"));
-    this.interface.section.appendChild(document.createElement("br"));
-  }
-}
-// Willby - 2024
+  }, {passive: false});
+})();

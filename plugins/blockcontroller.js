@@ -1,162 +1,402 @@
 ChoreoGraph.plugin({
-  name: "BlockController",
-  key: "BlockController",
-  version: "1.1",
-  Block: class Block {
-    id = null;
-    override = false; // If true the block will never be clear
-    waitingForOverride = false; // If the object is waiting blocked in a block that is overridden
-    clear = true; // If the block is clear to be entered, you know, basic block rules
-    overrideType = 0; // 0 - allow stopping midway, 1 - only at block markers
-    
-    constructor(blockInit) {
-      if (blockInit!=undefined) {
-        for (let key in blockInit) {
-          this[key] = blockInit[key];
+  name : "BlockController",
+  key : "BlockController",
+  version : "1.2",
+
+  globalPackage : new class cgBlockController {
+    Block = class cgBlock {
+      id = null;
+      override = false; // If true the block will never be clear
+      clear = true; // If the block is clear to be entered, you know, basic block rules
+      overrideType = 0; // 0 - allow stopping midway  1 - only at block markers
+      objectCount = 0;
+      groupOccupying = null;
+
+      constructor(blockInit) {
+        if (blockInit!=undefined) {
+          for (let key in blockInit) {
+            this[key] = blockInit[key];
+          }
         }
       }
-    }
-    isOpen() {
-      return this.clear&&this.override==false;
-    }
-    isClosed() {
-      return this.clear==false||this.override;
-    }
-    open() {
-      this.clear = true;
-    }
-    close() { // Dont mark the null block as not clear
-      if (this.id!=null) { this.clear = false; }
-    }
+      isOpen(groupId) {
+        if (this.groupOccupying==groupId&&groupId!=null) { return true; }
+        return this.clear&&this.override==false;
+      }
+      isClosed(groupId) {
+        if (this.groupOccupying==groupId&&groupId!=null) { return false; }
+        return this.clear==false||this.override;
+      }
+      open() {
+        this.clear = true;
+      }
+      close(groupId) { // Dont mark the null block as not clear
+        if (this.id!==null) { this.clear = false; this.groupOccupying = groupId; }
+      }
+    };
+
+    InstanceObject = class cgInstanceBlockController {
+      blocks = {};
+      blockGroups = {};
+
+      constructor(cg) {
+        this.blocks[null] = new ChoreoGraph.BlockController.Block;
+        this.cg = cg;
+      }
+
+      createBlock(blockInit={},id) {
+        if (id==undefined) { console.warn("createBlock requires an id"); return; }
+        let cg = this.cg;
+        let newBlock = new ChoreoGraph.BlockController.Block(blockInit);
+        newBlock.id = id;
+        newBlock.cg = cg;
+        ChoreoGraph.applyAttributes(newBlock,blockInit);
+        cg.BlockController.blocks[newBlock.id] = newBlock;
+        cg.keys.blocks.push(id);
+        return newBlock;
+      }
+
+      hasActivatedDebugLoop = false;
+      blockControllerDebugLoop(cg) {
+        let debugSettings = cg.settings.blockcontroller.debug;
+        if (!debugSettings.active) { return; }
+        for (let canvasId of cg.keys.canvases) {
+          let canvas = cg.canvases[canvasId];
+          if (canvas.camera==undefined) { continue; }
+          let scale = cg.settings.core.debugCGScale / canvas.camera.cz;
+          if (canvas.hideDebugOverlays) { continue; }
+          ChoreoGraph.transformContext(canvas.camera);
+          let block = null;
+          for (let animation of debugSettings.animations) {
+            if (typeof animation=="string") { block = animation; continue; }
+
+            // FIND KEYS
+            let xKey = -1;
+            let yKey = -1;
+            for (let k=0;k<animation.keys.length;k++) {
+              if (JSON.stringify(animation.keys[k].keySet)==JSON.stringify(debugSettings.pathXKey)) { xKey = k; }
+              if (JSON.stringify(animation.keys[k].keySet)==JSON.stringify(debugSettings.pathYKey)) { yKey = k; }
+            }
+            if (xKey==-1||yKey==-1) { continue; }
+
+            let paths = {};
+            let currentPath = [];
+
+            // GET DATA FROM ANIMATIONS
+            let lastX, lastY;
+            for (let keyframe of animation.data) {
+              if (typeof keyframe[0] == "number") {
+                let x = keyframe[xKey];
+                let y = keyframe[yKey];
+                currentPath.push([x,y]);
+                lastX = x;
+                lastY = y;
+              } else if (typeof keyframe[0] == "string") {
+                if (keyframe[0].toUpperCase() == "B") {
+                  let newBlock = keyframe[1];
+                  if (newBlock!=block) {
+                    if (block!=null) {
+                      if (paths[block]==undefined) { paths[block] = []; }
+                      paths[block].push(...currentPath);
+                    }
+                    currentPath = [[lastX,lastY]];
+                    block = newBlock;
+                  }
+                }
+              }
+            }
+            if (block!=null) {
+              if (paths[block]==undefined) { paths[block] = currentPath; }
+              else {
+                paths[block].unshift(...currentPath);
+              }
+            }
+
+            // DRAW PATHS
+            let c = canvas.c;
+            let alternator = 0;
+            c.lineCap = "round";
+            for (let blockId in paths) {
+              c.lineWidth = 4 * scale;
+              let block = cg.BlockController.blocks[blockId];
+              let points = paths[blockId];
+              if (points.length<2) { continue; }
+              let totalLength = 0;
+              let lastPoint = points[0];
+              c.beginPath();
+
+              // DRAW LINES AND FIND LENGTH
+              for (let i=0;i<points.length;i++) {
+                let x = points[i][0];
+                let y = points[i][1];
+                c.lineTo(x,y);
+
+                let dx = x-lastPoint[0];
+                let dy = y-lastPoint[1];
+                totalLength += Math.sqrt(dx*dx+dy*dy);
+                lastPoint = points[i];
+              }
+              if (block.override) {
+                c.strokeStyle = debugSettings.colours[alternator*3+2];
+              } else if (block.clear) {
+                c.strokeStyle = debugSettings.colours[alternator*3];
+              } else {
+                c.strokeStyle = debugSettings.colours[alternator*3+1];
+              }
+              c.stroke();
+
+              // CAPS
+              c.lineWidth = 5 * scale;
+              let capWidth = 10 * scale;
+              c.beginPath();
+              let startAngle = Math.atan2(points[1][1]-points[0][1],points[1][0]-points[0][0]);
+              c.moveTo(points[0][0]+Math.cos(startAngle+Math.PI/2)*capWidth,points[0][1]+Math.sin(startAngle+Math.PI/2)*capWidth);
+              c.lineTo(points[0][0]+Math.cos(startAngle-Math.PI/2)*capWidth,points[0][1]+Math.sin(startAngle-Math.PI/2)*capWidth);
+              c.stroke();
+
+              // FIND CENTRE
+              let cX = 0;
+              let cY = 0;
+              lastPoint = points[0];
+              let lengthSoFar = 0;
+              for (let i=0;i<points.length;i++) {
+                let x = points[i][0];
+                let y = points[i][1];
+
+                let dx = x-lastPoint[0];
+                let dy = y-lastPoint[1];
+                let length = Math.sqrt(dx*dx+dy*dy);
+                lengthSoFar += length;
+
+                if (lengthSoFar>=totalLength/2) {
+                  let overshoot = lengthSoFar-totalLength/2;
+                  let ratio = overshoot/length;
+
+                  cX = lastPoint[0]+dx*ratio;
+                  cY = lastPoint[1]+dy*ratio;
+                  break;
+                }
+
+                lastPoint = points[i];
+              }
+
+              // DRAW MARKER
+              if (block.isOpen()) {
+                c.fillStyle = "green";
+              } else if (block.isClosed()) {
+                c.fillStyle = "red";
+              }
+              c.beginPath();
+              c.arc(cX,cY,14*scale,0,Math.PI*2);
+              c.fill();
+              c.fillStyle = "white";
+              c.font = "bold "+14*scale+"px Verdana";
+              c.textBaseline = "middle";
+              c.textAlign = "center";
+              c.fillText(blockId,cX,cY+0.7*scale);
+
+              alternator = !alternator;
+            }
+          }
+        }
+      };
+    };
   },
-  instanceConnect: function(cg) {
-    cg.blocks = {};
-    cg.blocks[null] = new ChoreoGraph.plugins.BlockController.Block;
-    cg.createBlock = function (blockInit) {
-      let newBlock = new ChoreoGraph.plugins.BlockController.Block(blockInit,this);
-      newBlock.ChoreoGraph = cg;
-      cg.blocks[newBlock.id] = newBlock;
-      return newBlock;
-    }
+
+  instanceConnect(cg) {
+    cg.BlockController = new ChoreoGraph.BlockController.InstanceObject(cg);
+    cg.keys.blocks = [];
+
+    cg.attachSettings("blockcontroller",{
+      debug : new class {
+        pathXKey = ["transform","x"];
+        pathYKey = ["transform","y"];
+        animations = [];
+        colours = ["#f9f51d","#f54242","#6e6c0c","#feb01d","#ff0000","#855b0d"] // A-Clear A-Blocked A-Overridden B-Clear B-Blocked B-Overridden
+
+        #cg = cg;
+        #active = false;
+        set active(value) {
+          this.#active = value;
+          if (value&&!this.#cg.BlockController.hasActivatedDebugLoop) {
+            this.#cg.BlockController.hasActivatedDebugLoop = true;
+            this.#cg.callbacks.listen("core","debug",this.#cg.BlockController.blockControllerDebugLoop);
+          }
+        }
+        get active() { return this.#active; }
+      }
+    });
+
+    if (cg.Develop!==undefined) {
+      cg.Develop.interfaceItems.push({
+        type : "UIToggleButton",
+        activeText : "Blocks Debug",
+        inactiveText : "Blocks Debug",
+        activated : cg.settings.blockcontroller.debug,
+        onActive : (cg) => { cg.settings.blockcontroller.debug.active = true; },
+        onInactive : (cg) => { cg.settings.blockcontroller.debug.active = false; },
+      });
+    };
   }
 });
-ChoreoGraph.ObjectComponents.BlockController = class BlockController {
+
+ChoreoGraph.ObjectComponents.BlockController = class cgObjectBlockController {
   manifest = {
-    title : "BlockController",
+    type : "BlockController",
+    key : "BlockController",
     master : true,
-    keyOverride : "",
-    update : true,
-    collapse : false
+    functions : {
+      update : true
+    }
   }
+
   block = null;
-  blocked = false;
-  newlyUnblocked = false;
+  #group = null;
+  set group(value) {
+    let previousGroupId = this.#group;
+    this.#group = value;
+    let blockGroups = this.Animator.cg.BlockController.blockGroups;
+    if (previousGroupId!=null) {
+      let previousGroup = blockGroups[previousGroupId];
+      previousGroup.splice(previousGroup.indexOf(this),1);
+      if (previousGroup.length==0) { delete blockGroups[previousGroupId]; }
+    }
+    if (value!=null) {
+      let newGroup = blockGroups[value];
+      if (newGroup==undefined) {
+        blockGroups[value] = [];
+        newGroup = blockGroups[value];
+      }
+      newGroup.push(this);
+    }
+  }
+  get group() {
+    return this.#group;
+  }
+
   processingBlock = false;
+  blocked = false;
 
-  trainPosition = null;
-  // "front" - In charge of closing blocks and stopping the train
-  // "middle" - Just along for the ride
-  // "back" - In charge of opening blocks as they are the last to leave them
-  // null - not part of a train
-  trainCarriages = []; // List of BlockControllers of other objects in the train
-
-  constructor(componentInit, object) {
-    this.object = object;
-
-    if (componentInit!=undefined&&componentInit.Animator==undefined) {
-      for (let compId in object.components) {
-        if (object.components[compId].manifest.title=="Animator") {
-          componentInit.Animator = object.components[compId];
+  constructor(componentInit,object) {
+    this.Animator;
+    if (componentInit.Animator==undefined) {
+      for (let component of object.objectData.components) {
+        if (component.manifest.type=="Animator") {
+          this.Animator = component;
+          break;
         }
       }
-    }
-
-    ChoreoGraph.initObjectComponent(this, componentInit);
-
-    if (componentInit!=undefined&&componentInit.Animator!=undefined) {
-      if (this.manifest.master==false) {
-        console.warn("BlockController must be a master component, consider changing the keyOverride");
-      }
-      componentInit.Animator.BlockController = this;
-      componentInit.Animator.triggerCallbacks["B"] = this.blockTrigger; // Set "B" triggers to blockTrigger
-      let componentKey = this.manifest.title;
-      if (this.manifest.keyOverride!="") {
-        componentKey = this.manifest.keyOverride;
-      }
-      componentInit.Animator.freeChecks.push([componentKey,"blocked"]); // Add "blocked" to the list of places to check for if the object is free to move
     } else {
-      console.warn("BlockController must be used with an Animator",object);
+      this.Animator = componentInit.Animator;
+      delete componentInit.Animator;
     }
+
+    if (this.Animator==undefined) {
+      console.warn("BlockController requires an Animator component");
+    }
+
+    ChoreoGraph.initObjectComponent(this,componentInit);
+
+    this.Animator.BlockController = this;
+    this.Animator.triggerTypes.b = this.blockTrigger;
+  };
+
+  nonexistentWarn(blockId) {
+    if (ChoreoGraph.BlockController.nonexistentWarnings==undefined) {
+      ChoreoGraph.BlockController.nonexistentWarnings = [blockId];
+    } else if (ChoreoGraph.BlockController.nonexistentWarnings.indexOf(blockId)==-1) {
+      ChoreoGraph.BlockController.nonexistentWarnings.push(blockId);
+    } else {
+      return;
+    }
+    console.warn("Block does not exist:",blockId);
   }
-  blockTrigger(object,Animator,trigger) {
-    let bc = Animator.BlockController;
-    bc.processingBlock = true;
+
+  blockTrigger(trigger,object,animator) {
+    let bc = animator.BlockController;
     let newBlockId = trigger[1];
     let oldBlockId = bc.block;
-    let newBlock = object.ChoreoGraph.blocks[newBlockId];
-    let oldBlock = object.ChoreoGraph.blocks[oldBlockId];
 
-    if (bc.trainPosition=="back") { // Back of train always does this at every block trigger
-      bc.block = newBlockId;
-      oldBlock.open();
-    } else if (newBlock.isOpen()) {
-      if (bc.trainPosition==null) {
-        bc.start();
-        bc.block = newBlockId;
-        newBlock.close();
-        oldBlock.open();
-      } else if (bc.trainPosition=="front") {
-        bc.start();
-        bc.block = newBlockId;
-        newBlock.close();
-      }
-    } else if (newBlock.isClosed()&&(bc.trainPosition==null||bc.trainPosition=="front")) {
-      bc.stop();
-      return false; // Do not pass the trigger
+    let newBlock = animator.cg.BlockController.blocks[newBlockId];
+    if (newBlock==undefined) { bc.nonexistentWarn(newBlockId); return true; }
+
+    let oldBlock = animator.cg.BlockController.blocks[oldBlockId];
+    if (oldBlock==undefined) { bc.nonexistentWarn(oldBlockId); return true; }
+
+    bc.processingBlock = true;
+
+    if (newBlock.isOpen(bc.group)) {
+      newBlock.groupOccupying = bc.group;
+      newBlock.objectCount++;
+      newBlock.close(bc.group);
+    } else if (newBlock.isClosed(bc.group)) {
+      bc.stop(false);
+      return false;
     }
-    
+
+    if (oldBlockId!=null) {
+      oldBlock.objectCount--;
+    }
+    if (oldBlock.objectCount<=0) {
+      oldBlock.open();
+      oldBlock.groupOccupying = null;
+    }
+
+    if (bc.blocked) {
+      bc.start();
+    }
+
+    bc.block = newBlockId;
     bc.processingBlock = false;
     return true;
-  }
-  openBlock(block) {
-    block.clear = true;
-  }
-  closeBlock(block) {
-    if (block.id!=null) { block.clear = false; }
-  }
+  };
+
   start() {
+    // UNPAUSE ALL RELEVANT ANIMATORS
     if (this.blocked) {
-      if (this.trainPosition==null) { // Individual Objects
-        this.newlyUnblocked = true;
-        this.blocked = false;
-      } else { // Trains
-        for (let onum=0;onum<this.trainCarriages.length;onum++) {
-          if (this.trainCarriages[onum].blocked) { this.newlyUnblocked = true; }
-          this.trainCarriages[onum].blocked = false;
+      this.blocked = false;
+      if (this.group==null) {
+        this.Animator.paused = false;
+      } else if (this.group!=null) {
+        let blockGroup = this.Animator.cg.BlockController.blockGroups[this.group];
+        for (let bc of blockGroup) {
+          bc.blocked = false;
+          bc.Animator.paused = false;
+          bc.processingBlock = false;
         }
       }
     }
-  }
-  stop() {
-    if (this.blocked==false) {
-      if (this.trainPosition==null) { // Individual Objects
-        this.blocked = true;
-      } else { // Trains
-        for (let onum=0;onum<this.trainCarriages.length;onum++) {
-          this.trainCarriages[onum].blocked = true;
+  };
+
+  stop(stopSelf=true) {
+    // PAUSE ALL RELEVANT ANIMATORS
+    if (!this.blocked) {
+      this.blocked = true;
+      if (this.group==null&&stopSelf) {
+        this.Animator.paused = true;
+      } else if (this.group!=null) {
+        let blockGroup = this.Animator.cg.BlockController.blockGroups[this.group];
+        for (let bc of blockGroup) {
+          if (!stopSelf&&bc==this) { continue; }
+          bc.blocked = true;
+          bc.Animator.paused = true;
+          bc.processingBlock = true;
+          bc.Animator.playhead += this.Animator.travelledThisFrame;
         }
       }
     }
-  }
-  update(object) {
-    // Block override response
-    let block = object.ChoreoGraph.blocks[this.block];
+  };
+
+  update(scene) {
+    // BLOCK OVERRIDE RESPONSE
+    if (this.processingBlock) { return; }
+    let block = scene.cg.BlockController.blocks[this.block];
     if (block.overrideType==0) {
-      if (this.trainPosition==null||this.trainPosition=="front") {
-        if (block.override&&!this.blocked) { this.waitingForOverride = true; this.stop(); } // In overridden block
-        else if (!block.override&&this.blocked&&this.waitingForOverride) { this.waitingForOverride = false; this.start(); }
+      if (block.override) {
+        this.stop();
+      } else if (block.isOpen(this.group)) {
+        this.start();
       }
     }
   }
 };
-// Willby - 2024
