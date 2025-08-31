@@ -423,7 +423,7 @@ const rwManager = new class RailwayManager {
 
       newCarriage.BlockController.group = "train_"+trainId;
       newCarriage.transform.ay = 2;
-      newCarriage.Animator.playFrom(playhead-carriageIndex*18);
+      newCarriage.Animator.playFrom(playhead-carriageIndex*18,false);
       if (isBack) {
         newCarriage.isBackOfTrain = true;
       }

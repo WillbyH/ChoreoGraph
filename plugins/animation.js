@@ -1527,7 +1527,6 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
   to = [];
   ease = "linear";
   lastUpdatedFrame = -1;
-  nextPlayfromAllowTriggers = false;
   runTriggers = true;
   loop = true;
   paused = false;
@@ -1625,7 +1624,6 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
   // Sets the playhead back by the duration of the animation
   rewind() {
     this.playhead = this.playhead - this.animation.duration;
-    this.nextPlayfromAllowTriggers = true;
   };
 
   // Combines passAllTriggers and findTo, returns false if a trigger interupt happens
@@ -1710,7 +1708,7 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
   };
 
   // Sets animation values based on a given playhead
-  playFrom(playhead) {
+  playFrom(playhead, runTriggers=true) {
     this.playhead = playhead;
     if (this.animation==null) { return; }
     if (this.animation.ready==false) { return; }
@@ -1725,13 +1723,12 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
 
     this.from = this.animation.data[0];
 
-    if (!this.nextPlayfromAllowTriggers) {
+    if (!runTriggers) {
       this.runTriggers = false;
     }
 
     this.processTriggersAndFindTo();
 
-    this.nextPlayfromAllowTriggers = false;
     this.runTriggers = true;
   };
 
@@ -1743,6 +1740,7 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
     this.to = [];
     this.stt = 0;
     this.ent = 0;
+    this.runTriggers = true;
     this.setValues();
   }
 
@@ -1756,6 +1754,7 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
     this.ent = 0;
     this.paused = false;
     this.playing = false;
+    this.runTriggers = true;
     this.setValues();
   }
 

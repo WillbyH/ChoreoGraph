@@ -181,7 +181,6 @@ declare module './choreograph' {
     readonly to: object;
     ease: cgAnimationEaseFunctionTypes;
     readonly lastUpdatedFrame: number;
-    readonly nextPlayfromAllowTriggers: boolean;
     runTriggers: boolean;
     loop: boolean;
     paused: boolean;
