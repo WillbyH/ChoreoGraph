@@ -89,7 +89,10 @@ ChoreoGraph.plugin({
             }
             if (frame[xKey]===undefined || frame[yKey]===undefined || frame[timeKey]!==undefined) { continue; }
             const distance = Math.sqrt(Math.pow(frame[xKey]-lastX,2)+Math.pow(frame[yKey]-lastY,2));
-            if (distance==0) { continue; }
+            if (distance==0) {
+              frame[timeKey] = 0;
+              continue;
+            }
             frame[timeKey] = distance / cg.settings.animation.rawProcessing.consistentSpeed;
             lastX = frame[xKey];
             lastY = frame[yKey];
