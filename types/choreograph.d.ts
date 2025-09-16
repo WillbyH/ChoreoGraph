@@ -1,5 +1,5 @@
 export declare interface ChoreoGraph {
-  readonly VERSION: "3.2.0";
+  readonly VERSION: "3.2.1-dev";
   settings: {
     maxFPS: number;
     pauseWhenUnfocused: boolean;
