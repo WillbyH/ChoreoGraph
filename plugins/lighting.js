@@ -697,8 +697,8 @@ ChoreoGraph.plugin({
           this.bbc.drawImage(this.image.image,-this.shadowWidth*0.5,-this.shadowHeight*0.5,this.shadowWidth,this.shadowHeight);
         }
 
-        ChoreoGraph.transformContext(canvas.camera,gx,gy,0,gsx,gsy,true,false,false,0,0,this.bbc);
-        ChoreoGraph.transformContext(canvas.camera,gx,gy,0,gsx,gsy,true,false,false,0,0,this.cbc);
+        ChoreoGraph.transformContext(canvas.camera,0,0,0,gsx,gsy,true,false,false,0,0,this.bbc);
+        ChoreoGraph.transformContext(canvas.camera,0,0,0,gsx,gsy,true,false,false,0,0,this.cbc);
 
         // DRAW OCCLUDED LIGHTS
         this.raycastCount = 0;
