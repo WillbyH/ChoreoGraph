@@ -123,7 +123,7 @@ declare module './choreograph' {
     decay?: number;
     volume?: number;
 
-    biquadType?: "lowpass" | "highpass" | "bandpass" | "lowshelf" | "highshelf" | "notch" | "allpass";
+    biquadType?: BiquadFilterType;
     biquadFrequency?: number;
     biquadQ?: number;
     biquadGain?: number;

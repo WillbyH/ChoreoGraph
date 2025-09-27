@@ -792,8 +792,8 @@ declare global {
     leading: number;
     sizeType: "px" | "em" | "rem" | "pt";
     fontWeight: "normal";
-    textAlign: "left" | "center" | "right";
-    textBaseline: "alphabetic" | "top" | "middle" | "bottom";
+    textAlign: CanvasTextAlign;
+    textBaseline: CanvasTextBaseline;
     area: "middle" | "top" | "bottom";
     fill: true;
     colour: string;
@@ -818,8 +818,8 @@ declare global {
     leading?: number;
     sizeType?: "px" | "em" | "rem" | "pt";
     fontWeight?: string;
-    textAlign?: "left" | "center" | "right";
-    textBaseline?: "alphabetic" | "top" | "middle" | "bottom";
+    textAlign?: CanvasTextAlign;
+    textBaseline?: CanvasTextBaseline;
     area?: "middle" | "top" | "bottom";
     fill?: true;
     colour?: string;
