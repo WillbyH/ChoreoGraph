@@ -1084,7 +1084,7 @@ ChoreoGraph.plugin({
         getBakeData() {
           let data = [];
           for (let frameNumber=0;frameNumber<this.times.length;frameNumber++) {
-            data.push([this.times[frameNumber]]);
+            data.push([Number(this.times[frameNumber])]);
           }
           return {values:data};
         };
