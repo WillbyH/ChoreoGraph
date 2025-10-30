@@ -148,6 +148,7 @@ ChoreoGraph.plugin({
           grabMode : "",
           selectedScene : null,
           selectedObject : null,
+          selectedObjectRigidbodies : [],
           originalPosition: [0,0],
           originalScale: [1,1],
           originalRotation: 0,
@@ -554,6 +555,12 @@ ChoreoGraph.plugin({
                   if (cursor.impulseUp.any||cursor.impulseDown.any) {
                     gizmoData.selectedObject = object;
                     gizmoData.selectedScene = scene;
+                    gizmoData.selectedObjectRigidbodies.length = 0;
+                    for (const component of object.objectData.components) {
+                      if (component.manifest.type=="RigidBody") {
+                        gizmoData.selectedObjectRigidbodies.push(component);
+                      }
+                    }
                   }
                 }
                 c.beginPath();
@@ -682,15 +689,25 @@ ChoreoGraph.plugin({
               x = Math.round(x/gizmoSettings.positionSnap)*gizmoSettings.positionSnap;
             }
             gizmoData.selectedObject.transform.x = x;
+            if (gizmoData.selectedObjectRigidbodies.length>0) {
+              for (const rb of gizmoData.selectedObjectRigidbodies) {
+                rb.xv = 0;
+              }
+            }
             modified();
           }
           if (gizmoData.grabMode=="yAxis"||gizmoData.grabMode=="multiAxis") {
             let y = gizmoData.originalPosition[1] + dy;
-            if (ChoreoGraph.Input.keyStates[gizmoSettings.hotkeySnap]) {
+            if (gizmoSettings.cancelRigidBodyVelocities&&ChoreoGraph.Input.keyStates[gizmoSettings.hotkeySnap]) {
               y += gizmoSettings.snapYOffset;
               y = Math.round(y/gizmoSettings.positionSnap)*gizmoSettings.positionSnap;
             }
             gizmoData.selectedObject.transform.y = y;
+            if (gizmoSettings.cancelRigidBodyVelocities&&gizmoData.selectedObjectRigidbodies.length>0) {
+              for (const rb of gizmoData.selectedObjectRigidbodies) {
+                rb.yv = 0;
+              }
+            }
             modified();
           }
 
@@ -1582,6 +1599,7 @@ ChoreoGraph.plugin({
         positionSnap : 1,
         snapXOffset : 0,
         snapYOffset : 0,
+        cancelRigidBodyVelocities : true,
         colours : {
           unhoveredSelection : "#ff0000",
           hoveredSelection : "#0000ff",
