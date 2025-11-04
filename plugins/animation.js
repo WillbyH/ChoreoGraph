@@ -1738,6 +1738,10 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
     } else if (this.from[this.animation.timeKey]>this.playhead) {
       this.ent = this.from[this.animation.timeKey];
       this.part = 0;
+    } else if (this.animation.duration===0) {
+      this.to = this.animation.data[1]
+      this.part = 1;
+      this.ent = 0;
     } else {
       this.part = 1;
       this.ent = 0;
