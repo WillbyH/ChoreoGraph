@@ -1670,7 +1670,7 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
 
   // Sets the TO value then checks if it needs to do it again, returns false if a trigger interupt happens
   findTo() {
-    if (this.playhead >= this.animation.duration) {
+    if (this.playhead >= this.animation.duration || this.part>=this.animation.data.length) {
       this.setFinalValues();
       this.playing = false;
       return false;
