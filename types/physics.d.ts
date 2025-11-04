@@ -154,6 +154,8 @@ declare module './choreograph' {
         delete: true;
       };
     };
+    cg: cgInstance;
+    object: cgObject;
 
     /** X Velocity */
     xv: number;

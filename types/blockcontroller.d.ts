@@ -53,6 +53,8 @@ declare module './choreograph' {
         update: true;
       };
     };
+    cg: cgInstance;
+    object: cgObject;
 
     block: ChoreoGraphId | null;
     group: ChoreoGraphId | null;

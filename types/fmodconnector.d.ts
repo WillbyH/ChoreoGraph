@@ -94,6 +94,8 @@ declare module './choreograph' {
         delete: true;
       };
     };
+    cg: cgInstance;
+    object: cgObject;
 
     readonly lastPosition: [number, number];
   }
@@ -112,6 +114,8 @@ declare module './choreograph' {
         delete: true;
       };
     };
+    cg: cgInstance;
+    object: cgObject;
 
     events: FMODStudioEventDescription[];
     readonly lastPosition: [number, number];

@@ -161,6 +161,8 @@ declare module './choreograph' {
         delete: true;
       };
     };
+    cg: cgInstance;
+    object: cgObject;
 
     animation: cgAnimation | null;
     readonly connectionData: {
