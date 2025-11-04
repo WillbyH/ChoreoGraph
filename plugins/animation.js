@@ -1592,6 +1592,10 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
 
         // PLAYHEAD >= DURATION
         if (this.playhead>=this.animation.duration) {
+          while (this.part<this.animation.data.length) {
+            if (this.passAllTriggers()===false) { return; }
+            this.part++;
+          }
           this.playhead += this.timeBudget*this.speed;
           this.timeBudget = 0;
           this.setFinalValues();
@@ -1666,9 +1670,14 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
 
   // Sets the TO value then checks if it needs to do it again, returns false if a trigger interupt happens
   findTo() {
+    if (this.playhead >= this.animation.duration) {
+      this.setFinalValues();
+      this.playing = false;
+      return false;
+    }
     this.to = this.animation.data[this.part];
     this.stt = this.ent;
-    this.ent += this.to[this.animation.timeKey];
+    if (this.part!==0) { this.ent += this.to[this.animation.timeKey]; }
     if (this.playhead >= this.ent) {
       this.from = this.to;
       this.part++;
@@ -1720,11 +1729,19 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
     this.paused = false;
     this.playing = true;
     this.processingTrigger = false;
-    this.part = 1;
     this.stt = 0;
-    this.ent = 0;
 
     this.from = this.animation.data[0];
+    if (typeof this.from[0] === "string") {
+      this.ent = 0;
+      this.part = 0;
+    } else if (this.from[this.animation.timeKey]>this.playhead) {
+      this.ent = this.from[this.animation.timeKey];
+      this.part = 0;
+    } else {
+      this.part = 1;
+      this.ent = 0;
+    }
 
     if (!runTriggers) {
       this.runTriggers = false;
@@ -1763,13 +1780,13 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
 
   initConnection() {
     this.connectionData.initialisedAnimation = this.animation.id;
-    this.connectionData.keys = [];
+    this.connectionData.keys.length = 0;
 
     for (let i=0;i<this.animation.keys.length;i++) {
-      let key = this.animation.keys[i];
-      let keySet = key.keySet;
+      const key = this.animation.keys[i];
+      const keySet = key.keySet;
       if (keySet=="time") { continue; }
-      let keyData = {
+      const keyData = {
         key : keySet[keySet.length-1],
         object : this.object
       };
