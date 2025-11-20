@@ -152,8 +152,11 @@ declare module './choreograph' {
     readonly fadeStart: number;
     readonly fadeEnd: number;
 
+    readonly playhead: number;
+
     stop(fadeoutSeconds?: number): void;
     pause(): void;
     fadeVolume(volume: number, time: number): void;
+    seek(time: number): void;
   }
 }
