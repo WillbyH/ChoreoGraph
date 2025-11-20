@@ -518,19 +518,28 @@ ChoreoGraph.plugin({
         const options = this.playOptions;
         const source = this.source;
 
-        //
+        if (options.startTime<0) {
+          const difference = ChoreoGraph.Audio.ctx.currentTime - options.startTime;
+          options.startOffset += difference;
+          options.startTime = ChoreoGraph.Audio.ctx.currentTime;
+        }
+
         if (options.startOffset<0) {
           options.startOffset = 0;
           options.startTime -= options.startOffset;
         }
 
-        // Started in the past
         if (options.startTime>0&&options.startTime<ChoreoGraph.Audio.ctx.currentTime) {
           const difference = ChoreoGraph.Audio.ctx.currentTime - options.startTime;
           options.startOffset += difference;
           options.startTime = ChoreoGraph.Audio.ctx.currentTime;
         } else if (options.startTime===0) {
           options.startTime = ChoreoGraph.Audio.ctx.currentTime;
+        }
+
+        if (options.startTime<0 || options.startOffset<0) {
+          console.warn("cgPlayOptions.startTime and cgPlayOptions.startOffset must not be negative");
+          return;
         }
 
         if (options.playDuration===0) {
