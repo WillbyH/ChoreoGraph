@@ -86,14 +86,17 @@ ChoreoGraph.plugin({
         let sound = this.sounds[options.id];
         if (sound==undefined) { console.warn("Sound not found:",options.id); return; }
 
-        options.soundInstance = new ChoreoGraph.Audio.SoundInstance({
-          id:options.soundInstanceId,
-          nodes:options.nodes,
-          sound:sound,
-          paused:options.paused,
-          cgAudio:this,
-          playOptions:options
-        });
+        if (options.soundInstance==undefined) {
+          options.soundInstance = new ChoreoGraph.Audio.SoundInstance({
+            id:options.soundInstanceId,
+            nodes:options.nodes,
+            sound:sound,
+            paused:options.paused,
+            cgAudio:this,
+            playOptions:options,
+            created:ChoreoGraph.nowint
+          });
+        }
 
         if (this.playing[options.soundInstance.id]!=undefined&&this.playing[options.soundInstance.id].started) {
           this.playing[options.soundInstance.id].stop();
@@ -142,7 +145,24 @@ ChoreoGraph.plugin({
 
           lastNode.connect(this.masterGain);
 
-          source.start();
+          if (options.startOffset<0) {
+            options.startOffset = 0;
+            options.startTime -= options.startOffset;
+          }
+
+          if (options.startTime<ChoreoGraph.Audio.ctx.currentTime) {
+            const difference = ChoreoGraph.Audio.ctx.currentTime - options.startTime;
+            options.startOffset += difference;
+            options.startTime = ChoreoGraph.Audio.ctx.currentTime;
+          } else if (options.startTime===0) {
+            options.startTime = ChoreoGraph.Audio.ctx.currentTime;
+          }
+
+          if (options.playDuration===0) {
+            source.start(options.startTime, options.startOffset);
+          } else {
+            source.start(options.startTime, options.startOffset, options.playDuration);
+          }
 
           options.soundInstance.source = source;
           if (options.fadeIn!=0) {
@@ -392,6 +412,9 @@ ChoreoGraph.plugin({
       loop = false;
       loopStart = 0;
       loopEnd = 0;
+      startTime = 0;
+      startOffset = 0;
+      playDuration = 0;
       allowBuffer = false;
       fadeIn = 0; // Seconds
       volume = 1; // 0 - silent  1 - normal  2 - double

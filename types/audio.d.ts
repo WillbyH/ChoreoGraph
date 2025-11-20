@@ -87,6 +87,9 @@ declare module './choreograph' {
     loop: boolean;
     loopStart: number;
     loopEnd: number;
+    startTime: number;
+    startOffset: number;
+    playDuration: number;
     allowBuffer: boolean;
     fadeIn: number;
     volume: number;
