@@ -162,7 +162,7 @@ ChoreoGraph.plugin({
       };
 
       stop(id, fadeoutSeconds=0) {
-        if (this.playing[id]==undefined) { console.warn("Sound not found"); return; }
+        if (this.playing[id]==undefined) { console.warn("Sound not found:",id); return; }
         let sound = this.playing[id];
 
         if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.WEBAUDIO) {
@@ -198,7 +198,7 @@ ChoreoGraph.plugin({
 
       updateNodes(id, nodes) { // Disconnects currently connected nodes and connects new given nodes
         if (!this.ready) { return; }
-        if (this.playing[id]==undefined) { console.warn("Sound not found"); return; }
+        if (this.playing[id]==undefined) { console.warn("Sound not found:",id); return; }
         let sound = this.playing[id];
         if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.WEBAUDIO) {
           if (sound.nodes.length>0) {
@@ -221,7 +221,7 @@ ChoreoGraph.plugin({
 
       setVolume(id, volume=1, seconds=0) {
         if (!this.ready) { return; }
-        if (this.playing[id]==undefined) { console.warn("Sound not found"); return; }
+        if (this.playing[id]==undefined) { console.warn("Sound not found:",id); return; }
         let sound = this.playing[id];
         if (ChoreoGraph.Audio.mode==ChoreoGraph.Audio.WEBAUDIO) {
           if (seconds==0) { sound.source.gainNode.gain.value = volume; }
@@ -244,7 +244,7 @@ ChoreoGraph.plugin({
 
       setSpeed(id, speed) {
         if (!this.ready) { return; }
-        if (this.playing[id]==undefined) { console.warn("Sound not found"); return; }
+        if (this.playing[id]==undefined) { console.warn("Sound not found:",id); return; }
         let sound = this.playing[id];
         if (this.mode==ChoreoGraph.Audio.WEBAUDIO) {
           sound.source.playbackRate.value = speed;
