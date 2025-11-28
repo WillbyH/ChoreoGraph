@@ -1374,7 +1374,10 @@ const ChoreoGraph = new class ChoreoGraphEngine {
       update() {
         if (this.camera===null||!this.active) { return; }
         if (this.jump) {
-          let distance = Math.sqrt((this.transform.x+this.camera.transform.x)**2+(this.transform.y+this.camera.transform.y)**2);
+          let distance = Math.sqrt(
+            (this.transform.x-this.camera.transform.x)**2
+            + (this.transform.y-this.camera.transform.y)**2
+          );
           if (distance > this.jumpDistance) {
             this.camera.transform.x = this.transform.x;
             this.camera.transform.y = this.transform.y;
