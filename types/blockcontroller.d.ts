@@ -39,7 +39,15 @@ declare module './choreograph' {
         pathXKey: string[];
         pathYKey: string[];
         animations: (cgAnimation | string)[];
-        colours: string[];
+        colours: [
+          string, // A open colour
+          string, // A occupied colour
+          string, // A overridden colour
+          string, // B open colour
+          string, // B occupied colour
+          string  // B overridden colour
+        ];
+        showMarkers: boolean;
       }
     }
   }

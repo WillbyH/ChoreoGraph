@@ -181,19 +181,21 @@ ChoreoGraph.plugin({
               }
 
               // DRAW MARKER
-              if (block.isOpen()) {
-                c.fillStyle = "green";
-              } else if (block.isClosed()) {
-                c.fillStyle = "red";
+              if (debugSettings.showMarkers) {
+                if (block.isOpen()) {
+                  c.fillStyle = "green";
+                } else if (block.isClosed()) {
+                  c.fillStyle = "red";
+                }
+                c.beginPath();
+                c.arc(cX,cY,14*scale,0,Math.PI*2);
+                c.fill();
+                c.fillStyle = "white";
+                c.font = "bold "+14*scale+"px Verdana";
+                c.textBaseline = "middle";
+                c.textAlign = "center";
+                c.fillText(blockId,cX,cY+0.7*scale);
               }
-              c.beginPath();
-              c.arc(cX,cY,14*scale,0,Math.PI*2);
-              c.fill();
-              c.fillStyle = "white";
-              c.font = "bold "+14*scale+"px Verdana";
-              c.textBaseline = "middle";
-              c.textAlign = "center";
-              c.fillText(blockId,cX,cY+0.7*scale);
 
               alternator = !alternator;
             }
@@ -213,6 +215,7 @@ ChoreoGraph.plugin({
         pathYKey = ["transform","y"];
         animations = [];
         colours = ["#f9f51d","#f54242","#6e6c0c","#feb01d","#ff0000","#855b0d"] // A-Clear A-Blocked A-Overridden B-Clear B-Blocked B-Overridden
+        showMarkers = true;
 
         #cg = cg;
         #active = false;
