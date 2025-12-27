@@ -67,6 +67,7 @@ ChoreoGraph.plugin({
           if (canvas.hideDebugOverlays) { continue; }
           ChoreoGraph.transformContext(canvas.camera);
           let block = null;
+          let paths = {};
           for (let animation of debugSettings.animations) {
             if (typeof animation=="string") { block = animation; continue; }
 
@@ -79,7 +80,6 @@ ChoreoGraph.plugin({
             }
             if (xKey==-1||yKey==-1) { continue; }
 
-            let paths = {};
             let currentPath = [];
 
             // GET DATA FROM ANIMATIONS
@@ -108,97 +108,99 @@ ChoreoGraph.plugin({
             if (block!=null) {
               if (paths[block]==undefined) { paths[block] = currentPath; }
               else {
-                paths[block].unshift(...currentPath);
+                paths[block].push(...currentPath);
               }
             }
+          }
 
-            // DRAW PATHS
-            let c = canvas.c;
-            let alternator = 0;
-            c.lineCap = "round";
-            for (let blockId in paths) {
-              c.lineWidth = 4 * scale;
-              let block = cg.BlockController.blocks[blockId];
-              let points = paths[blockId];
-              if (points.length<2) { continue; }
-              let totalLength = 0;
-              let lastPoint = points[0];
-              c.beginPath();
+          // DRAW PATHS
+          let c = canvas.c;
+          c.globalAlpha = 1;
+          let alternator = 0;
+          c.lineCap = "round";
+          for (let blockId in paths) {
+            c.lineWidth = 4 * scale;
+            let block = cg.BlockController.blocks[blockId];
+            if (block==undefined) { continue; }
+            let points = paths[blockId];
+            if (points.length<2) { continue; }
+            let totalLength = 0;
+            let lastPoint = points[0];
+            c.beginPath();
 
-              // DRAW LINES AND FIND LENGTH
-              for (let i=0;i<points.length;i++) {
-                let x = points[i][0];
-                let y = points[i][1];
-                c.lineTo(x,y);
+            // DRAW LINES AND FIND LENGTH
+            for (let i=0;i<points.length;i++) {
+              let x = points[i][0];
+              let y = points[i][1];
+              c.lineTo(x,y);
 
-                let dx = x-lastPoint[0];
-                let dy = y-lastPoint[1];
-                totalLength += Math.sqrt(dx*dx+dy*dy);
-                lastPoint = points[i];
-              }
-              if (block.override) {
-                c.strokeStyle = debugSettings.colours[alternator*3+2];
-              } else if (block.clear) {
-                c.strokeStyle = debugSettings.colours[alternator*3];
-              } else {
-                c.strokeStyle = debugSettings.colours[alternator*3+1];
-              }
-              c.stroke();
-
-              // CAPS
-              c.lineWidth = 5 * scale;
-              let capWidth = 10 * scale;
-              c.beginPath();
-              let startAngle = Math.atan2(points[1][1]-points[0][1],points[1][0]-points[0][0]);
-              c.moveTo(points[0][0]+Math.cos(startAngle+Math.PI/2)*capWidth,points[0][1]+Math.sin(startAngle+Math.PI/2)*capWidth);
-              c.lineTo(points[0][0]+Math.cos(startAngle-Math.PI/2)*capWidth,points[0][1]+Math.sin(startAngle-Math.PI/2)*capWidth);
-              c.stroke();
-
-              // FIND CENTRE
-              let cX = 0;
-              let cY = 0;
-              lastPoint = points[0];
-              let lengthSoFar = 0;
-              for (let i=0;i<points.length;i++) {
-                let x = points[i][0];
-                let y = points[i][1];
-
-                let dx = x-lastPoint[0];
-                let dy = y-lastPoint[1];
-                let length = Math.sqrt(dx*dx+dy*dy);
-                lengthSoFar += length;
-
-                if (lengthSoFar>=totalLength/2) {
-                  let overshoot = lengthSoFar-totalLength/2;
-                  let ratio = overshoot/length;
-
-                  cX = lastPoint[0]+dx*ratio;
-                  cY = lastPoint[1]+dy*ratio;
-                  break;
-                }
-
-                lastPoint = points[i];
-              }
-
-              // DRAW MARKER
-              if (debugSettings.showMarkers) {
-                if (block.isOpen()) {
-                  c.fillStyle = "green";
-                } else if (block.isClosed()) {
-                  c.fillStyle = "red";
-                }
-                c.beginPath();
-                c.arc(cX,cY,14*scale,0,Math.PI*2);
-                c.fill();
-                c.fillStyle = "white";
-                c.font = "bold "+14*scale+"px Verdana";
-                c.textBaseline = "middle";
-                c.textAlign = "center";
-                c.fillText(blockId,cX,cY+0.7*scale);
-              }
-
-              alternator = !alternator;
+              let dx = x-lastPoint[0];
+              let dy = y-lastPoint[1];
+              totalLength += Math.sqrt(dx*dx+dy*dy);
+              lastPoint = points;
             }
+            if (block.override) {
+              c.strokeStyle = debugSettings.colours[alternator*3+2];
+            } else if (block.clear) {
+              c.strokeStyle = debugSettings.colours[alternator*3];
+            } else {
+              c.strokeStyle = debugSettings.colours[alternator*3+1];
+            }
+            c.stroke();
+
+            // CAPS
+            c.lineWidth = 5 * scale;
+            let capWidth = 10 * scale;
+            c.beginPath();
+            let startAngle = Math.atan2(points[1][1]-points[0][1],points[1][0]-points[0][0]);
+            c.moveTo(points[0][0]+Math.cos(startAngle+Math.PI/2)*capWidth,points[0][1]+Math.sin(startAngle+Math.PI/2)*capWidth);
+            c.lineTo(points[0][0]+Math.cos(startAngle-Math.PI/2)*capWidth,points[0][1]+Math.sin(startAngle-Math.PI/2)*capWidth);
+            c.stroke();
+
+            // FIND CENTRE
+            let cX = 0;
+            let cY = 0;
+            lastPoint = points[0];
+            let lengthSoFar = 0;
+            for (let i=0;i<points.length;i++) {
+              let x = points[i][0];
+              let y = points[i][1];
+
+              let dx = x-lastPoint[0];
+              let dy = y-lastPoint[1];
+              let length = Math.sqrt(dx*dx+dy*dy);
+              lengthSoFar += length;
+
+              if (lengthSoFar>=totalLength/2) {
+                let overshoot = lengthSoFar-totalLength/2;
+                let ratio = overshoot/length;
+
+                cX = lastPoint[0]+dx*ratio;
+                cY = lastPoint[1]+dy*ratio;
+                break;
+              }
+
+              lastPoint = points[i];
+            }
+
+            // DRAW MARKER
+            if (debugSettings.showMarkers) {
+              if (block.isOpen()) {
+                c.fillStyle = "green";
+              } else if (block.isClosed()) {
+                c.fillStyle = "red";
+              }
+              c.beginPath();
+              c.arc(cX,cY,14*scale,0,Math.PI*2);
+              c.fill();
+              c.fillStyle = "white";
+              c.font = "bold "+14*scale+"px Verdana";
+              c.textBaseline = "middle";
+              c.textAlign = "center";
+              c.fillText(blockId,cX,cY+0.7*scale);
+            }
+
+            alternator = !alternator;
           }
         }
       };
