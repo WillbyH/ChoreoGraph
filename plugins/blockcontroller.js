@@ -137,7 +137,7 @@ ChoreoGraph.plugin({
               let dx = x-lastPoint[0];
               let dy = y-lastPoint[1];
               totalLength += Math.sqrt(dx*dx+dy*dy);
-              lastPoint = points;
+              lastPoint = points[i];
             }
             if (block.override) {
               c.strokeStyle = debugSettings.colours[alternator*3+2];
@@ -173,7 +173,7 @@ ChoreoGraph.plugin({
 
               if (lengthSoFar>=totalLength/2) {
                 let overshoot = lengthSoFar-totalLength/2;
-                let ratio = overshoot/length;
+                let ratio = 1-(overshoot/length);
 
                 cX = lastPoint[0]+dx*ratio;
                 cY = lastPoint[1]+dy*ratio;
