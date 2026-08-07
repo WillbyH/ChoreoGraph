@@ -1,7 +1,7 @@
 ChoreoGraph.plugin({
   name : "TiledConnector",
   key : "Tiled",
-  version : "1.1",
+  version : "1.1.0",
 
   globalPackage : new class TiledConnector {
     InstanceObject = class cgInstanceTiledConnector {

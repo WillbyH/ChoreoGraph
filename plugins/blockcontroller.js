@@ -1,7 +1,7 @@
 ChoreoGraph.plugin({
   name : "BlockController",
   key : "BlockController",
-  version : "1.2",
+  version : "1.3.0",
 
   globalPackage : new class cgBlockController {
     Block = class cgBlock {

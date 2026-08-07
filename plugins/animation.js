@@ -1,7 +1,7 @@
 ChoreoGraph.plugin({
   name : "Animation",
   key : "Animation",
-  version : "1.0",
+  version : "1.1.0",
 
   globalPackage : new class cgAnimationPackage {
     InstanceObject = class cgAnimationInstancePackage {

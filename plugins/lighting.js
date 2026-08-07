@@ -1,7 +1,7 @@
 ChoreoGraph.plugin({
   name : "Lighting",
   key : "Lighting",
-  version : "1.1",
+  version : "1.1.0",
 
   globalPackage : new class cgLighting {
     InstanceObject = class cgInstanceLighiting {

@@ -1,7 +1,7 @@
 ChoreoGraph.plugin({
   name : "Input",
   key : "Input",
-  version : "1.0",
+  version : "1.0.1",
 
   globalPackage : new class cgInput {
     constructor() {

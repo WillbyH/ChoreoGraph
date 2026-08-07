@@ -1,7 +1,7 @@
 ChoreoGraph.plugin({
   name : "Develop",
   key : "Develop",
-  version : "2.0",
+  version : "2.1.0",
 
   globalPackage : new class cgDevelop {
     #cg = null;

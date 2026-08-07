@@ -1,5 +1,5 @@
 const ChoreoGraph = new class ChoreoGraphEngine {
-  VERSION = "3.2.1-dev";
+  VERSION = "3.2.1";
   instances = [];
   settings = {
     maxFPS : Infinity,

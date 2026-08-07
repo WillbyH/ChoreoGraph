@@ -1,7 +1,7 @@
 ChoreoGraph.plugin({
   name : "Tilemaps",
   key : "Tilemaps",
-  version : "1.1",
+  version : "1.1.0",
 
   globalPackage : new class cgTilemaps {
     Tilemap = class cgTilemap {
