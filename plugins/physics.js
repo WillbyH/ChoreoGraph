@@ -1,7 +1,7 @@
 ChoreoGraph.plugin({
   name : "Physics",
   key : "Physics",
-  version : "1.1",
+  version : "1.1.0",
 
   globalPackage : new class cgPhysics {
 

@@ -87,6 +87,9 @@ declare module './choreograph' {
     loop: boolean;
     loopStart: number;
     loopEnd: number;
+    startTime: number;
+    startOffset: number;
+    playDuration: number;
     allowBuffer: boolean;
     fadeIn: number;
     volume: number;
@@ -123,7 +126,7 @@ declare module './choreograph' {
     decay?: number;
     volume?: number;
 
-    biquadType?: "lowpass" | "highpass" | "bandpass" | "lowshelf" | "highshelf" | "notch" | "allpass";
+    biquadType?: BiquadFilterType;
     biquadFrequency?: number;
     biquadQ?: number;
     biquadGain?: number;
@@ -149,8 +152,11 @@ declare module './choreograph' {
     readonly fadeStart: number;
     readonly fadeEnd: number;
 
+    readonly playhead: number;
+
     stop(fadeoutSeconds?: number): void;
     pause(): void;
     fadeVolume(volume: number, time: number): void;
+    seek(time: number): void;
   }
 }

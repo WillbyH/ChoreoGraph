@@ -161,6 +161,8 @@ declare module './choreograph' {
         delete: true;
       };
     };
+    cg: cgInstance;
+    object: cgObject;
 
     animation: cgAnimation | null;
     readonly connectionData: {
@@ -181,7 +183,6 @@ declare module './choreograph' {
     readonly to: object;
     ease: cgAnimationEaseFunctionTypes;
     readonly lastUpdatedFrame: number;
-    readonly nextPlayfromAllowTriggers: boolean;
     runTriggers: boolean;
     loop: boolean;
     paused: boolean;

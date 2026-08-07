@@ -1,7 +1,7 @@
 ChoreoGraph.plugin({
   name : "Animation",
   key : "Animation",
-  version : "1.0",
+  version : "1.1.0",
 
   globalPackage : new class cgAnimationPackage {
     InstanceObject = class cgAnimationInstancePackage {
@@ -89,7 +89,10 @@ ChoreoGraph.plugin({
             }
             if (frame[xKey]===undefined || frame[yKey]===undefined || frame[timeKey]!==undefined) { continue; }
             const distance = Math.sqrt(Math.pow(frame[xKey]-lastX,2)+Math.pow(frame[yKey]-lastY,2));
-            if (distance==0) { continue; }
+            if (distance==0) {
+              frame[timeKey] = 0;
+              continue;
+            }
             frame[timeKey] = distance / cg.settings.animation.rawProcessing.consistentSpeed;
             lastX = frame[xKey];
             lastY = frame[yKey];
@@ -1081,7 +1084,7 @@ ChoreoGraph.plugin({
         getBakeData() {
           let data = [];
           for (let frameNumber=0;frameNumber<this.times.length;frameNumber++) {
-            data.push([this.times[frameNumber]]);
+            data.push([Number(this.times[frameNumber])]);
           }
           return {values:data};
         };
@@ -1527,7 +1530,6 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
   to = [];
   ease = "linear";
   lastUpdatedFrame = -1;
-  nextPlayfromAllowTriggers = false;
   runTriggers = true;
   loop = true;
   paused = false;
@@ -1590,6 +1592,10 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
 
         // PLAYHEAD >= DURATION
         if (this.playhead>=this.animation.duration) {
+          while (this.part<this.animation.data.length) {
+            if (this.passAllTriggers()===false) { return; }
+            this.part++;
+          }
           this.playhead += this.timeBudget*this.speed;
           this.timeBudget = 0;
           this.setFinalValues();
@@ -1625,7 +1631,6 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
   // Sets the playhead back by the duration of the animation
   rewind() {
     this.playhead = this.playhead - this.animation.duration;
-    this.nextPlayfromAllowTriggers = true;
   };
 
   // Combines passAllTriggers and findTo, returns false if a trigger interupt happens
@@ -1665,9 +1670,14 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
 
   // Sets the TO value then checks if it needs to do it again, returns false if a trigger interupt happens
   findTo() {
+    if (this.playhead >= this.animation.duration || this.part>=this.animation.data.length) {
+      this.setFinalValues();
+      this.playing = false;
+      return false;
+    }
     this.to = this.animation.data[this.part];
     this.stt = this.ent;
-    this.ent += this.to[this.animation.timeKey];
+    if (this.part!==0) { this.ent += this.to[this.animation.timeKey]; }
     if (this.playhead >= this.ent) {
       this.from = this.to;
       this.part++;
@@ -1710,7 +1720,7 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
   };
 
   // Sets animation values based on a given playhead
-  playFrom(playhead) {
+  playFrom(playhead, runTriggers=true) {
     this.playhead = playhead;
     if (this.animation==null) { return; }
     if (this.animation.ready==false) { return; }
@@ -1719,19 +1729,30 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
     this.paused = false;
     this.playing = true;
     this.processingTrigger = false;
-    this.part = 1;
     this.stt = 0;
-    this.ent = 0;
 
     this.from = this.animation.data[0];
+    if (typeof this.from[0] === "string") {
+      this.ent = 0;
+      this.part = 0;
+    } else if (this.from[this.animation.timeKey]>this.playhead) {
+      this.ent = this.from[this.animation.timeKey];
+      this.part = 0;
+    } else if (this.animation.duration===0) {
+      this.to = this.animation.data[1]
+      this.part = 1;
+      this.ent = 0;
+    } else {
+      this.part = 1;
+      this.ent = 0;
+    }
 
-    if (!this.nextPlayfromAllowTriggers) {
+    if (!runTriggers) {
       this.runTriggers = false;
     }
 
     this.processTriggersAndFindTo();
 
-    this.nextPlayfromAllowTriggers = false;
     this.runTriggers = true;
   };
 
@@ -1743,6 +1764,7 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
     this.to = [];
     this.stt = 0;
     this.ent = 0;
+    this.runTriggers = true;
     this.setValues();
   }
 
@@ -1756,18 +1778,19 @@ ChoreoGraph.ObjectComponents.Animator = class cgObjectAnimator {
     this.ent = 0;
     this.paused = false;
     this.playing = false;
+    this.runTriggers = true;
     this.setValues();
   }
 
   initConnection() {
     this.connectionData.initialisedAnimation = this.animation.id;
-    this.connectionData.keys = [];
+    this.connectionData.keys.length = 0;
 
     for (let i=0;i<this.animation.keys.length;i++) {
-      let key = this.animation.keys[i];
-      let keySet = key.keySet;
+      const key = this.animation.keys[i];
+      const keySet = key.keySet;
       if (keySet=="time") { continue; }
-      let keyData = {
+      const keyData = {
         key : keySet[keySet.length-1],
         object : this.object
       };

@@ -1,7 +1,7 @@
 ChoreoGraph.plugin({
   name : "FMODConnector",
   key : "FMOD",
-  version : "1.2",
+  version : "1.2.0",
 
   globalPackage : new class FMODConnector {
     FMODReady = false;

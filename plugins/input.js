@@ -1,7 +1,7 @@
 ChoreoGraph.plugin({
   name : "Input",
   key : "Input",
-  version : "1.0",
+  version : "1.0.1",
 
   globalPackage : new class cgInput {
     constructor() {
@@ -545,6 +545,13 @@ ChoreoGraph.plugin({
         if (cg.settings.input.preventDefaultKeys.includes(key)) {
           event.preventDefault();
         }
+        if (event.altKey===true) { ChoreoGraph.Input.altKey = true; }
+        if (event.ctrlKey===true) { ChoreoGraph.Input.ctrlKey = true; }
+        if (event.shiftKey===true) { ChoreoGraph.Input.shiftKey = true; }
+        if (event.metaKey===true) { ChoreoGraph.Input.metaKey = true; }
+        if (event.getModifierState!==undefined) {
+          ChoreoGraph.Input.capsLock = event.getModifierState && event.getModifierState("CapsLock");
+        }
         if (ChoreoGraph.Input.keyStates[key]===undefined) { return; }
         if (ChoreoGraph.Input.keyStates[key]) { return; }
         ChoreoGraph.Input.lastKeyDown = key;
@@ -563,6 +570,13 @@ ChoreoGraph.plugin({
         let key = ChoreoGraph.Input.standardKeyFunctions(event,cg);
         if (ChoreoGraph.Input.keyStates[key]===undefined) { return; }
         if (ChoreoGraph.Input.keyStates[key]==false) { return; }
+        if (event.altKey===false) { ChoreoGraph.Input.altKey = false; }
+        if (event.ctrlKey===false) { ChoreoGraph.Input.ctrlKey = false; }
+        if (event.shiftKey===false) { ChoreoGraph.Input.shiftKey = false; }
+        if (event.metaKey===false) { ChoreoGraph.Input.metaKey = false; }
+        if (event.getModifierState!==undefined) {
+          ChoreoGraph.Input.capsLock = event.getModifierState && event.getModifierState("CapsLock");
+        }
         ChoreoGraph.Input.keyStates[key] = false;
         ChoreoGraph.Input.activeKeys--;
         cg.callbacks.input.keyUp.forEach(callback => callback(key,event));

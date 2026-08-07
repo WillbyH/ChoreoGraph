@@ -1,7 +1,7 @@
 ChoreoGraph.plugin({
   name : "Lighting",
   key : "Lighting",
-  version : "1.1",
+  version : "1.1.0",
 
   globalPackage : new class cgLighting {
     InstanceObject = class cgInstanceLighiting {
@@ -78,7 +78,7 @@ ChoreoGraph.plugin({
               for (let i=1;i<occluder.path.length;i++) {
                 c.lineTo(occluder.path[i][0], occluder.path[i][1]);
               }
-              c.closePath();
+              if (occluder.closeShape) { c.closePath(); }
               c.stroke();
               c.beginPath();
               for (let i=0;i<occluder.path.length;i++) {
@@ -292,6 +292,7 @@ ChoreoGraph.plugin({
       transform = null;
       path = [];
       sidesBuffer = [];
+      closeShape = true;
 
       constructor(occluderInit,cg) {
         ChoreoGraph.initTransform(cg,this,occluderInit);
@@ -313,11 +314,13 @@ ChoreoGraph.plugin({
             this.sidesBuffer.push([this.path[i][0],this.path[i][1],this.path[i+1][0],this.path[i+1][1],i,i+1,xMin,xMax,yMin,yMax]);
           }
         }
-        let xMin = Math.min(this.path[0][0],this.path[this.path.length-1][0]);
-        let xMax = Math.max(this.path[0][0],this.path[this.path.length-1][0]);
-        let yMin = Math.min(this.path[0][1],this.path[this.path.length-1][1]);
-        let yMax = Math.max(this.path[0][1],this.path[this.path.length-1][1]);
-        this.sidesBuffer.push([this.path[0][0],this.path[0][1],this.path[this.path.length-1][0],this.path[this.path.length-1][1],0,this.path.length-1,xMin,xMax,yMin,yMax]);
+        if (this.closeShape) {
+          let xMin = Math.min(this.path[0][0],this.path[this.path.length-1][0]);
+          let xMax = Math.max(this.path[0][0],this.path[this.path.length-1][0]);
+          let yMin = Math.min(this.path[0][1],this.path[this.path.length-1][1]);
+          let yMax = Math.max(this.path[0][1],this.path[this.path.length-1][1]);
+          this.sidesBuffer.push([this.path[0][0],this.path[0][1],this.path[this.path.length-1][0],this.path[this.path.length-1][1],0,this.path.length-1,xMin,xMax,yMin,yMax]);
+        }
       };
     };
 
@@ -409,6 +412,7 @@ ChoreoGraph.plugin({
         this.image = null;
         this.shadowWidth = 1000;
         this.shadowHeight = 1000;
+        this.compositeOperation = "multiply";
 
         this.detections = [];
         this.raycastCount = 0; // For debugging
@@ -697,8 +701,8 @@ ChoreoGraph.plugin({
           this.bbc.drawImage(this.image.image,-this.shadowWidth*0.5,-this.shadowHeight*0.5,this.shadowWidth,this.shadowHeight);
         }
 
-        ChoreoGraph.transformContext(canvas.camera,gx,gy,0,gsx,gsy,true,false,false,0,0,this.bbc);
-        ChoreoGraph.transformContext(canvas.camera,gx,gy,0,gsx,gsy,true,false,false,0,0,this.cbc);
+        ChoreoGraph.transformContext(canvas.camera,0,0,0,gsx,gsy,true,false,false,0,0,this.bbc);
+        ChoreoGraph.transformContext(canvas.camera,0,0,0,gsx,gsy,true,false,false,0,0,this.cbc);
 
         // DRAW OCCLUDED LIGHTS
         this.raycastCount = 0;
@@ -736,7 +740,7 @@ ChoreoGraph.plugin({
         this.bbc.drawImage(this.colourBufferCanvas,0,0);
         canvas.c.globalAlpha = 1;
         canvas.c.resetTransform();
-        canvas.c.globalCompositeOperation = "multiply";
+        canvas.c.globalCompositeOperation = this.compositeOperation;
         canvas.c.drawImage(this.brightnessBufferCanvas,0,0);
         canvas.c.globalCompositeOperation = "source-over";
 

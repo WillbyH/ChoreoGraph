@@ -77,7 +77,7 @@ declare module './choreograph' {
 
       readonly actions: Record<string, cgAction>;
 
-      buttonChecks(): Record<string, boolean>;
+      updateButtonChecks(cg: cgInstance): Record<string, boolean>;
 
       createButton(init: cgButtonInit, id?: ChoreoGraphId): cgButton;
       createAction(init: cgActionInit, id?: ChoreoGraphId): cgAction;
@@ -417,7 +417,6 @@ declare module './choreograph' {
       cursorExit: (cursor: cgInputCanvasCursorData, event: PointerEvent) => void;
       wheel: (cursor: cgInputCanvasCursorData, event: WheelEvent) => void;
       buttonDown: (button: cgButton, event: PointerEvent, canvas: cgCanvas) => void;
-      updateButtonChecks: (cg: cgInstance) => void;
     }
   }
 }

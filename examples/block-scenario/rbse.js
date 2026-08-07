@@ -335,6 +335,7 @@ const rwManager = new class RailwayManager {
       track.animation = newAnimation;
 
       cg.settings.blockcontroller.debug.animations.push(newAnimation);
+      cg.settings.blockcontroller.debug.animations.push("");
       for (let part=0;part<newAnimation.data.length;part++) {
         let data = newAnimation.data[part];
         if (typeof data[0]=="string" && data[0].toLowerCase()=="b") {
@@ -423,7 +424,7 @@ const rwManager = new class RailwayManager {
 
       newCarriage.BlockController.group = "train_"+trainId;
       newCarriage.transform.ay = 2;
-      newCarriage.Animator.playFrom(playhead-carriageIndex*18);
+      newCarriage.Animator.playFrom(playhead-carriageIndex*18,false);
       if (isBack) {
         newCarriage.isBackOfTrain = true;
       }

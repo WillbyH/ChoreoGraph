@@ -1,5 +1,5 @@
 export declare interface ChoreoGraph {
-  readonly VERSION: "3.2.0";
+  readonly VERSION: "3.2.1";
   settings: {
     maxFPS: number;
     pauseWhenUnfocused: boolean;
@@ -352,6 +352,8 @@ type cgObjectGraphic = {
       delete: true;
     };
   };
+  cg: cgInstance;
+  object: cgObject;
 
   graphic: cgGraphic;
   collection: string;
@@ -380,6 +382,8 @@ type cgObjectCamera = {
       update: true;
     };
   };
+  cg: cgInstance;
+  object: cgObject;
 
   camera: cgCamera;
   readonly transform: cgTransform;
@@ -412,6 +416,8 @@ type cgObjectScript = {
       delete: true;
     };
   };
+  cg: cgInstance;
+  object: cgObject;
 
   startScript: ((object: cgObject) => void) | null;
   updateScript: ((object: cgObject, scene: cgScene) => void) | null;
@@ -792,8 +798,8 @@ declare global {
     leading: number;
     sizeType: "px" | "em" | "rem" | "pt";
     fontWeight: "normal";
-    textAlign: "left" | "center" | "right";
-    textBaseline: "alphabetic" | "top" | "middle" | "bottom";
+    textAlign: CanvasTextAlign;
+    textBaseline: CanvasTextBaseline;
     area: "middle" | "top" | "bottom";
     fill: true;
     colour: string;
@@ -818,8 +824,8 @@ declare global {
     leading?: number;
     sizeType?: "px" | "em" | "rem" | "pt";
     fontWeight?: string;
-    textAlign?: "left" | "center" | "right";
-    textBaseline?: "alphabetic" | "top" | "middle" | "bottom";
+    textAlign?: CanvasTextAlign;
+    textBaseline?: CanvasTextBaseline;
     area?: "middle" | "top" | "bottom";
     fill?: true;
     colour?: string;

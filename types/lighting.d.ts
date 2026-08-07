@@ -128,6 +128,7 @@ declare module './choreograph' {
   type cgOccluder = {
     transform: cgTransform;
     path: [number, number][];
+    closeShape: boolean;
     readonly sidesBuffer: [number, number, number, number, number, number, number, number, number, number][];
 
     [key: string]: any;
@@ -135,6 +136,7 @@ declare module './choreograph' {
 
   type cgOccluderInit = {
     path: [number, number][];
+    closeShape?: boolean;
 
     transform?: cgTransform;
     transformInit?: cgTransformInit;
@@ -154,6 +156,7 @@ declare module './choreograph' {
     shadowWidth: number;
     shadowHeight: number;
     sideRayPrecision: number;
+    compositeOperation: GlobalCompositeOperation;
 
     readonly detections: [number, number, number, number, number, number][];
     readonly raycastCount: number;
@@ -189,6 +192,7 @@ declare module './choreograph' {
     shadowWidth?: number;
     shadowHeight?: number;
     sideRayPrecision?: number;
+    compositeOperation?: GlobalCompositeOperation;
   }
 
   interface cgGraphicInitMap {
